@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {
     Route::get('/api/user', function (Request $request) {
-        return $request->user();
+        return $request->user()->load('roles');
     });
 
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
