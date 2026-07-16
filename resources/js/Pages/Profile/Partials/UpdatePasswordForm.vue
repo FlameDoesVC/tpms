@@ -3,7 +3,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm } from '@/composables/useForm';
 import { ref } from 'vue';
 
 const passwordInput = ref(null);
@@ -16,8 +16,7 @@ const form = useForm({
 });
 
 const updatePassword = () => {
-    form.put(route('password.update'), {
-        preserveScroll: true,
+    form.put('/password', {
         onSuccess: () => form.reset(),
         onError: () => {
             if (form.errors.password) {

@@ -1,32 +1,50 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { useAuthStore } from '@/stores/auth';
 
 const showingNavigationDropdown = ref(false);
+const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
+
+// Links per role; routes get added here as the matching views are built.
+const linksByRole = {
+    visitor: [{ label: 'Dashboard', name: 'dashboard' }],
+    hotel_manager: [{ label: 'Dashboard', name: 'dashboard' }],
+    ferry_operator: [{ label: 'Dashboard', name: 'dashboard' }],
+    themepark_staff: [{ label: 'Dashboard', name: 'dashboard' }],
+    admin: [{ label: 'Dashboard', name: 'dashboard' }],
+};
+
+const navLinks = computed(() => linksByRole[auth.userRole] ?? []);
+
+const logout = async () => {
+    await auth.logout();
+    router.push({ name: 'login' });
+};
 </script>
 
 <template>
     <div>
         <div class="min-h-screen bg-gray-100">
-            <nav
-                class="border-b border-gray-100 bg-white"
-            >
+            <nav class="border-b border-gray-100 bg-white">
                 <!-- Primary Navigation Menu -->
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
                             <!-- Logo -->
                             <div class="flex shrink-0 items-center">
-                                <Link :href="route('dashboard')">
+                                <router-link :to="{ name: 'dashboard' }">
                                     <ApplicationLogo
                                         class="block h-9 w-auto fill-current text-gray-800"
                                     />
-                                </Link>
+                                </router-link>
                             </div>
 
                             <!-- Navigation Links -->
@@ -34,15 +52,24 @@ const showingNavigationDropdown = ref(false);
                                 class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex"
                             >
                                 <NavLink
-                                    :href="route('dashboard')"
-                                    :active="route().current('dashboard')"
+                                    v-for="link in navLinks"
+                                    :key="link.name"
+                                    :to="{ name: link.name }"
+                                    :active="route.name === link.name"
                                 >
-                                    Dashboard
+                                    {{ link.label }}
                                 </NavLink>
                             </div>
                         </div>
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                            <span
+                                v-if="auth.userRole"
+                                class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800"
+                            >
+                                {{ auth.userRole.replace('_', ' ') }}
+                            </span>
+
                             <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
@@ -52,7 +79,7 @@ const showingNavigationDropdown = ref(false);
                                                 type="button"
                                                 class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
                                             >
-                                                {{ $page.props.auth.user.name }}
+                                                {{ auth.user?.name }}
 
                                                 <svg
                                                     class="-me-0.5 ms-2 h-4 w-4"
@@ -72,17 +99,16 @@ const showingNavigationDropdown = ref(false);
 
                                     <template #content>
                                         <DropdownLink
-                                            :href="route('profile.edit')"
+                                            :to="{ name: 'profile.edit' }"
                                         >
                                             Profile
                                         </DropdownLink>
-                                        <DropdownLink
-                                            :href="route('logout')"
-                                            method="post"
-                                            as="button"
+                                        <button
+                                            @click="logout"
+                                            class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 transition duration-150 ease-in-out hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                                         >
                                             Log Out
-                                        </DropdownLink>
+                                        </button>
                                     </template>
                                 </Dropdown>
                             </div>
@@ -141,49 +167,43 @@ const showingNavigationDropdown = ref(false);
                 >
                     <div class="space-y-1 pb-3 pt-2">
                         <ResponsiveNavLink
-                            :href="route('dashboard')"
-                            :active="route().current('dashboard')"
+                            v-for="link in navLinks"
+                            :key="link.name"
+                            :to="{ name: link.name }"
+                            :active="route.name === link.name"
                         >
-                            Dashboard
+                            {{ link.label }}
                         </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
-                    <div
-                        class="border-t border-gray-200 pb-1 pt-4"
-                    >
+                    <div class="border-t border-gray-200 pb-1 pt-4">
                         <div class="px-4">
-                            <div
-                                class="text-base font-medium text-gray-800"
-                            >
-                                {{ $page.props.auth.user.name }}
+                            <div class="text-base font-medium text-gray-800">
+                                {{ auth.user?.name }}
                             </div>
                             <div class="text-sm font-medium text-gray-500">
-                                {{ $page.props.auth.user.email }}
+                                {{ auth.user?.email }}
                             </div>
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.edit')">
+                            <ResponsiveNavLink :to="{ name: 'profile.edit' }">
                                 Profile
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                :href="route('logout')"
-                                method="post"
-                                as="button"
+                            <button
+                                @click="logout"
+                                class="block w-full ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 transition duration-150 ease-in-out hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 focus:outline-none"
                             >
                                 Log Out
-                            </ResponsiveNavLink>
+                            </button>
                         </div>
                     </div>
                 </div>
             </nav>
 
             <!-- Page Heading -->
-            <header
-                class="bg-white shadow"
-                v-if="$slots.header"
-            >
+            <header class="bg-white shadow" v-if="$slots.header">
                 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                     <slot name="header" />
                 </div>

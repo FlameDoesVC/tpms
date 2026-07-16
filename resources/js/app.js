@@ -25,6 +25,9 @@ router.beforeEach(async (to, from, next) => {
     if (to.meta.guest && auth.isAuthenticated) {
         return next({ name: 'dashboard' });
     }
+    if (to.meta.roles && !to.meta.roles.includes(auth.userRole)) {
+        return next({ name: 'dashboard' });
+    }
     next();
 });
 

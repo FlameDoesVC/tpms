@@ -9,6 +9,7 @@ export const useAuthStore = defineStore('auth', {
 
     getters: {
         isAuthenticated: (state) => !!state.user,
+        userRole: (state) => state.user?.roles?.[0]?.name ?? null,
     },
 
     actions: {
@@ -20,6 +21,11 @@ export const useAuthStore = defineStore('auth', {
                 this.user = null;
             }
             this.loaded = true;
+        },
+
+        async logout() {
+            await axios.post('/logout');
+            this.user = null;
         },
 
         setUser(user) {

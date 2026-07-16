@@ -5,8 +5,13 @@ import InputLabel from '@/Components/InputLabel.vue';
 import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm } from '@/composables/useForm';
+import { useAuthStore } from '@/stores/auth';
 import { nextTick, ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+const auth = useAuthStore();
+const router = useRouter();
 
 const confirmingUserDeletion = ref(false);
 const passwordInput = ref(null);
@@ -22,11 +27,13 @@ const confirmUserDeletion = () => {
 };
 
 const deleteUser = () => {
-    form.delete(route('profile.destroy'), {
-        preserveScroll: true,
-        onSuccess: () => closeModal(),
+    form.delete('/profile', {
+        onSuccess: () => {
+            closeModal();
+            auth.clearUser();
+            router.push({ name: 'welcome' });
+        },
         onError: () => passwordInput.value.focus(),
-        onFinish: () => form.reset(),
     });
 };
 
@@ -56,9 +63,7 @@ const closeModal = () => {
 
         <Modal :show="confirmingUserDeletion" @close="closeModal">
             <div class="p-6">
-                <h2
-                    class="text-lg font-medium text-gray-900"
-                >
+                <h2 class="text-lg font-medium text-gray-900">
                     Are you sure you want to delete your account?
                 </h2>
 
