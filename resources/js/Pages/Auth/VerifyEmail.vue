@@ -1,30 +1,37 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { useForm } from '@/composables/useForm';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import axios from 'axios';
 
-const props = defineProps({
-    status: {
-        type: String,
-    },
-});
+const router = useRouter();
+const auth = useAuthStore();
+const status = ref('');
 
 const form = useForm({});
 
 const submit = () => {
-    form.post(route('verification.send'));
+    form.post('/email/verification-notification', {
+        onSuccess: (response) => {
+            status.value = response.data.status || 'verification-link-sent';
+        },
+    });
 };
 
-const verificationLinkSent = computed(
-    () => props.status === 'verification-link-sent',
-);
+const verificationLinkSent = computed(() => status.value === 'verification-link-sent');
+
+const logout = async () => {
+    await axios.post('/logout');
+    auth.clearUser();
+    router.push({ name: 'login' });
+};
 </script>
 
 <template>
     <GuestLayout>
-        <Head title="Email Verification" />
-
         <div class="mb-4 text-sm text-gray-600">
             Thanks for signing up! Before getting started, could you verify your
             email address by clicking on the link we just emailed to you? If you
@@ -48,13 +55,13 @@ const verificationLinkSent = computed(
                     Resend Verification Email
                 </PrimaryButton>
 
-                <Link
-                    :href="route('logout')"
-                    method="post"
-                    as="button"
+                <button
+                    @click="logout"
+                    type="button"
                     class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >Log Out</Link
                 >
+                    Log Out
+                </button>
             </div>
         </form>
     </GuestLayout>

@@ -4,28 +4,24 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { useForm } from '@/composables/useForm';
+import { useRoute, useRouter } from 'vue-router';
 
-const props = defineProps({
-    email: {
-        type: String,
-        required: true,
-    },
-    token: {
-        type: String,
-        required: true,
-    },
-});
+const route = useRoute();
+const router = useRouter();
 
 const form = useForm({
-    token: props.token,
-    email: props.email,
+    token: route.params.token,
+    email: route.query.email || '',
     password: '',
     password_confirmation: '',
 });
 
 const submit = () => {
-    form.post(route('password.store'), {
+    form.post('/reset-password', {
+        onSuccess: () => {
+            router.push({ name: 'login' });
+        },
         onFinish: () => form.reset('password', 'password_confirmation'),
     });
 };
@@ -33,8 +29,6 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Reset Password" />
-
         <form @submit.prevent="submit">
             <div>
                 <InputLabel for="email" value="Email" />
