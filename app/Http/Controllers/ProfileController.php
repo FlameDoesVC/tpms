@@ -3,31 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class ProfileController extends Controller
 {
     /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): Response
-    {
-        return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => session('status'),
-        ]);
-    }
-
-    /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request): JsonResponse
     {
         $request->user()->fill($request->validated());
 
@@ -37,13 +23,15 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        return Redirect::route('profile.edit');
+        return response()->json([
+            'user' => $request->user(),
+        ]);
     }
 
     /**
      * Delete the user's account.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): Response
     {
         $request->validate([
             'password' => ['required', 'current_password'],
@@ -58,6 +46,6 @@ class ProfileController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Redirect::to('/');
+        return response()->noContent();
     }
 }

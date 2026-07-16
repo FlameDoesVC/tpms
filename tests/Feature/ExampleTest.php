@@ -2,18 +2,18 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_the_root_url_serves_the_spa_shell(): void
     {
-        $response = $this->get('/');
+        $this->get('/')->assertOk();
+    }
 
-        $response->assertStatus(200);
+    public function test_client_side_routes_serve_the_spa_shell(): void
+    {
+        $this->get('/login')->assertOk();
+        $this->get('/dashboard')->assertOk();
     }
 }
