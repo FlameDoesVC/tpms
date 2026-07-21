@@ -47,6 +47,15 @@ class ThemeParkTicketController extends Controller
         return response()->json($booking, 201);
     }
 
+    public function showTicket(Request $request, EventBooking $booking): JsonResponse
+    {
+        if (! $request->user()->hasRole('themepark_staff')) {
+            abort(403);
+        }
+
+        return response()->json($booking->load(['user', 'slot.event']));
+    }
+
     public function validateTicket(Request $request, EventBooking $booking): JsonResponse
     {
         if (! $request->user()->hasRole('themepark_staff')) {

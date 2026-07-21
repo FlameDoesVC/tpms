@@ -20,6 +20,8 @@ const linksByRole = {
         { label: 'Hotels', name: 'hotels.index' },
         { label: 'Ferry', name: 'ferry.book' },
         { label: 'My Tickets', name: 'ferry.my-tickets' },
+        { label: 'Theme Park', name: 'themepark.home' },
+        { label: 'My Park Bookings', name: 'themepark.my-bookings' },
     ],
     hotel_manager: [
         { label: 'Dashboard', name: 'dashboard' },
@@ -32,7 +34,15 @@ const linksByRole = {
         { label: 'Validate Ticket', name: 'ferry.validate' },
         { label: 'Passengers', name: 'ferry.passengers' },
     ],
-    themepark_staff: [{ label: 'Dashboard', name: 'dashboard' }],
+    themepark_staff: [
+        { label: 'Dashboard', name: 'dashboard' },
+        { label: 'Events', name: 'themepark.event-management' },
+        { label: 'Slots', name: 'themepark.slot-scheduling' },
+        { label: 'Capacity', name: 'themepark.capacity' },
+        { label: 'Validate Ticket', name: 'themepark.validate' },
+        { label: 'Walk-in Sales', name: 'themepark.walkin-sales' },
+        { label: 'Sales Report', name: 'themepark.sales-report' },
+    ],
     admin: [{ label: 'Dashboard', name: 'dashboard' }],
 };
 

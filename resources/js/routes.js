@@ -114,6 +114,60 @@ const routes = [
         component: () => import('@/Pages/Ferry/PassengerListView.vue'),
         meta: { auth: true, roles: ['ferry_operator'] },
     },
+    {
+        path: '/themepark',
+        name: 'themepark.home',
+        component: () => import('@/Pages/Visitor/ThemeParkHomeView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        path: '/themepark/events/:id',
+        name: 'themepark.event',
+        component: () => import('@/Pages/Visitor/EventDetailView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        path: '/themepark/my-bookings',
+        name: 'themepark.my-bookings',
+        component: () => import('@/Pages/Visitor/MyThemeParkBookingsView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        path: '/themepark/staff/events',
+        name: 'themepark.event-management',
+        component: () => import('@/Pages/ThemePark/EventManagementView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
+    {
+        path: '/themepark/staff/slots',
+        name: 'themepark.slot-scheduling',
+        component: () => import('@/Pages/ThemePark/SlotSchedulingView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
+    {
+        path: '/themepark/staff/capacity',
+        name: 'themepark.capacity',
+        component: () => import('@/Pages/ThemePark/CapacityDashboardView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
+    {
+        path: '/themepark/staff/validate',
+        name: 'themepark.validate',
+        component: () => import('@/Pages/ThemePark/TicketValidationView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
+    {
+        path: '/themepark/staff/walkin-sales',
+        name: 'themepark.walkin-sales',
+        component: () => import('@/Pages/ThemePark/WalkinSalesView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
+    {
+        path: '/themepark/staff/sales-report',
+        name: 'themepark.sales-report',
+        component: () => import('@/Pages/ThemePark/SalesReportView.vue'),
+        meta: { auth: true, roles: ['themepark_staff'] },
+    },
 ];
 
 export default routes;

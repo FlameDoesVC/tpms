@@ -41,6 +41,26 @@ class ThemeParkTicketTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_staff_can_look_up_a_ticket_without_validating_it(): void
+    {
+        $staff = User::factory()->create()->assignRole('themepark_staff');
+        $booking = EventBooking::factory()->create(['status' => 'confirmed']);
+
+        $response = $this->actingAs($staff)->getJson("/api/themepark/tickets/{$booking->id}");
+
+        $response->assertOk()->assertJsonPath('status', 'confirmed');
+        $this->assertEquals('confirmed', $booking->fresh()->status);
+    }
+
+    public function test_visitor_cannot_look_up_a_ticket(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = EventBooking::factory()->create();
+
+        $this->actingAs($visitor)->getJson("/api/themepark/tickets/{$booking->id}")
+            ->assertForbidden();
+    }
+
     public function test_staff_can_validate_a_ticket(): void
     {
         $staff = User::factory()->create()->assignRole('themepark_staff');

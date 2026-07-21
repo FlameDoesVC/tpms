@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('themepark/bookings/{booking}', [ThemeParkController::class, 'cancelBooking']);
 
         Route::post('themepark/tickets/sell', [ThemeParkTicketController::class, 'sellTicket']);
+        Route::get('themepark/tickets/{booking}', [ThemeParkTicketController::class, 'showTicket']);
         Route::post('themepark/tickets/{booking}/validate', [ThemeParkTicketController::class, 'validateTicket']);
         Route::get('themepark/reports/sales', [ThemeParkTicketController::class, 'dailySales']);
         Route::get('themepark/capacity', [ThemeParkTicketController::class, 'capacityStatus']);
