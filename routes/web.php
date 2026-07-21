@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\FerryController;
 use App\Http\Controllers\Api\HotelController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\ThemeParkController;
+use App\Http\Controllers\Api\ThemeParkTicketController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +46,23 @@ Route::middleware('auth')->group(function () {
         Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
         Route::get('ferry/tickets/{ticket}', [FerryController::class, 'showTicket']);
         Route::post('ferry/tickets/{ticket}/validate', [FerryController::class, 'validateTicket']);
+
+        Route::get('themepark/events', [ThemeParkController::class, 'index']);
+        Route::post('themepark/events', [ThemeParkController::class, 'store']);
+        Route::get('themepark/events/{event}', [ThemeParkController::class, 'show']);
+        Route::patch('themepark/events/{event}', [ThemeParkController::class, 'update']);
+        Route::delete('themepark/events/{event}', [ThemeParkController::class, 'destroy']);
+        Route::get('themepark/events/{event}/slots', [ThemeParkController::class, 'slots']);
+        Route::post('themepark/events/{event}/slots', [ThemeParkController::class, 'storeSlot']);
+
+        Route::post('themepark/bookings', [ThemeParkController::class, 'bookSlot']);
+        Route::get('themepark/bookings', [ThemeParkController::class, 'myBookings']);
+        Route::delete('themepark/bookings/{booking}', [ThemeParkController::class, 'cancelBooking']);
+
+        Route::post('themepark/tickets/sell', [ThemeParkTicketController::class, 'sellTicket']);
+        Route::post('themepark/tickets/{booking}/validate', [ThemeParkTicketController::class, 'validateTicket']);
+        Route::get('themepark/reports/sales', [ThemeParkTicketController::class, 'dailySales']);
+        Route::get('themepark/capacity', [ThemeParkTicketController::class, 'capacityStatus']);
     });
 });
 
