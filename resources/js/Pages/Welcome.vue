@@ -2,6 +2,8 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useHotelStore } from '@/stores/hotel';
+import { useThemeParkStore } from '@/stores/themepark';
 
 const auth = useAuthStore();
 const hotelStore = useHotelStore();
