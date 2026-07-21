@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\FerryController;
 use App\Http\Controllers\Api\HotelController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\ProfileController;
@@ -31,6 +32,17 @@ Route::middleware('auth')->group(function () {
         Route::get('bookings/{booking}', [BookingController::class, 'show']);
         Route::post('bookings', [BookingController::class, 'store']);
         Route::patch('bookings/{booking}', [BookingController::class, 'update']);
+
+        Route::get('ferries', [FerryController::class, 'ferries']);
+        Route::get('ferry/schedules', [FerryController::class, 'schedules']);
+        Route::post('ferry/schedules', [FerryController::class, 'storeSchedule']);
+        Route::patch('ferry/schedules/{schedule}', [FerryController::class, 'updateSchedule']);
+        Route::delete('ferry/schedules/{schedule}', [FerryController::class, 'destroySchedule']);
+        Route::get('ferry/schedules/{schedule}/passengers', [FerryController::class, 'passengers']);
+
+        Route::get('ferry/tickets', [FerryController::class, 'myTickets']);
+        Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
+        Route::post('ferry/tickets/{ticket}/validate', [FerryController::class, 'validateTicket']);
     });
 });
 
