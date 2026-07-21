@@ -23,9 +23,11 @@ class HotelControllerTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
-    public function test_guest_cannot_list_hotels(): void
+    public function test_unauthenticated_visitor_can_list_hotels(): void
     {
-        $this->getJson('/api/hotels')->assertUnauthorized();
+        Hotel::factory()->count(2)->create();
+
+        $this->getJson('/api/hotels')->assertOk();
     }
 
     public function test_show_returns_hotel_with_rooms(): void

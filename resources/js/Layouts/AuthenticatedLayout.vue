@@ -64,7 +64,7 @@ const logout = async () => {
                         <div class="flex">
                             <!-- Logo -->
                             <div class="flex shrink-0 items-center">
-                                <router-link :to="{ name: 'dashboard' }">
+                                <router-link :to="{ name: 'welcome' }">
                                     <ApplicationLogo
                                         class="block h-9 w-auto fill-current text-gray-800"
                                     />
@@ -86,12 +86,12 @@ const logout = async () => {
                             </div>
                         </div>
 
-                        <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                        <div v-if="auth.isAuthenticated" class="hidden sm:ms-6 sm:flex sm:items-center">
                             <span
                                 v-if="auth.userRole"
                                 class="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800"
                             >
-                                {{ auth.userRole.replace('_', ' ') }}
+                                {{ auth.isGuest ? 'guest' : auth.userRole.replace('_', ' ') }}
                             </span>
 
                             <!-- Settings Dropdown -->
@@ -123,6 +123,7 @@ const logout = async () => {
 
                                     <template #content>
                                         <DropdownLink
+                                            v-if="!auth.isGuest"
                                             :to="{ name: 'profile.edit' }"
                                         >
                                             Profile
@@ -136,6 +137,18 @@ const logout = async () => {
                                     </template>
                                 </Dropdown>
                             </div>
+                        </div>
+
+                        <div v-else class="hidden sm:ms-6 sm:flex sm:items-center sm:gap-4">
+                            <router-link :to="{ name: 'login' }" class="text-sm font-medium text-gray-600 hover:text-gray-900">
+                                Log in
+                            </router-link>
+                            <router-link
+                                :to="{ name: 'register' }"
+                                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                            >
+                                Register
+                            </router-link>
                         </div>
 
                         <!-- Hamburger -->
@@ -201,18 +214,18 @@ const logout = async () => {
                     </div>
 
                     <!-- Responsive Settings Options -->
-                    <div class="border-t border-gray-200 pb-1 pt-4">
+                    <div v-if="auth.isAuthenticated" class="border-t border-gray-200 pb-1 pt-4">
                         <div class="px-4">
                             <div class="text-base font-medium text-gray-800">
                                 {{ auth.user?.name }}
                             </div>
                             <div class="text-sm font-medium text-gray-500">
-                                {{ auth.user?.email }}
+                                {{ auth.isGuest ? 'Guest checkout' : auth.user?.email }}
                             </div>
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :to="{ name: 'profile.edit' }">
+                            <ResponsiveNavLink v-if="!auth.isGuest" :to="{ name: 'profile.edit' }">
                                 Profile
                             </ResponsiveNavLink>
                             <button
@@ -221,6 +234,12 @@ const logout = async () => {
                             >
                                 Log Out
                             </button>
+                        </div>
+                    </div>
+                    <div v-else class="border-t border-gray-200 pb-1 pt-4">
+                        <div class="mt-3 space-y-1">
+                            <ResponsiveNavLink :to="{ name: 'login' }">Log in</ResponsiveNavLink>
+                            <ResponsiveNavLink :to="{ name: 'register' }">Register</ResponsiveNavLink>
                         </div>
                     </div>
                 </div>

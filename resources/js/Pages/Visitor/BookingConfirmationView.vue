@@ -5,10 +5,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
+import ClaimGuestAccountForm from '@/Components/ClaimGuestAccountForm.vue';
 import { useHotelStore } from '@/stores/hotel';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const hotelStore = useHotelStore();
+const auth = useAuthStore();
 
 const cardNumber = ref('');
 const expiry = ref('');
@@ -85,11 +88,15 @@ const pay = async () => {
                         </dl>
                     </div>
 
-                    <div v-if="isConfirmed" class="mt-6 rounded-lg bg-green-50 p-6 text-center">
-                        <p class="text-lg font-semibold text-green-800">Booking confirmed!</p>
-                        <p class="mt-1 text-sm text-green-700">
-                            Your confirmation number is #{{ booking.id }}.
-                        </p>
+                    <div v-if="isConfirmed" class="mt-6 space-y-6">
+                        <div class="rounded-lg bg-green-50 p-6 text-center">
+                            <p class="text-lg font-semibold text-green-800">Booking confirmed!</p>
+                            <p class="mt-1 text-sm text-green-700">
+                                Your confirmation number is #{{ booking.id }}.
+                            </p>
+                        </div>
+
+                        <ClaimGuestAccountForm v-if="auth.isGuest" />
                     </div>
 
                     <form v-else @submit.prevent="pay" class="mt-6 space-y-4 rounded-lg bg-white p-6 shadow-sm">

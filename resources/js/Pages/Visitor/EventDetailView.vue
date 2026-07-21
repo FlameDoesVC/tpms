@@ -3,10 +3,13 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import ClaimGuestAccountForm from '@/Components/ClaimGuestAccountForm.vue';
 import { useThemeParkStore } from '@/stores/themepark';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const themeParkStore = useThemeParkStore();
+const auth = useAuthStore();
 
 const eventId = route.params.id;
 const date = ref(new Date().toISOString().slice(0, 10));
@@ -31,6 +34,7 @@ const book = async () => {
 
     try {
         confirmedBooking.value = await themeParkStore.bookSlot(selectedSlotId.value, ticketCount.value);
+        if (!auth.isAuthenticated) await auth.fetchUser();
         load();
     } catch (e) {
         if (e.response?.status === 422) {
@@ -103,9 +107,13 @@ const book = async () => {
                     Book
                 </PrimaryButton>
 
-                <div v-if="confirmedBooking" class="rounded-lg bg-green-50 p-6 text-center">
-                    <p class="font-semibold text-green-800">Booking confirmed!</p>
-                    <p class="mt-1 text-sm text-green-700">Booking reference #{{ confirmedBooking.id }}</p>
+                <div v-if="confirmedBooking" class="space-y-6">
+                    <div class="rounded-lg bg-green-50 p-6 text-center">
+                        <p class="font-semibold text-green-800">Booking confirmed!</p>
+                        <p class="mt-1 text-sm text-green-700">Booking reference #{{ confirmedBooking.id }}</p>
+                    </div>
+
+                    <ClaimGuestAccountForm v-if="auth.isGuest" />
                 </div>
             </div>
         </div>

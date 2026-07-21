@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', {
     getters: {
         isAuthenticated: (state) => !!state.user,
         userRole: (state) => state.user?.roles?.[0]?.name ?? null,
+        isGuest: (state) => !!state.user?.is_guest,
     },
 
     actions: {
@@ -26,6 +27,12 @@ export const useAuthStore = defineStore('auth', {
         async logout() {
             await axios.post('/logout');
             this.user = null;
+        },
+
+        async claimAccount(payload) {
+            const { data } = await axios.patch('/api/guest/claim', payload);
+            this.user = data.user;
+            return data.user;
         },
 
         setUser(user) {

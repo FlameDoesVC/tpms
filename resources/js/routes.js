@@ -55,22 +55,24 @@ const routes = [
         meta: { auth: true },
     },
     {
+        // No auth required: guest checkout lets a visitor browse and book
+        // before an account exists (see AutoLoginGuest on the backend).
         path: '/hotels',
         name: 'hotels.index',
         component: () => import('@/Pages/Visitor/HotelListView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/hotels/:id',
         name: 'hotels.show',
         component: () => import('@/Pages/Visitor/HotelDetailView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/bookings/:id/confirm',
         name: 'bookings.confirm',
         component: () => import('@/Pages/Visitor/BookingConfirmationView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/manager/hotel-dashboard',
@@ -88,7 +90,7 @@ const routes = [
         path: '/ferry/book',
         name: 'ferry.book',
         component: () => import('@/Pages/Visitor/FerryBookingView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/ferry/my-tickets',
@@ -118,13 +120,13 @@ const routes = [
         path: '/themepark',
         name: 'themepark.home',
         component: () => import('@/Pages/Visitor/ThemeParkHomeView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/themepark/events/:id',
         name: 'themepark.event',
         component: () => import('@/Pages/Visitor/EventDetailView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/themepark/my-bookings',

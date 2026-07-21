@@ -25,7 +25,9 @@ router.beforeEach(async (to, from, next) => {
     if (to.meta.guest && auth.isAuthenticated) {
         return next({ name: 'dashboard' });
     }
-    if (to.meta.roles && !to.meta.roles.includes(auth.userRole)) {
+    // Role checks only apply once a real session exists — anonymous visitors
+    // may reach guestCheckout-allowed pages and become a visitor mid-flow.
+    if (to.meta.roles && auth.isAuthenticated && !to.meta.roles.includes(auth.userRole)) {
         return next({ name: 'dashboard' });
     }
     next();

@@ -4,10 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useHotelStore } from '@/stores/hotel';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
 const hotelStore = useHotelStore();
+const auth = useAuthStore();
 
 const hotelId = route.params.id;
 const checkIn = ref(route.query.check_in || '');
@@ -41,6 +43,9 @@ const bookRoom = async (room) => {
             check_out_date: checkOut.value,
             guests_count: guests.value,
         });
+        // Guest checkout logs a placeholder account in server-side; refresh
+        // the client's auth state so the navbar and role guards see it too.
+        if (!auth.isAuthenticated) await auth.fetchUser();
         router.push({ name: 'bookings.confirm', params: { id: booking.id } });
     } catch (e) {
         bookingError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ')
