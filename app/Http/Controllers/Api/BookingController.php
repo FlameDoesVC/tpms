@@ -14,13 +14,23 @@ class BookingController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Booking::query()->with('room.hotel');
+        $query = Booking::query()->with(['room.hotel', 'user']);
 
         if (! $request->user()->hasRole('hotel_manager')) {
             $query->where('user_id', $request->user()->id);
         }
 
         return response()->json($query->paginate(15));
+    }
+
+    public function show(Request $request, Booking $booking): JsonResponse
+    {
+        $user = $request->user();
+        if ($booking->user_id !== $user->id && ! $user->hasRole('hotel_manager')) {
+            abort(403);
+        }
+
+        return response()->json($booking->load('room.hotel'));
     }
 
     public function store(Request $request): JsonResponse

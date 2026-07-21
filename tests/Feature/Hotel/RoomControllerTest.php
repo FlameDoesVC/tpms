@@ -91,4 +91,24 @@ class RoomControllerTest extends TestCase
 
         $response->assertOk()->assertJsonPath('is_available', false);
     }
+
+    public function test_hotel_manager_can_delete_room(): void
+    {
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        $room = Room::factory()->create();
+
+        $this->actingAs($manager)->deleteJson("/api/rooms/{$room->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('rooms', ['id' => $room->id]);
+    }
+
+    public function test_visitor_cannot_delete_room(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $room = Room::factory()->create();
+
+        $this->actingAs($visitor)->deleteJson("/api/rooms/{$room->id}")
+            ->assertForbidden();
+    }
 }

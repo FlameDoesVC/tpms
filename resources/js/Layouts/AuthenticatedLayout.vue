@@ -15,8 +15,15 @@ const router = useRouter();
 
 // Links per role; routes get added here as the matching views are built.
 const linksByRole = {
-    visitor: [{ label: 'Dashboard', name: 'dashboard' }],
-    hotel_manager: [{ label: 'Dashboard', name: 'dashboard' }],
+    visitor: [
+        { label: 'Dashboard', name: 'dashboard' },
+        { label: 'Hotels', name: 'hotels.index' },
+    ],
+    hotel_manager: [
+        { label: 'Dashboard', name: 'dashboard' },
+        { label: 'Hotel Bookings', name: 'manager.hotel-dashboard' },
+        { label: 'Rooms', name: 'manager.rooms' },
+    ],
     ferry_operator: [{ label: 'Dashboard', name: 'dashboard' }],
     themepark_staff: [{ label: 'Dashboard', name: 'dashboard' }],
     admin: [{ label: 'Dashboard', name: 'dashboard' }],

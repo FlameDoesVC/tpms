@@ -12,6 +12,28 @@ class BookingControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_owner_can_view_their_booking(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id]);
+
+        $response = $this->actingAs($visitor)->getJson("/api/bookings/{$booking->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('id', $booking->id)
+            ->assertJsonPath('room.hotel.id', $booking->room->hotel->id);
+    }
+
+    public function test_user_cannot_view_someone_elses_booking(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $other = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $other->id]);
+
+        $this->actingAs($visitor)->getJson("/api/bookings/{$booking->id}")
+            ->assertForbidden();
+    }
+
     public function test_visitor_can_create_a_booking(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
@@ -86,6 +108,7 @@ class BookingControllerTest extends TestCase
 
         $response->assertOk();
         $this->assertCount(2, $response->json('data'));
+        $this->assertNotNull($response->json('data.0.user.name'));
     }
 
     public function test_owner_can_cancel_their_booking(): void

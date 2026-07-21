@@ -25,8 +25,10 @@ Route::middleware('auth')->group(function () {
         Route::get('hotels/{hotel}/rooms', [RoomController::class, 'index']);
         Route::post('hotels/{hotel}/rooms', [RoomController::class, 'store']);
         Route::patch('rooms/{room}', [RoomController::class, 'update']);
+        Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
 
         Route::get('bookings', [BookingController::class, 'index']);
+        Route::get('bookings/{booking}', [BookingController::class, 'show']);
         Route::post('bookings', [BookingController::class, 'store']);
         Route::patch('bookings/{booking}', [BookingController::class, 'update']);
     });

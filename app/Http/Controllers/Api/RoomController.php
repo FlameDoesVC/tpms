@@ -8,6 +8,7 @@ use App\Models\Hotel;
 use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 
 class RoomController extends Controller
@@ -62,5 +63,14 @@ class RoomController extends Controller
         $room->update($validated);
 
         return new RoomResource($room);
+    }
+
+    public function destroy(Room $room): Response
+    {
+        Gate::authorize('update', $room->hotel);
+
+        $room->delete();
+
+        return response()->noContent();
     }
 }
