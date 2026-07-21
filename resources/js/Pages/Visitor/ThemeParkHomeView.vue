@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useThemeParkStore } from '@/stores/themepark';
+import { useAuthStore } from '@/stores/auth';
 
 const themeParkStore = useThemeParkStore();
+const auth = useAuthStore();
 const tab = ref('ride');
 
 const tabs = [
@@ -12,7 +14,17 @@ const tabs = [
     { key: 'beach_event', label: 'Beach Events' },
 ];
 
-onMounted(() => themeParkStore.fetchEvents());
+const today = new Date().toISOString().slice(0, 10);
+const upcomingBookings = computed(() =>
+    themeParkStore.myBookings
+        .filter((b) => b.status === 'confirmed' && (b.slot?.slot_date ?? '').slice(0, 10) >= today)
+        .slice(0, 3)
+);
+
+onMounted(() => {
+    themeParkStore.fetchEvents();
+    if (auth.isAuthenticated) themeParkStore.fetchMyBookings();
+});
 
 const eventsForTab = computed(() =>
     themeParkStore.events.filter((e) => e.type === tab.value)
@@ -29,6 +41,32 @@ const eventsForTab = computed(() =>
 
         <div class="py-8">
             <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
+                <div v-if="auth.isAuthenticated" class="rounded-lg bg-white p-4 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-gray-900">My Bookings</h3>
+                        <router-link :to="{ name: 'themepark.my-bookings' }" class="text-sm text-indigo-600 hover:underline">
+                            View all
+                        </router-link>
+                    </div>
+
+                    <p v-if="upcomingBookings.length === 0" class="mt-2 text-sm text-gray-500">
+                        No upcoming bookings.
+                    </p>
+                    <div v-else class="mt-3 space-y-2">
+                        <div
+                            v-for="booking in upcomingBookings"
+                            :key="booking.id"
+                            class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                        >
+                            <span>
+                                {{ booking.slot?.event?.name }} -
+                                {{ booking.slot?.slot_date?.slice(0, 10) }} at {{ booking.slot?.slot_time }}
+                                ({{ booking.ticket_count }} ticket(s))
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex gap-2 border-b border-gray-200">
                     <button
                         v-for="t in tabs"

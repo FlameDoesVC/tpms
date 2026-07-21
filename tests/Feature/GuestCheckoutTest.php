@@ -110,4 +110,73 @@ class GuestCheckoutTest extends TestCase
             'password_confirmation' => 'password123',
         ])->assertUnauthorized();
     }
+
+    public function test_guest_can_log_into_an_existing_account_and_bookings_transfer(): void
+    {
+        $existing = User::factory()->create()->assignRole('visitor');
+        $room = Room::factory()->create(['max_guests' => 4]);
+
+        $booking = $this->postJson('/api/bookings', [
+            'room_id' => $room->id,
+            'check_in_date' => now()->addDay()->toDateString(),
+            'check_out_date' => now()->addDays(3)->toDateString(),
+            'guests_count' => 2,
+        ])->assertCreated()->json();
+        $guestId = $booking['user_id'];
+
+        $response = $this->postJson('/api/guest/login', [
+            'email' => $existing->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertOk()->assertJsonPath('user.id', $existing->id);
+        $this->assertAuthenticatedAs($existing);
+
+        $this->assertDatabaseHas('bookings', ['id' => $booking['id'], 'user_id' => $existing->id]);
+        $this->assertDatabaseMissing('users', ['id' => $guestId]);
+    }
+
+    public function test_guest_login_with_wrong_password_keeps_guest_session(): void
+    {
+        $existing = User::factory()->create()->assignRole('visitor');
+        $room = Room::factory()->create(['max_guests' => 4]);
+
+        $this->postJson('/api/bookings', [
+            'room_id' => $room->id,
+            'check_in_date' => now()->addDay()->toDateString(),
+            'check_out_date' => now()->addDays(3)->toDateString(),
+            'guests_count' => 2,
+        ])->assertCreated();
+        $guestId = User::where('is_guest', true)->first()->id;
+
+        $this->postJson('/api/guest/login', [
+            'email' => $existing->email,
+            'password' => 'wrong-password',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseHas('users', ['id' => $guestId]);
+        $this->assertAuthenticated();
+        $this->assertNotEquals($existing->id, auth()->id());
+    }
+
+    public function test_non_guest_cannot_use_guest_login(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $existing = User::factory()->create()->assignRole('visitor');
+
+        $this->actingAs($user)->postJson('/api/guest/login', [
+            'email' => $existing->email,
+            'password' => 'password',
+        ])->assertForbidden();
+    }
+
+    public function test_guest_login_requires_authentication(): void
+    {
+        $existing = User::factory()->create()->assignRole('visitor');
+
+        $this->postJson('/api/guest/login', [
+            'email' => $existing->email,
+            'password' => 'password',
+        ])->assertUnauthorized();
+    }
 }

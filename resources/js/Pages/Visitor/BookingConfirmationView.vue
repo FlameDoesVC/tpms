@@ -94,6 +94,12 @@ const pay = async () => {
                             <p class="mt-1 text-sm text-green-700">
                                 Your confirmation number is #{{ booking.id }}.
                             </p>
+                            <router-link
+                                :to="{ name: 'bookings.my' }"
+                                class="mt-2 inline-block text-sm font-medium text-green-800 underline"
+                            >
+                                View my bookings
+                            </router-link>
                         </div>
 
                         <ClaimGuestAccountForm v-if="auth.isGuest" />

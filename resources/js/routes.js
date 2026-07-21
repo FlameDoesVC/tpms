@@ -75,6 +75,12 @@ const routes = [
         meta: { roles: ['visitor'] },
     },
     {
+        path: '/bookings',
+        name: 'bookings.my',
+        component: () => import('@/Pages/Visitor/MyHotelBookingsView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
         path: '/manager/hotel-dashboard',
         name: 'manager.hotel-dashboard',
         component: () => import('@/Pages/Manager/HotelDashboardView.vue'),

@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('api')->group(function () {
         Route::patch('guest/claim', [GuestController::class, 'claim']);
+        Route::post('guest/login', [GuestController::class, 'login']);
 
         Route::post('hotels', [HotelController::class, 'store']);
         Route::patch('hotels/{hotel}', [HotelController::class, 'update']);

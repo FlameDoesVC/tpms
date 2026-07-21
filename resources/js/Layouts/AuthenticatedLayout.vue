@@ -15,13 +15,13 @@ const router = useRouter();
 
 // Links per role; routes get added here as the matching views are built.
 const linksByRole = {
+    // "My bookings/tickets" pages are reached via "View all" links embedded
+    // at the top of each module's browse page, not as separate nav items.
     visitor: [
         { label: 'Dashboard', name: 'dashboard' },
         { label: 'Hotels', name: 'hotels.index' },
         { label: 'Ferry', name: 'ferry.book' },
-        { label: 'My Tickets', name: 'ferry.my-tickets' },
         { label: 'Theme Park', name: 'themepark.home' },
-        { label: 'My Park Bookings', name: 'themepark.my-bookings' },
     ],
     hotel_manager: [
         { label: 'Dashboard', name: 'dashboard' },

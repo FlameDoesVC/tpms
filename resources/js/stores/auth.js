@@ -35,6 +35,12 @@ export const useAuthStore = defineStore('auth', {
             return data.user;
         },
 
+        async loginAndMergeGuest(payload) {
+            const { data } = await axios.post('/api/guest/login', payload);
+            this.user = data.user;
+            return data.user;
+        },
+
         setUser(user) {
             this.user = user;
             this.loaded = true;

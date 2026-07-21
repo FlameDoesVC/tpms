@@ -111,6 +111,12 @@ const book = async () => {
                     <div class="rounded-lg bg-green-50 p-6 text-center">
                         <p class="font-semibold text-green-800">Booking confirmed!</p>
                         <p class="mt-1 text-sm text-green-700">Booking reference #{{ confirmedBooking.id }}</p>
+                        <router-link
+                            :to="{ name: 'themepark.my-bookings' }"
+                            class="mt-2 inline-block text-sm font-medium text-green-800 underline"
+                        >
+                            View my bookings
+                        </router-link>
                     </div>
 
                     <ClaimGuestAccountForm v-if="auth.isGuest" />
