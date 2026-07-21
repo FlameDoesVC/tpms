@@ -133,6 +133,15 @@ class FerryController extends Controller
         return response()->json($tickets);
     }
 
+    public function showTicket(Request $request, FerryTicket $ticket): JsonResponse
+    {
+        if (! $request->user()->hasRole('ferry_operator')) {
+            abort(403);
+        }
+
+        return response()->json($ticket->load(['user', 'schedule.ferry', 'booking']));
+    }
+
     public function validateTicket(Request $request, FerryTicket $ticket): JsonResponse
     {
         if (! $request->user()->hasRole('ferry_operator')) {

@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('ferry/tickets', [FerryController::class, 'myTickets']);
         Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
+        Route::get('ferry/tickets/{ticket}', [FerryController::class, 'showTicket']);
         Route::post('ferry/tickets/{ticket}/validate', [FerryController::class, 'validateTicket']);
     });
 });

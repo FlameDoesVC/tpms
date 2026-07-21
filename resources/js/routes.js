@@ -84,6 +84,36 @@ const routes = [
         component: () => import('@/Pages/Manager/RoomManagementView.vue'),
         meta: { auth: true, roles: ['hotel_manager'] },
     },
+    {
+        path: '/ferry/book',
+        name: 'ferry.book',
+        component: () => import('@/Pages/Visitor/FerryBookingView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        path: '/ferry/my-tickets',
+        name: 'ferry.my-tickets',
+        component: () => import('@/Pages/Visitor/MyFerryTicketsView.vue'),
+        meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        path: '/ferry/schedules',
+        name: 'ferry.schedule-management',
+        component: () => import('@/Pages/Ferry/ScheduleManagementView.vue'),
+        meta: { auth: true, roles: ['ferry_operator'] },
+    },
+    {
+        path: '/ferry/validate',
+        name: 'ferry.validate',
+        component: () => import('@/Pages/Ferry/TicketValidationView.vue'),
+        meta: { auth: true, roles: ['ferry_operator'] },
+    },
+    {
+        path: '/ferry/passengers',
+        name: 'ferry.passengers',
+        component: () => import('@/Pages/Ferry/PassengerListView.vue'),
+        meta: { auth: true, roles: ['ferry_operator'] },
+    },
 ];
 
 export default routes;

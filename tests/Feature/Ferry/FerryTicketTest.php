@@ -80,6 +80,26 @@ class FerryTicketTest extends TestCase
         $this->assertCount(1, $response->json());
     }
 
+    public function test_ferry_operator_can_look_up_a_ticket_without_validating_it(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $ticket = FerryTicket::factory()->create(['status' => 'issued']);
+
+        $response = $this->actingAs($operator)->getJson("/api/ferry/tickets/{$ticket->id}");
+
+        $response->assertOk()->assertJsonPath('status', 'issued');
+        $this->assertEquals('issued', $ticket->fresh()->status);
+    }
+
+    public function test_visitor_cannot_look_up_a_ticket(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $ticket = FerryTicket::factory()->create();
+
+        $this->actingAs($visitor)->getJson("/api/ferry/tickets/{$ticket->id}")
+            ->assertForbidden();
+    }
+
     public function test_ferry_operator_can_validate_a_ticket(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');

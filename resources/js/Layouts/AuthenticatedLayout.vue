@@ -18,13 +18,20 @@ const linksByRole = {
     visitor: [
         { label: 'Dashboard', name: 'dashboard' },
         { label: 'Hotels', name: 'hotels.index' },
+        { label: 'Ferry', name: 'ferry.book' },
+        { label: 'My Tickets', name: 'ferry.my-tickets' },
     ],
     hotel_manager: [
         { label: 'Dashboard', name: 'dashboard' },
         { label: 'Hotel Bookings', name: 'manager.hotel-dashboard' },
         { label: 'Rooms', name: 'manager.rooms' },
     ],
-    ferry_operator: [{ label: 'Dashboard', name: 'dashboard' }],
+    ferry_operator: [
+        { label: 'Dashboard', name: 'dashboard' },
+        { label: 'Schedules', name: 'ferry.schedule-management' },
+        { label: 'Validate Ticket', name: 'ferry.validate' },
+        { label: 'Passengers', name: 'ferry.passengers' },
+    ],
     themepark_staff: [{ label: 'Dashboard', name: 'dashboard' }],
     admin: [{ label: 'Dashboard', name: 'dashboard' }],
 };
