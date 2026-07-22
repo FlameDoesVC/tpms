@@ -7,11 +7,14 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import routes from './routes';
 import { useAuthStore } from '@/stores/auth';
+import { setupErrorHandler } from '@/plugins/errorHandler';
 
 const router = createRouter({
     history: createWebHistory(),
     routes,
 });
+
+setupErrorHandler(router);
 
 router.beforeEach(async (to, from, next) => {
     const auth = useAuthStore();

@@ -49,6 +49,11 @@ const routes = [
         meta: { auth: true },
     },
     {
+        path: '/unauthorized',
+        name: 'unauthorized',
+        component: () => import('@/Pages/Unauthorized.vue'),
+    },
+    {
         path: '/profile',
         name: 'profile.edit',
         component: () => import('@/Pages/Profile/Edit.vue'),
