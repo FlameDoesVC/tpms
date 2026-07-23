@@ -13,7 +13,11 @@ export function setupErrorHandler(router) {
             // not a session expiry, and fetchUser() already handles it itself.
             if (status === 401 && error.config?.url !== '/api/user') {
                 useAuthStore().clearUser();
-                if (router.currentRoute.value.name !== 'login') {
+                // Best-effort lookups (e.g. smart-fill defaults on pages that
+                // work fine for anonymous visitors) pass silent401 - a stale
+                // or missing session there should just mean "nothing to
+                // prefill", not yanking the visitor away to the login page.
+                if (!error.config?.silent401 && router.currentRoute.value.name !== 'login') {
                     router.push({ name: 'login' });
                 }
             } else if (status === 403) {

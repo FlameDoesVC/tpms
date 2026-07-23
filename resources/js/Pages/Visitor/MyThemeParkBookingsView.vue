@@ -7,6 +7,11 @@ const themeParkStore = useThemeParkStore();
 
 onMounted(() => themeParkStore.fetchMyBookings());
 
+// Cancelled bookings sink to the bottom rather than cluttering the top of the list.
+const sortedBookings = computed(() =>
+    [...themeParkStore.myBookings].sort((a, b) => (a.status === 'cancelled') - (b.status === 'cancelled'))
+);
+
 const today = new Date().toISOString().slice(0, 10);
 
 const isUpcoming = (booking) => (booking.slot?.slot_date ?? '') >= today;
@@ -34,9 +39,10 @@ const cancel = (booking) => {
                 </div>
 
                 <div
-                    v-for="booking in themeParkStore.myBookings"
+                    v-for="booking in sortedBookings"
                     :key="booking.id"
                     class="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm"
+                    :class="{ 'opacity-50 grayscale': booking.status === 'cancelled' }"
                 >
                     <div>
                         <div class="flex items-center gap-2">
@@ -46,7 +52,7 @@ const cancel = (booking) => {
                             </span>
                         </div>
                         <p class="text-sm text-gray-500">
-                            {{ booking.slot?.slot_date }} at {{ booking.slot?.slot_time }} - {{ booking.ticket_count }} ticket(s)
+                            {{ booking.slot?.slot_date?.slice(0, 10) }} at {{ booking.slot?.slot_time }} - {{ booking.ticket_count }} ticket(s)
                         </p>
                     </div>
                     <div class="flex items-center gap-3">

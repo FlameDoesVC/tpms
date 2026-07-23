@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EventBooking;
 use App\Models\EventSlot;
 use App\Models\ThemeParkEvent;
+use App\Services\ThemeParkBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class ThemeParkController extends Controller
 {
+    public function __construct(private ThemeParkBookingService $bookings) {}
+
     public function index(): JsonResponse
     {
         return response()->json(ThemeParkEvent::query()->where('is_active', true)->get());
@@ -139,24 +142,7 @@ class ThemeParkController extends Controller
             'ticket_count' => ['required', 'integer', 'min:1'],
         ]);
 
-        $booking = DB::transaction(function () use ($validated, $request) {
-            $slot = EventSlot::lockForUpdate()->findOrFail($validated['event_slot_id']);
-
-            if ($slot->available_capacity < $validated['ticket_count']) {
-                throw ValidationException::withMessages([
-                    'ticket_count' => 'Not enough capacity left for this slot.',
-                ]);
-            }
-
-            $slot->decrement('available_capacity', $validated['ticket_count']);
-
-            return EventBooking::create([
-                'user_id' => $request->user()->id,
-                'event_slot_id' => $slot->id,
-                'ticket_count' => $validated['ticket_count'],
-                'status' => 'confirmed',
-            ]);
-        });
+        $booking = DB::transaction(fn () => $this->bookings->book($request->user()->id, $validated));
 
         return response()->json($booking, 201);
     }

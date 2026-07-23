@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\FerryController;
 use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\HotelController;
@@ -19,13 +20,20 @@ Route::prefix('api')->group(function () {
     Route::get('hotels', [HotelController::class, 'index']);
     Route::get('hotels/{hotel}', [HotelController::class, 'show']);
     Route::get('hotels/{hotel}/rooms', [RoomController::class, 'index']);
+    Route::get('hotels/{hotel}/room-types', [RoomController::class, 'types']);
 
     Route::get('ferries', [FerryController::class, 'ferries']);
     Route::get('ferry/schedules', [FerryController::class, 'schedules']);
+    // Read-only capacity view - a guest-checkout visitor may pick seats for
+    // their cart before an account exists (only actually purchasing requires one).
+    Route::get('ferry/schedules/{schedule}/seats', [FerryController::class, 'seats']);
 
     Route::get('themepark/events/popular', [ThemeParkController::class, 'popular']);
     Route::get('themepark/events', [ThemeParkController::class, 'index']);
     Route::get('themepark/events/{event}', [ThemeParkController::class, 'show']);
+    // Read-only slot/capacity view - the theme park browsing page needs this
+    // for anonymous guest-checkout visitors too, same as the events list above.
+    Route::get('themepark/events/{event}/slots', [ThemeParkController::class, 'slots']);
 });
 
 // First step of guest checkout: provisions+logs in a placeholder account if
@@ -33,6 +41,7 @@ Route::prefix('api')->group(function () {
 Route::middleware(AutoLoginGuest::class)->prefix('api')->group(function () {
     Route::post('bookings', [BookingController::class, 'store']);
     Route::post('themepark/bookings', [ThemeParkController::class, 'bookSlot']);
+    Route::post('cart/checkout', [CartController::class, 'checkout']);
 });
 
 Route::middleware('auth')->group(function () {
@@ -72,7 +81,6 @@ Route::middleware('auth')->group(function () {
         Route::post('themepark/events', [ThemeParkController::class, 'store']);
         Route::patch('themepark/events/{event}', [ThemeParkController::class, 'update']);
         Route::delete('themepark/events/{event}', [ThemeParkController::class, 'destroy']);
-        Route::get('themepark/events/{event}/slots', [ThemeParkController::class, 'slots']);
         Route::post('themepark/events/{event}/slots', [ThemeParkController::class, 'storeSlot']);
 
         Route::get('themepark/bookings', [ThemeParkController::class, 'myBookings']);

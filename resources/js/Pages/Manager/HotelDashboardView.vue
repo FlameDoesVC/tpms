@@ -90,7 +90,7 @@ const setStatus = async (booking, status) => {
                                 <td class="p-4 capitalize">
                                     {{ booking.room?.type }} - {{ booking.room?.room_number }}
                                 </td>
-                                <td class="p-4">{{ booking.check_in_date }} to {{ booking.check_out_date }}</td>
+                                <td class="p-4">{{ booking.check_in_date?.slice(0, 10) }} to {{ booking.check_out_date?.slice(0, 10) }}</td>
                                 <td class="p-4">
                                     <span
                                         class="rounded-full px-2 py-0.5 text-xs font-medium"

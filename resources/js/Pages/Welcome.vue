@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import IslandMap from '@/Components/IslandMap.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useHotelStore } from '@/stores/hotel';
 import { useThemeParkStore } from '@/stores/themepark';
@@ -43,6 +44,7 @@ onMounted(() => {
     if (!auth.loaded) auth.fetchUser();
     hotelStore.fetchPopularHotels();
     themeParkStore.fetchPopularEvents();
+    themeParkStore.fetchEvents();
 });
 onUnmounted(() => clearInterval(interval));
 </script>
@@ -107,74 +109,73 @@ onUnmounted(() => clearInterval(interval));
             </div>
         </div>
 
-        <!-- Popular hotels -->
+        <!-- Popular theme park events -->
         <div class="mx-auto max-w-5xl px-6 py-12">
             <div class="mb-6 flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-gray-900">Popular Hotels</h2>
-                <router-link :to="{ name: 'hotels.index' }" class="text-sm font-medium text-indigo-600 hover:underline">
+                <h2 class="text-xl font-semibold text-gray-900">Popular Theme Park Events</h2>
+                <router-link :to="{ name: 'themepark.home' }" class="text-sm font-medium text-indigo-600 hover:underline">
                     View all &rarr;
                 </router-link>
             </div>
 
-            <div v-if="hotelStore.popularHotels.length === 0" class="text-sm text-gray-500">
-                No hotels yet.
+            <div v-if="themeParkStore.popularEvents.length === 0" class="text-sm text-gray-500">
+                No events yet.
             </div>
             <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-3">
                 <router-link
-                    v-for="hotel in hotelStore.popularHotels"
-                    :key="hotel.id"
-                    :to="{ name: 'hotels.show', params: { id: hotel.id } }"
+                    v-for="event in themeParkStore.popularEvents"
+                    :key="event.id"
+                    :to="{ name: 'themepark.home', query: { event: event.id } }"
                     class="block overflow-hidden rounded-lg bg-white shadow transition hover:shadow-md"
                 >
                     <div class="flex h-32 items-center justify-center bg-gray-100 text-gray-400">
-                        <img v-if="hotel.image_url" :src="hotel.image_url" :alt="hotel.name" class="h-full w-full object-cover" />
+                        <img v-if="event.image_url" :src="event.image_url" :alt="event.name" class="h-full w-full object-cover" />
                         <span v-else>No image</span>
                     </div>
                     <div class="p-4">
-                        <h3 class="font-semibold text-gray-900">{{ hotel.name }}</h3>
-                        <p class="mt-1 text-xs text-gray-500">{{ hotel.address }}</p>
-                        <p class="mt-2 text-xs font-medium text-indigo-600">
-                            {{ hotel.bookings_count }} booking{{ hotel.bookings_count === 1 ? '' : 's' }}
-                        </p>
+                        <h3 class="font-semibold text-gray-900">{{ event.name }}</h3>
+                        <p class="mt-1 text-xs text-gray-500">{{ event.location }}</p>
                     </div>
                 </router-link>
             </div>
         </div>
 
-        <!-- Popular theme park events -->
+        <!-- Popular hotels -->
         <div class="border-t border-gray-200 bg-white">
             <div class="mx-auto max-w-5xl px-6 py-12">
                 <div class="mb-6 flex items-center justify-between">
-                    <h2 class="text-xl font-semibold text-gray-900">Popular Theme Park Events</h2>
-                    <router-link :to="{ name: 'themepark.home' }" class="text-sm font-medium text-indigo-600 hover:underline">
+                    <h2 class="text-xl font-semibold text-gray-900">Popular Hotels</h2>
+                    <router-link :to="{ name: 'hotels.index' }" class="text-sm font-medium text-indigo-600 hover:underline">
                         View all &rarr;
                     </router-link>
                 </div>
 
-                <div v-if="themeParkStore.popularEvents.length === 0" class="text-sm text-gray-500">
-                    No events yet.
+                <div v-if="hotelStore.popularHotels.length === 0" class="text-sm text-gray-500">
+                    No hotels yet.
                 </div>
                 <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-3">
                     <router-link
-                        v-for="event in themeParkStore.popularEvents"
-                        :key="event.id"
-                        :to="{ name: 'themepark.event', params: { id: event.id } }"
+                        v-for="hotel in hotelStore.popularHotels"
+                        :key="hotel.id"
+                        :to="{ name: 'hotels.index', query: { hotel: hotel.id } }"
                         class="block overflow-hidden rounded-lg bg-gray-50 shadow transition hover:shadow-md"
                     >
                         <div class="flex h-32 items-center justify-center bg-gray-100 text-gray-400">
-                            <img v-if="event.image_url" :src="event.image_url" :alt="event.name" class="h-full w-full object-cover" />
+                            <img v-if="hotel.image_url" :src="hotel.image_url" :alt="hotel.name" class="h-full w-full object-cover" />
                             <span v-else>No image</span>
                         </div>
                         <div class="p-4">
-                            <h3 class="font-semibold text-gray-900">{{ event.name }}</h3>
-                            <p class="mt-1 text-xs text-gray-500">{{ event.location }}</p>
-                            <p class="mt-2 text-xs font-medium text-indigo-600">
-                                {{ event.bookings_count }} booking{{ event.bookings_count === 1 ? '' : 's' }}
-                            </p>
+                            <h3 class="font-semibold text-gray-900">{{ hotel.name }}</h3>
+                            <p class="mt-1 text-xs text-gray-500">{{ hotel.address }}</p>
                         </div>
                     </router-link>
                 </div>
             </div>
+        </div>
+
+        <!-- Island map -->
+        <div class="mx-auto max-w-5xl border-t border-gray-200 px-6 py-12">
+            <IslandMap :events="themeParkStore.events" />
         </div>
     </div>
 </template>

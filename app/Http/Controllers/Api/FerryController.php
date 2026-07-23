@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
 use App\Models\Ferry;
 use App\Models\FerrySchedule;
 use App\Models\FerryTicket;
+use App\Services\FerryTicketService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class FerryController extends Controller
 {
+    public function __construct(private FerryTicketService $tickets) {}
+
     public function ferries(): JsonResponse
     {
         return response()->json(Ferry::query()->where('is_active', true)->get());
@@ -83,51 +85,39 @@ class FerryController extends Controller
         return response()->noContent();
     }
 
+    public function seats(FerrySchedule $schedule): JsonResponse
+    {
+        $takenSeats = $schedule->tickets()
+            ->whereIn('status', ['pending', 'issued', 'used'])
+            ->pluck('seat_number');
+
+        return response()->json([
+            'capacity' => $schedule->ferry->capacity,
+            'price_per_seat' => $schedule->ferry->price_per_seat,
+            'taken_seats' => $takenSeats,
+        ]);
+    }
+
     public function issueTicket(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'schedule_id' => ['required', 'exists:ferry_schedules,id'],
             'booking_id' => ['required', 'exists:bookings,id'],
+            'seat_numbers' => ['required', 'array', 'min:1'],
+            'seat_numbers.*' => ['integer', 'min:1', 'distinct'],
+            'payment_method' => ['required', 'in:online,cash'],
         ]);
 
-        $user = $request->user();
-        $booking = Booking::findOrFail($validated['booking_id']);
+        $tickets = DB::transaction(fn () => $this->tickets->issue($request->user()->id, $validated));
 
-        if ($booking->user_id !== $user->id || $booking->status !== 'confirmed') {
-            throw ValidationException::withMessages([
-                'booking_id' => 'You need a confirmed hotel booking to purchase a ferry ticket.',
-            ]);
-        }
-
-        $ticket = DB::transaction(function () use ($validated, $user, $booking) {
-            $schedule = FerrySchedule::lockForUpdate()->findOrFail($validated['schedule_id']);
-
-            if ($schedule->available_seats < 1) {
-                throw ValidationException::withMessages([
-                    'schedule_id' => 'This departure is fully booked.',
-                ]);
-            }
-
-            $seatNumber = $schedule->ferry->capacity - $schedule->available_seats + 1;
-            $schedule->decrement('available_seats');
-
-            return FerryTicket::create([
-                'user_id' => $user->id,
-                'schedule_id' => $schedule->id,
-                'booking_id' => $booking->id,
-                'seat_number' => $seatNumber,
-                'status' => 'issued',
-            ]);
-        });
-
-        return response()->json($ticket, 201);
+        return response()->json($tickets, 201);
     }
 
     public function myTickets(Request $request): JsonResponse
     {
         $tickets = FerryTicket::query()
             ->where('user_id', $request->user()->id)
-            ->with('schedule.ferry')
+            ->with(['schedule.ferry', 'booking'])
             ->get();
 
         return response()->json($tickets);

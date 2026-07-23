@@ -18,9 +18,16 @@ watch(selectedScheduleId, (id) => {
 });
 
 const exportCsv = () => {
-    const rows = [['Seat', 'Passenger', 'Hotel Ref', 'Status']];
+    const rows = [['Ticket Ref', 'Seat', 'Passenger', 'Hotel Ref', 'Status', 'Payment']];
     for (const ticket of ferryStore.passengers) {
-        rows.push([ticket.seat_number, ticket.user?.name, ticket.booking_id, ticket.status]);
+        rows.push([
+            ticket.reference_code,
+            ticket.seat_number,
+            ticket.user?.name,
+            ticket.booking?.reference_code,
+            ticket.status,
+            ticket.payment_method === 'cash' ? 'Cash due' : 'Paid online',
+        ]);
     }
     const csv = rows.map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -69,18 +76,29 @@ const exportCsv = () => {
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead>
                             <tr class="text-left text-gray-500">
+                                <th class="p-4">Ticket Ref</th>
                                 <th class="p-4">Seat</th>
                                 <th class="p-4">Passenger</th>
                                 <th class="p-4">Hotel Ref</th>
                                 <th class="p-4">Status</th>
+                                <th class="p-4">Payment</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="ticket in ferryStore.passengers" :key="ticket.id">
+                                <td class="p-4 font-mono text-xs">{{ ticket.reference_code }}</td>
                                 <td class="p-4">{{ ticket.seat_number }}</td>
                                 <td class="p-4">{{ ticket.user?.name }}</td>
-                                <td class="p-4">#{{ ticket.booking_id }}</td>
+                                <td class="p-4 font-mono text-xs">{{ ticket.booking?.reference_code }}</td>
                                 <td class="p-4 capitalize">{{ ticket.status }}</td>
+                                <td class="p-4">
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                                        :class="ticket.payment_method === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
+                                    >
+                                        {{ ticket.payment_method === 'cash' ? 'Cash due' : 'Paid online' }}
+                                    </span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

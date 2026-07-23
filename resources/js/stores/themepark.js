@@ -42,6 +42,13 @@ export const useThemeParkStore = defineStore('themepark', {
             }
         },
 
+        // Side-effect-free: lets the combined theme-park page fetch slots for
+        // many events at once without them overwriting shared `slots` state.
+        async fetchSlotsForEvent(eventId, date) {
+            const { data } = await axios.get(`/api/themepark/events/${eventId}/slots`, { params: { date } });
+            return data;
+        },
+
         async fetchEventSlots(eventId, date) {
             this.loading.event = true;
             this.error.event = null;
@@ -56,14 +63,14 @@ export const useThemeParkStore = defineStore('themepark', {
             }
         },
 
-        async bookSlot(slotId, ticketCount) {
+        async bookSlot(slotId, ticketCount, { silent = false } = {}) {
             this.loading.booking = true;
             this.error.booking = null;
             try {
                 const { data } = await axios.post('/api/themepark/bookings', {
                     event_slot_id: slotId,
                     ticket_count: ticketCount,
-                });
+                }, { silent401: silent });
                 return data;
             } catch (e) {
                 this.error.booking = e.response?.data?.errors ?? e.response?.data?.message ?? 'Booking failed.';
@@ -73,10 +80,10 @@ export const useThemeParkStore = defineStore('themepark', {
             }
         },
 
-        async fetchMyBookings() {
+        async fetchMyBookings({ silent = false } = {}) {
             this.loading.bookings = true;
             try {
-                const { data } = await axios.get('/api/themepark/bookings');
+                const { data } = await axios.get('/api/themepark/bookings', { silent401: silent });
                 this.myBookings = data;
             } finally {
                 this.loading.bookings = false;

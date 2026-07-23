@@ -9,6 +9,7 @@ export const useHotelStore = defineStore('hotel', {
         rooms: [],
         myBookings: [],
         activeBooking: null,
+        activeBookings: [],
         loading: {
             hotels: false,
             hotel: false,
@@ -77,6 +78,18 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
+        // Side-effect-free: lets the combined hotel-booking page fetch room
+        // types for many hotels at once without them overwriting each other.
+        async fetchRoomTypes(hotelId, dates = {}) {
+            const { data } = await axios.get(`/api/hotels/${hotelId}/room-types`, {
+                params: {
+                    check_in_date: dates.checkIn,
+                    check_out_date: dates.checkOut,
+                },
+            });
+            return data;
+        },
+
         async fetchBooking(id) {
             this.loading.activeBooking = true;
             this.error.activeBooking = null;
@@ -88,6 +101,30 @@ export const useHotelStore = defineStore('hotel', {
             } finally {
                 this.loading.activeBooking = false;
             }
+        },
+
+        // A single room-type purchase can create several bookings at once
+        // (one party may need multiple rooms) - the confirmation page pays
+        // for the whole group together.
+        async fetchBookings(ids) {
+            this.loading.activeBooking = true;
+            this.error.activeBooking = null;
+            try {
+                this.activeBookings = await Promise.all(
+                    ids.map((id) => axios.get(`/api/bookings/${id}`).then((r) => r.data))
+                );
+            } catch (e) {
+                this.error.activeBooking = e.response?.data?.message ?? 'Failed to load booking.';
+            } finally {
+                this.loading.activeBooking = false;
+            }
+        },
+
+        async confirmBookings(ids, { silent = false } = {}) {
+            this.activeBookings = await Promise.all(
+                ids.map((id) => this.confirmBooking(id, { silent }))
+            );
+            return this.activeBookings;
         },
 
         async createRoom(hotelId, payload) {
@@ -108,11 +145,11 @@ export const useHotelStore = defineStore('hotel', {
             this.rooms = this.rooms.filter((r) => r.id !== roomId);
         },
 
-        async createBooking(payload) {
+        async createBooking(payload, { silent = false } = {}) {
             this.loading.creatingBooking = true;
             this.error.creatingBooking = null;
             try {
-                const { data } = await axios.post('/api/bookings', payload);
+                const { data } = await axios.post('/api/bookings', payload, { silent401: silent });
                 return data;
             } catch (e) {
                 this.error.creatingBooking = e.response?.data?.errors
@@ -124,11 +161,11 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
-        async fetchMyBookings() {
+        async fetchMyBookings({ silent = false } = {}) {
             this.loading.bookings = true;
             this.error.bookings = null;
             try {
-                const { data } = await axios.get('/api/bookings');
+                const { data } = await axios.get('/api/bookings', { silent401: silent });
                 this.myBookings = data.data;
             } catch (e) {
                 this.error.bookings = e.response?.data?.message ?? 'Failed to load bookings.';
@@ -143,8 +180,8 @@ export const useHotelStore = defineStore('hotel', {
             return data;
         },
 
-        async confirmBooking(id) {
-            const { data } = await axios.patch(`/api/bookings/${id}`, { status: 'confirmed' });
+        async confirmBooking(id, { silent = false } = {}) {
+            const { data } = await axios.patch(`/api/bookings/${id}`, { status: 'confirmed' }, { silent401: silent });
             this._syncBooking(data);
             return data;
         },

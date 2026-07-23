@@ -12,8 +12,13 @@ const lookupError = ref('');
 const lookup = async () => {
     lookupError.value = '';
     ticket.value = null;
+    const match = ticketId.value.trim().match(/(\d+)\s*$/);
+    if (!match) {
+        lookupError.value = 'Ticket not found.';
+        return;
+    }
     try {
-        ticket.value = await ferryStore.lookupTicket(ticketId.value);
+        ticket.value = await ferryStore.lookupTicket(parseInt(match[1], 10));
     } catch {
         lookupError.value = 'Ticket not found.';
     }
@@ -41,7 +46,7 @@ const confirmUsed = async () => {
                 <form @submit.prevent="lookup" class="flex gap-2 rounded-lg bg-white p-4 shadow-sm">
                     <input
                         v-model="ticketId"
-                        placeholder="Ticket ID or scan QR"
+                        placeholder="Scan ticket QR (LSJ-T0012) or enter ticket ID"
                         class="flex-1 rounded-md border-gray-300 shadow-sm"
                     />
                     <PrimaryButton type="submit">Look Up</PrimaryButton>
@@ -53,7 +58,7 @@ const confirmUsed = async () => {
 
                 <div v-if="ticket" class="rounded-lg p-6" :class="ticket.status === 'used' ? 'bg-red-50' : 'bg-green-50'">
                     <p class="font-semibold" :class="ticket.status === 'used' ? 'text-red-800' : 'text-green-800'">
-                        {{ ticket.status === 'used' ? 'Already Used' : 'Valid Ticket' }}
+                        {{ ticket.status === 'used' ? 'Already Used' : 'Valid Ticket' }} - {{ ticket.reference_code }}
                     </p>
                     <dl class="mt-3 space-y-1 text-sm">
                         <div class="flex justify-between">
@@ -62,15 +67,21 @@ const confirmUsed = async () => {
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Hotel booking ref</dt>
-                            <dd>#{{ ticket.booking?.id }}</dd>
+                            <dd>{{ ticket.booking?.reference_code }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Departure</dt>
-                            <dd>{{ ticket.schedule?.departure_date }} {{ ticket.schedule?.departure_time }}</dd>
+                            <dd>{{ ticket.schedule?.departure_date?.slice(0, 10) }} {{ ticket.schedule?.departure_time }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Seat</dt>
                             <dd>{{ ticket.seat_number }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-gray-500">Payment</dt>
+                            <dd :class="ticket.payment_method === 'cash' ? 'font-semibold text-yellow-800' : ''">
+                                {{ ticket.payment_method === 'cash' ? `Collect $${ticket.price} cash` : `Paid online ($${ticket.price})` }}
+                            </dd>
                         </div>
                     </dl>
 

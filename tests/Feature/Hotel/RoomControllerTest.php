@@ -49,6 +49,83 @@ class RoomControllerTest extends TestCase
         $this->assertFalse($ids->contains($bookedRoom->id));
     }
 
+    public function test_room_types_groups_rooms_by_type_price_and_capacity(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        Room::factory()->count(3)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'price_per_night' => 100,
+            'max_guests' => 2,
+        ]);
+        Room::factory()->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'suite',
+            'price_per_night' => 250,
+            'max_guests' => 4,
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/api/hotels/{$hotel->id}/room-types");
+
+        $response->assertOk();
+        $groups = collect($response->json());
+        $this->assertCount(2, $groups);
+        $double = $groups->firstWhere('type', 'double');
+        $this->assertEquals(3, $double['available_count']);
+        $suite = $groups->firstWhere('type', 'suite');
+        $this->assertEquals(1, $suite['available_count']);
+    }
+
+    public function test_room_types_excludes_rooms_taken_for_the_given_dates(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $rooms = Room::factory()->count(2)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'price_per_night' => 100,
+            'max_guests' => 2,
+        ]);
+        Booking::factory()->create([
+            'room_id' => $rooms->first()->id,
+            'status' => 'confirmed',
+            'check_in_date' => '2026-08-10',
+            'check_out_date' => '2026-08-15',
+        ]);
+
+        $response = $this->actingAs($user)->getJson(
+            "/api/hotels/{$hotel->id}/room-types?check_in_date=2026-08-12&check_out_date=2026-08-14"
+        );
+
+        $response->assertOk();
+        $groups = collect($response->json());
+        $this->assertEquals(1, $groups->firstWhere('type', 'double')['available_count']);
+    }
+
+    public function test_room_types_hides_fully_booked_type_entirely(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $room = Room::factory()->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+        ]);
+        Booking::factory()->create([
+            'room_id' => $room->id,
+            'status' => 'confirmed',
+            'check_in_date' => '2026-08-10',
+            'check_out_date' => '2026-08-15',
+        ]);
+
+        $response = $this->actingAs($user)->getJson(
+            "/api/hotels/{$hotel->id}/room-types?check_in_date=2026-08-12&check_out_date=2026-08-14"
+        );
+
+        $response->assertOk();
+        $this->assertCount(0, $response->json());
+    }
+
     public function test_hotel_manager_can_create_room(): void
     {
         $manager = User::factory()->create()->assignRole('hotel_manager');

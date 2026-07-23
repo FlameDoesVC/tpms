@@ -122,7 +122,7 @@ class GuestCheckoutTest extends TestCase
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,
         ])->assertCreated()->json();
-        $guestId = $booking['user_id'];
+        $guestId = $booking[0]['user_id'];
 
         $response = $this->postJson('/api/guest/login', [
             'email' => $existing->email,
@@ -132,7 +132,7 @@ class GuestCheckoutTest extends TestCase
         $response->assertOk()->assertJsonPath('user.id', $existing->id);
         $this->assertAuthenticatedAs($existing);
 
-        $this->assertDatabaseHas('bookings', ['id' => $booking['id'], 'user_id' => $existing->id]);
+        $this->assertDatabaseHas('bookings', ['id' => $booking[0]['id'], 'user_id' => $existing->id]);
         $this->assertDatabaseMissing('users', ['id' => $guestId]);
     }
 

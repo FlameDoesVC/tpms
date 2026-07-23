@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,23 @@ class FerryTicket extends Model
         'booking_id',
         'seat_number',
         'status',
+        'price',
+        'payment_method',
     ];
+
+    protected $appends = ['reference_code'];
+
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+        ];
+    }
+
+    protected function referenceCode(): Attribute
+    {
+        return Attribute::get(fn () => sprintf('LSJ-T%04d', $this->id));
+    }
 
     public function user(): BelongsTo
     {

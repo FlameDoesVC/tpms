@@ -62,19 +62,18 @@ const routes = [
     {
         // No auth required: guest checkout lets a visitor browse and book
         // before an account exists (see AutoLoginGuest on the backend).
+        // Search dates/guests + every hotel's rooms live on one page now -
+        // ?hotel=<id> (see Welcome.vue) scrolls straight to that hotel's section.
         path: '/hotels',
         name: 'hotels.index',
-        component: () => import('@/Pages/Visitor/HotelListView.vue'),
+        component: () => import('@/Pages/Visitor/HotelBookingView.vue'),
         meta: { roles: ['visitor'] },
     },
     {
-        path: '/hotels/:id',
-        name: 'hotels.show',
-        component: () => import('@/Pages/Visitor/HotelDetailView.vue'),
-        meta: { roles: ['visitor'] },
-    },
-    {
-        path: '/bookings/:id/confirm',
+        // ?ids=1,2,3 - a single room-type purchase can create several
+        // bookings at once (a party needing multiple rooms); they're all
+        // paid for together here.
+        path: '/bookings/confirm',
         name: 'bookings.confirm',
         component: () => import('@/Pages/Visitor/BookingConfirmationView.vue'),
         meta: { roles: ['visitor'] },
@@ -84,6 +83,14 @@ const routes = [
         name: 'bookings.my',
         component: () => import('@/Pages/Visitor/MyHotelBookingsView.vue'),
         meta: { auth: true, roles: ['visitor'] },
+    },
+    {
+        // No auth required: the cart itself is client-side, so an anonymous
+        // guest-checkout visitor can review and pay for it same as any booking.
+        path: '/checkout',
+        name: 'cart.checkout',
+        component: () => import('@/Pages/Visitor/CartCheckoutView.vue'),
+        meta: { roles: ['visitor'] },
     },
     {
         path: '/manager/hotel-dashboard',
@@ -128,15 +135,11 @@ const routes = [
         meta: { auth: true, roles: ['ferry_operator'] },
     },
     {
+        // ?event=<id> (see Welcome.vue) pre-filters the page down to just
+        // that one event instead of showing every event.
         path: '/themepark',
         name: 'themepark.home',
         component: () => import('@/Pages/Visitor/ThemeParkHomeView.vue'),
-        meta: { roles: ['visitor'] },
-    },
-    {
-        path: '/themepark/events/:id',
-        name: 'themepark.event',
-        component: () => import('@/Pages/Visitor/EventDetailView.vue'),
         meta: { roles: ['visitor'] },
     },
     {

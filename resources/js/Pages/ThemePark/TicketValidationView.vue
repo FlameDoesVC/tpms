@@ -66,7 +66,7 @@ const confirmUsed = async () => {
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Slot Time</dt>
-                            <dd>{{ booking.slot?.slot_date }} {{ booking.slot?.slot_time }}</dd>
+                            <dd>{{ booking.slot?.slot_date?.slice(0, 10) }} {{ booking.slot?.slot_time }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-gray-500">Tickets</dt>

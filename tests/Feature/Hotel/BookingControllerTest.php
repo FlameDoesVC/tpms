@@ -3,6 +3,7 @@
 namespace Tests\Feature\Hotel;
 
 use App\Models\Booking;
+use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,10 +47,81 @@ class BookingControllerTest extends TestCase
             'guests_count' => 2,
         ]);
 
-        $response->assertCreated()
-            ->assertJsonPath('total_price', '300.00')
-            ->assertJsonPath('status', 'pending');
+        $response->assertCreated();
+        $this->assertCount(1, $response->json());
+        $response->assertJsonPath('0.total_price', '300.00')
+            ->assertJsonPath('0.status', 'pending');
         $this->assertDatabaseHas('bookings', ['user_id' => $visitor->id, 'room_id' => $room->id]);
+    }
+
+    public function test_visitor_can_book_multiple_rooms_of_the_same_type_at_once(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $rooms = Room::factory()->count(3)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'price_per_night' => 100,
+            'max_guests' => 2,
+        ]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/bookings', [
+            'room_id' => $rooms->first()->id,
+            'check_in_date' => '2026-09-01',
+            'check_out_date' => '2026-09-04',
+            'guests_count' => 5,
+            'quantity' => 3,
+        ]);
+
+        $response->assertCreated();
+        $created = $response->json();
+        $this->assertCount(3, $created);
+        // 5 guests split across 3 rooms of max_guests 2: 2/2/1
+        $this->assertEqualsCanonicalizing([2, 2, 1], array_column($created, 'guests_count'));
+        $this->assertEqualsCanonicalizing($rooms->pluck('id')->all(), array_column($created, 'room_id'));
+        $this->assertDatabaseCount('bookings', 3);
+    }
+
+    public function test_booking_rejects_when_not_enough_rooms_of_type_available(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $rooms = Room::factory()->count(2)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'price_per_night' => 100,
+            'max_guests' => 2,
+        ]);
+
+        $this->actingAs($visitor)->postJson('/api/bookings', [
+            'room_id' => $rooms->first()->id,
+            'check_in_date' => '2026-09-01',
+            'check_out_date' => '2026-09-04',
+            'guests_count' => 4,
+            'quantity' => 3,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
+    public function test_booking_rejects_guests_exceeding_quantity_times_capacity(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        Room::factory()->count(3)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'max_guests' => 2,
+        ]);
+        $room = Room::where('hotel_id', $hotel->id)->first();
+
+        $this->actingAs($visitor)->postJson('/api/bookings', [
+            'room_id' => $room->id,
+            'check_in_date' => '2026-09-01',
+            'check_out_date' => '2026-09-04',
+            'guests_count' => 7,
+            'quantity' => 2,
+        ])->assertUnprocessable();
     }
 
     public function test_booking_rejects_overlapping_dates_for_same_room(): void

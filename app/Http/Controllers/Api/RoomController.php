@@ -32,6 +32,45 @@ class RoomController extends Controller
         return RoomResource::collection($rooms)->response();
     }
 
+    /**
+     * Rooms grouped by type/price/capacity, with an available-unit count -
+     * lets a party book multiple rooms of one type instead of being limited
+     * to whatever a single room fits.
+     */
+    public function types(Request $request, Hotel $hotel): JsonResponse
+    {
+        $validated = $request->validate([
+            'check_in_date' => ['nullable', 'date', 'required_with:check_out_date'],
+            'check_out_date' => ['nullable', 'date', 'after:check_in_date', 'required_with:check_in_date'],
+        ]);
+
+        $rooms = $hotel->rooms()->where('is_available', true)->get();
+
+        if (! empty($validated['check_in_date'])) {
+            $rooms = $rooms->filter(fn (Room $room) => $room->isAvailableBetween(
+                $validated['check_in_date'],
+                $validated['check_out_date']
+            ))->values();
+        }
+
+        $groups = $rooms
+            ->groupBy(fn (Room $room) => "{$room->type}|{$room->price_per_night}|{$room->max_guests}")
+            ->map(function ($group) {
+                $first = $group->first();
+
+                return [
+                    'representative_room_id' => $first->id,
+                    'type' => $first->type,
+                    'price_per_night' => $first->price_per_night,
+                    'max_guests' => $first->max_guests,
+                    'available_count' => $group->count(),
+                ];
+            })
+            ->values();
+
+        return response()->json($groups);
+    }
+
     public function store(Request $request, Hotel $hotel): JsonResponse
     {
         Gate::authorize('update', $hotel);

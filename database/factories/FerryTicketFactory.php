@@ -26,6 +26,8 @@ class FerryTicketFactory extends Factory
             'booking_id' => Booking::factory(['status' => 'confirmed']),
             'seat_number' => fake()->numberBetween(1, 40),
             'status' => 'issued',
+            'price' => fake()->randomFloat(2, 10, 30),
+            'payment_method' => fake()->randomElement(['online', 'cash']),
         ];
     }
 }

@@ -25,7 +25,10 @@ router.beforeEach(async (to, from, next) => {
     if (to.meta.auth && !auth.isAuthenticated) {
         return next({ name: 'login' });
     }
-    if (to.meta.guest && auth.isAuthenticated) {
+    // A guest checkout session is still "authenticated" but hasn't claimed a
+    // real account yet - it should still be able to reach login/register to
+    // do that (merging its bookings into the account), unlike a real user.
+    if (to.meta.guest && auth.isAuthenticated && !auth.isGuest) {
         return next({ name: 'dashboard' });
     }
     // Role checks only apply once a real session exists — anonymous visitors

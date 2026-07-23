@@ -99,6 +99,19 @@ class ThemeParkEventTest extends TestCase
         $response->assertCreated()->assertJsonPath('available_capacity', 25);
     }
 
+    public function test_slots_endpoint_is_public(): void
+    {
+        // A guest-checkout visitor browses the theme park page (and picks
+        // slots for the cart) before an account exists.
+        $event = ThemeParkEvent::factory()->create();
+        EventSlot::factory()->create(['event_id' => $event->id, 'slot_date' => '2026-08-10']);
+
+        $response = $this->getJson("/api/themepark/events/{$event->id}/slots?date=2026-08-10");
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json());
+    }
+
     public function test_visitor_can_book_a_slot(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');

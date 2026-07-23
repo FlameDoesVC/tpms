@@ -79,7 +79,7 @@ const cancelSchedule = (schedule) => {
                         <tbody class="divide-y divide-gray-100">
                             <tr v-for="schedule in ferryStore.schedules" :key="schedule.id">
                                 <td class="p-4">{{ schedule.ferry?.name }}</td>
-                                <td class="p-4">{{ schedule.departure_date }}</td>
+                                <td class="p-4">{{ schedule.departure_date?.slice(0, 10) }}</td>
                                 <td class="p-4">{{ schedule.departure_time }}</td>
                                 <td class="p-4">{{ schedule.arrival_time }}</td>
                                 <td class="p-4">{{ schedule.ferry?.capacity }}</td>

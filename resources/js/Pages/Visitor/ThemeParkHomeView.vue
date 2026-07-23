@@ -1,18 +1,41 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { useThemeParkStore } from '@/stores/themepark';
+import { useCartStore } from '@/stores/cart';
 import { useAuthStore } from '@/stores/auth';
 
+const route = useRoute();
 const themeParkStore = useThemeParkStore();
+const cart = useCartStore();
 const auth = useAuthStore();
-const tab = ref('ride');
 
-const tabs = [
-    { key: 'ride', label: 'Rides' },
-    { key: 'show', label: 'Shows' },
-    { key: 'beach_event', label: 'Beach Events' },
+const TYPES = [
+    { key: 'ride', label: 'Ride' },
+    { key: 'show', label: 'Show' },
+    { key: 'beach_event', label: 'Beach Event' },
 ];
+
+const date = ref(new Date().toISOString().slice(0, 10));
+const tickets = ref(1);
+const selectedEventIds = ref([]);
+const selectedTypes = ref([]);
+
+const slotsByEvent = reactive({});
+const loadingSlots = reactive({});
+const eventMessages = reactive({});
+
+// Empty selection means "show every event" - the filters only narrow things
+// down once the visitor actually picks something.
+const visibleEvents = computed(() =>
+    themeParkStore.events.filter(
+        (e) =>
+            (selectedEventIds.value.length === 0 || selectedEventIds.value.includes(e.id)) &&
+            (selectedTypes.value.length === 0 || selectedTypes.value.includes(e.type))
+    )
+);
 
 const today = new Date().toISOString().slice(0, 10);
 const upcomingBookings = computed(() =>
@@ -21,14 +44,98 @@ const upcomingBookings = computed(() =>
         .slice(0, 3)
 );
 
-onMounted(() => {
-    themeParkStore.fetchEvents();
-    if (auth.isAuthenticated) themeParkStore.fetchMyBookings();
+const selectedSlotIds = reactive({});
+const ticketOverrides = reactive({});
+
+const selectedSlotFor = (event) => (slotsByEvent[event.id] ?? []).find((s) => s.id === selectedSlotIds[event.id]) ?? null;
+
+const defaultTicketCount = (slot) => Math.min(slot.available_capacity, Math.max(1, tickets.value));
+
+// Not clamped here - clamping on every keystroke fights the user mid-edit
+// (e.g. snapping back to a smaller number as soon as the field is cleared to
+// type a new one). Out-of-range values just aren't bookable, per canBook below.
+const ticketCountFor = (event) => {
+    if (event.id in ticketOverrides) return ticketOverrides[event.id];
+    const slot = selectedSlotFor(event);
+    return slot ? defaultTicketCount(slot) : tickets.value;
+};
+
+const setTicketCount = (event, value) => {
+    ticketOverrides[event.id] = value;
+};
+
+const selectSlot = (event, slot) => {
+    if (slot.available_capacity < 1) return;
+    selectedSlotIds[event.id] = slot.id;
+};
+
+const loadSlotsFor = async (eventId) => {
+    if (!date.value) return;
+
+    loadingSlots[eventId] = true;
+    try {
+        slotsByEvent[eventId] = await themeParkStore.fetchSlotsForEvent(eventId, date.value);
+    } finally {
+        loadingSlots[eventId] = false;
+    }
+};
+
+const loadAllSlots = () => Promise.all(themeParkStore.events.map((e) => loadSlotsFor(e.id)));
+
+watch(date, () => {
+    // A previously-picked slot may no longer be in the new date's list.
+    Object.keys(selectedSlotIds).forEach((key) => delete selectedSlotIds[key]);
+    loadAllSlots();
 });
 
-const eventsForTab = computed(() =>
-    themeParkStore.events.filter((e) => e.type === tab.value)
-);
+onMounted(async () => {
+    await themeParkStore.fetchEvents();
+    if (auth.isAuthenticated) themeParkStore.fetchMyBookings({ silent: true });
+
+    if (route.query.event) {
+        selectedEventIds.value = [Number(route.query.event)];
+    }
+
+    await loadAllSlots();
+});
+
+const canBook = (event) => {
+    const slot = selectedSlotFor(event);
+    if (!slot) return false;
+    const count = ticketCountFor(event);
+    return count >= 1 && count <= slot.available_capacity;
+};
+
+const addToCart = (event) => {
+    eventMessages[event.id] = null;
+
+    const slot = selectedSlotFor(event);
+    if (!slot) {
+        eventMessages[event.id] = { type: 'error', text: 'Pick a time slot first.' };
+        return;
+    }
+    if (!canBook(event)) {
+        eventMessages[event.id] = { type: 'error', text: 'Adjust the ticket count to fit the slot capacity.' };
+        return;
+    }
+
+    const ticketCount = ticketCountFor(event);
+    const subtotal = ticketCount * event.price_per_ticket;
+
+    cart.addItem({
+        type: 'themepark',
+        eventId: event.id,
+        eventName: event.name,
+        slotId: slot.id,
+        slotDate: slot.slot_date?.slice(0, 10),
+        slotTime: slot.slot_time,
+        ticketCount,
+        pricePerTicket: event.price_per_ticket,
+        subtotal,
+    });
+
+    eventMessages[event.id] = { type: 'success', text: `Added ${ticketCount} ticket(s) to cart.` };
+};
 </script>
 
 <template>
@@ -40,7 +147,7 @@ const eventsForTab = computed(() =>
         </template>
 
         <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                 <div v-if="auth.isAuthenticated" class="rounded-lg bg-white p-4 shadow-sm">
                     <div class="flex items-center justify-between">
                         <h3 class="font-semibold text-gray-900">My Bookings</h3>
@@ -67,40 +174,142 @@ const eventsForTab = computed(() =>
                     </div>
                 </div>
 
-                <div class="flex gap-2 border-b border-gray-200">
-                    <button
-                        v-for="t in tabs"
-                        :key="t.key"
-                        @click="tab = t.key"
-                        class="px-4 py-2 text-sm font-medium"
-                        :class="tab === t.key
-                            ? 'border-b-2 border-indigo-600 text-indigo-600'
-                            : 'text-gray-500 hover:text-gray-700'"
-                    >
-                        {{ t.label }}
-                    </button>
+                <div class="sticky top-0 z-10 flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-sm">
+                    <div>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="block text-sm font-medium text-gray-700">Events</label>
+                            <button
+                                v-if="selectedEventIds.length"
+                                type="button"
+                                @click="selectedEventIds = []"
+                                class="text-xs text-indigo-600 hover:underline"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-md border border-gray-300 p-2">
+                            <label
+                                v-for="event in themeParkStore.events"
+                                :key="event.id"
+                                class="flex items-center gap-2 text-sm text-gray-700"
+                            >
+                                <input type="checkbox" :value="event.id" v-model="selectedEventIds" />
+                                {{ event.name }}
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="block text-sm font-medium text-gray-700">Type</label>
+                            <button
+                                v-if="selectedTypes.length"
+                                type="button"
+                                @click="selectedTypes = []"
+                                class="text-xs text-indigo-600 hover:underline"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                        <div class="mt-1 flex flex-col gap-1 rounded-md border border-gray-300 p-2">
+                            <label v-for="t in TYPES" :key="t.key" class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" :value="t.key" v-model="selectedTypes" />
+                                {{ t.label }}
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Date</label>
+                        <input type="date" v-model="date" class="mt-1 rounded-md border-gray-300 shadow-sm" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Tickets</label>
+                        <input type="number" min="1" v-model.number="tickets" class="mt-1 w-20 rounded-md border-gray-300 shadow-sm" />
+                    </div>
                 </div>
 
                 <div v-if="themeParkStore.loading.events" class="text-gray-500">Loading events...</div>
-                <div v-else-if="eventsForTab.length === 0" class="text-gray-500">No events in this category.</div>
+                <div v-else-if="themeParkStore.events.length === 0" class="text-gray-500">No events available yet.</div>
+                <div v-else-if="visibleEvents.length === 0" class="text-gray-500">No events match the selected filter.</div>
 
-                <div v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    <router-link
-                        v-for="event in eventsForTab"
-                        :key="event.id"
-                        :to="{ name: 'themepark.event', params: { id: event.id } }"
-                        class="block overflow-hidden rounded-lg bg-white shadow transition hover:shadow-md"
-                    >
-                        <div class="flex h-32 items-center justify-center bg-gray-100 text-gray-400">
-                            <img v-if="event.image_url" :src="event.image_url" :alt="event.name" class="h-full w-full object-cover" />
-                            <span v-else>No image</span>
+                <div v-else class="space-y-8">
+                    <div v-for="event in visibleEvents" :key="event.id" class="rounded-lg bg-white p-6 shadow-sm">
+                        <div class="flex items-start gap-4">
+                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100 text-xs text-gray-400">
+                                <img v-if="event.image_url" :src="event.image_url" :alt="event.name" class="h-full w-full object-cover" />
+                                <span v-else>No image</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-semibold text-gray-900">{{ event.name }}</h3>
+                                        <span class="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-800">
+                                            {{ event.type.replace('_', ' ') }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                                            Tickets
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                :value="ticketCountFor(event)"
+                                                @input="setTicketCount(event, Number($event.target.value))"
+                                                class="w-16 rounded-md border-gray-300 shadow-sm"
+                                            />
+                                        </label>
+                                        <PrimaryButton :disabled="!canBook(event)" @click="addToCart(event)">
+                                            Add to Cart
+                                        </PrimaryButton>
+                                    </div>
+                                </div>
+                                <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ event.description }}</p>
+                                <p class="mt-1 text-xs text-gray-500">
+                                    {{ event.location }} - {{ event.duration_minutes }} min - ${{ event.price_per_ticket }} / ticket
+                                </p>
+                            </div>
                         </div>
-                        <div class="p-4">
-                            <h3 class="font-semibold text-gray-900">{{ event.name }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">{{ event.duration_minutes }} min - {{ event.location }}</p>
-                            <p class="mt-2 text-sm font-medium text-gray-900">${{ event.price_per_ticket }} / ticket</p>
+
+                        <p
+                            v-if="eventMessages[event.id]"
+                            class="mt-4 text-sm"
+                            :class="eventMessages[event.id].type === 'error' ? 'text-red-600' : 'text-green-600'"
+                        >
+                            {{ eventMessages[event.id].text }}
+                            <router-link
+                                v-if="eventMessages[event.id].type === 'success'"
+                                :to="{ name: 'hotels.index' }"
+                                class="font-medium underline"
+                            >
+                                Book a hotel for the stay?
+                            </router-link>
+                        </p>
+
+                        <div class="mt-4">
+                            <div v-if="loadingSlots[event.id]" class="text-sm text-gray-500">Loading time slots...</div>
+                            <div
+                                v-else-if="(slotsByEvent[event.id]?.length ?? 0) === 0"
+                                class="rounded-md bg-gray-50 p-4 text-sm text-gray-500"
+                            >
+                                No time slots available for this date.
+                            </div>
+                            <div v-else class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="slot in slotsByEvent[event.id]"
+                                    :key="slot.id"
+                                    type="button"
+                                    :disabled="slot.available_capacity < 1"
+                                    @click="selectSlot(event, slot)"
+                                    class="rounded-full border px-4 py-2 text-sm"
+                                    :class="[
+                                        selectedSlotIds[event.id] === slot.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-300 text-gray-700',
+                                        slot.available_capacity < 1 ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-50',
+                                    ]"
+                                >
+                                    {{ slot.slot_time }} ({{ slot.available_capacity }} left)
+                                </button>
+                            </div>
                         </div>
-                    </router-link>
+                    </div>
                 </div>
             </div>
         </div>

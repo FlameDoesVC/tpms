@@ -13,6 +13,7 @@ class Ferry extends Model
     protected $fillable = [
         'name',
         'capacity',
+        'price_per_seat',
         'is_active',
     ];
 
@@ -20,6 +21,7 @@ class Ferry extends Model
     {
         return [
             'is_active' => 'boolean',
+            'price_per_seat' => 'decimal:2',
         ];
     }
 

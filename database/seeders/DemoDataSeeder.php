@@ -64,16 +64,20 @@ class DemoDataSeeder extends Seeder
             'total_rooms' => 8,
         ]);
 
+        // Multiple rooms per type so a party bigger than one room can still
+        // book several units of the same type instead of the hotel appearing sold out.
         $rooms = collect();
         foreach ([$sunsetResort, $lagoonInn] as $hotel) {
-            foreach ([['single', 80, 1], ['double', 120, 2], ['suite', 250, 4]] as [$type, $price, $maxGuests]) {
-                $rooms->push(Room::factory()->create([
-                    'hotel_id' => $hotel->id,
-                    'room_number' => strtoupper($type[0]).rand(100, 999),
-                    'type' => $type,
-                    'price_per_night' => $price,
-                    'max_guests' => $maxGuests,
-                ]));
+            foreach ([['single', 'SG', 80, 1, 2], ['double', 'DB', 120, 2, 3], ['suite', 'ST', 250, 4, 2]] as [$type, $prefix, $price, $maxGuests, $count]) {
+                for ($i = 1; $i <= $count; $i++) {
+                    $rooms->push(Room::factory()->create([
+                        'hotel_id' => $hotel->id,
+                        'room_number' => $prefix.$hotel->id.$i,
+                        'type' => $type,
+                        'price_per_night' => $price,
+                        'max_guests' => $maxGuests,
+                    ]));
+                }
             }
         }
 
@@ -96,8 +100,8 @@ class DemoDataSeeder extends Seeder
         ]);
 
         // --- Ferries ---
-        $islandHopper = Ferry::factory()->create(['name' => 'Island Hopper', 'capacity' => 40]);
-        $seaBreeze = Ferry::factory()->create(['name' => 'Sea Breeze', 'capacity' => 25]);
+        $islandHopper = Ferry::factory()->create(['name' => 'Island Hopper', 'capacity' => 40, 'price_per_seat' => 20]);
+        $seaBreeze = Ferry::factory()->create(['name' => 'Sea Breeze', 'capacity' => 25, 'price_per_seat' => 15]);
 
         $schedules = collect();
         foreach ([$islandHopper, $seaBreeze] as $ferry) {
@@ -120,6 +124,8 @@ class DemoDataSeeder extends Seeder
             'booking_id' => $confirmedBooking->id,
             'seat_number' => 1,
             'status' => 'issued',
+            'price' => $ferrySchedule->ferry->price_per_seat,
+            'payment_method' => 'online',
         ]);
 
         // --- Theme park ---

@@ -34,6 +34,13 @@ export const useFerryStore = defineStore('ferry', {
             }
         },
 
+        // Fetches schedules for a date without touching shared `schedules`
+        // state - used where two dates (arrival/departure) are needed at once.
+        async getSchedulesForDate(date) {
+            const { data } = await axios.get('/api/ferry/schedules', { params: { date } });
+            return data;
+        },
+
         async fetchSchedules(date) {
             this.loading.schedules = true;
             this.error.schedules = null;
@@ -47,14 +54,21 @@ export const useFerryStore = defineStore('ferry', {
             }
         },
 
-        async purchaseTicket(scheduleId, bookingId) {
+        async getSeatMap(scheduleId) {
+            const { data } = await axios.get(`/api/ferry/schedules/${scheduleId}/seats`);
+            return data;
+        },
+
+        async purchaseTicket(scheduleId, bookingId, { seatNumbers, paymentMethod, silent = false }) {
             this.loading.purchasing = true;
             this.error.purchasing = null;
             try {
                 const { data } = await axios.post('/api/ferry/tickets', {
                     schedule_id: scheduleId,
                     booking_id: bookingId,
-                });
+                    seat_numbers: seatNumbers,
+                    payment_method: paymentMethod,
+                }, { silent401: silent });
                 return data;
             } catch (e) {
                 this.error.purchasing = e.response?.data?.errors ?? e.response?.data?.message ?? 'Purchase failed.';
@@ -64,10 +78,10 @@ export const useFerryStore = defineStore('ferry', {
             }
         },
 
-        async fetchMyTickets() {
+        async fetchMyTickets({ silent = false } = {}) {
             this.loading.tickets = true;
             try {
-                const { data } = await axios.get('/api/ferry/tickets');
+                const { data } = await axios.get('/api/ferry/tickets', { silent401: silent });
                 this.myTickets = data;
             } finally {
                 this.loading.tickets = false;
