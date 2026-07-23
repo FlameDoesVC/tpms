@@ -144,7 +144,39 @@ class FerryController extends Controller
             ]);
         }
 
+        if ($ticket->status === 'cancelled') {
+            throw ValidationException::withMessages([
+                'status' => 'This ticket has been cancelled.',
+            ]);
+        }
+
         $ticket->update(['status' => 'used']);
+
+        return response()->json($ticket->load(['user', 'schedule.ferry']));
+    }
+
+    public function cancelTicket(Request $request, FerryTicket $ticket): JsonResponse
+    {
+        if (! $request->user()->hasRole('ferry_operator')) {
+            abort(403);
+        }
+
+        if ($ticket->status === 'used') {
+            throw ValidationException::withMessages([
+                'status' => 'This ticket has already been used.',
+            ]);
+        }
+
+        if ($ticket->status === 'cancelled') {
+            throw ValidationException::withMessages([
+                'status' => 'This ticket is already cancelled.',
+            ]);
+        }
+
+        DB::transaction(function () use ($ticket) {
+            FerrySchedule::lockForUpdate()->findOrFail($ticket->schedule_id)->increment('available_seats');
+            $ticket->update(['status' => 'cancelled']);
+        });
 
         return response()->json($ticket->load(['user', 'schedule.ferry']));
     }

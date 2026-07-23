@@ -301,6 +301,54 @@ class FerryTicketTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_ferry_operator_can_cancel_a_ticket_and_seat_is_restored(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 9]);
+        $ticket = FerryTicket::factory()->create(['schedule_id' => $schedule->id, 'status' => 'issued']);
+
+        $response = $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/cancel");
+
+        $response->assertOk()->assertJsonPath('status', 'cancelled');
+        $this->assertEquals(10, $schedule->fresh()->available_seats);
+    }
+
+    public function test_cancelling_an_already_used_ticket_fails(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $ticket = FerryTicket::factory()->create(['status' => 'used']);
+
+        $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/cancel")
+            ->assertUnprocessable();
+    }
+
+    public function test_cancelling_an_already_cancelled_ticket_fails(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $ticket = FerryTicket::factory()->create(['status' => 'cancelled']);
+
+        $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/cancel")
+            ->assertUnprocessable();
+    }
+
+    public function test_validating_a_cancelled_ticket_fails(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $ticket = FerryTicket::factory()->create(['status' => 'cancelled']);
+
+        $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/validate")
+            ->assertUnprocessable();
+    }
+
+    public function test_visitor_cannot_cancel_a_ticket(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $ticket = FerryTicket::factory()->create(['status' => 'issued']);
+
+        $this->actingAs($visitor)->postJson("/api/ferry/tickets/{$ticket->id}/cancel")
+            ->assertForbidden();
+    }
+
     public function test_ferry_operator_can_list_passengers_for_a_schedule(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');

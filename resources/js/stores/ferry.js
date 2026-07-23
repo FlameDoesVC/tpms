@@ -116,6 +116,12 @@ export const useFerryStore = defineStore('ferry', {
             return data;
         },
 
+        async cancelTicket(ticketOrId) {
+            const id = typeof ticketOrId === 'object' ? ticketOrId.id : ticketOrId;
+            const { data } = await axios.post(`/api/ferry/tickets/${id}/cancel`);
+            return data;
+        },
+
         async fetchPassengers(scheduleId) {
             this.loading.passengers = true;
             try {

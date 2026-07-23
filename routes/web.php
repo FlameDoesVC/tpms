@@ -77,6 +77,7 @@ Route::middleware('auth')->group(function () {
         Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
         Route::get('ferry/tickets/{ticket}', [FerryController::class, 'showTicket']);
         Route::post('ferry/tickets/{ticket}/validate', [FerryController::class, 'validateTicket']);
+        Route::post('ferry/tickets/{ticket}/cancel', [FerryController::class, 'cancelTicket']);
 
         Route::post('themepark/events', [ThemeParkController::class, 'store']);
         Route::patch('themepark/events/{event}', [ThemeParkController::class, 'update']);
