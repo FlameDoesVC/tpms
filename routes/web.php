@@ -33,6 +33,7 @@ Route::prefix('api')->group(function () {
     Route::get('themepark/events/popular', [ThemeParkController::class, 'popular']);
     Route::get('themepark/events', [ThemeParkController::class, 'index']);
     Route::get('themepark/events/{event}', [ThemeParkController::class, 'show']);
+    Route::get('themepark/slots', [ThemeParkController::class, 'allSlots']);
     // Read-only slot/capacity view - the theme park browsing page needs this
     // for anonymous guest-checkout visitors too, same as the events list above.
     Route::get('themepark/events/{event}/slots', [ThemeParkController::class, 'slots']);

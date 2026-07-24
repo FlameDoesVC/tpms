@@ -7,6 +7,7 @@ export const useThemeParkStore = defineStore('themepark', {
         popularEvents: [],
         event: null,
         slots: [],
+        templates: [],
         myBookings: [],
         capacityData: [],
         salesReport: [],
@@ -17,12 +18,14 @@ export const useThemeParkStore = defineStore('themepark', {
             bookings: false,
             capacity: false,
             sales: false,
+            templates: false,
         },
         error: {
             events: null,
             event: null,
             booking: null,
             bookings: null,
+            templates: null,
         },
     }),
 
@@ -125,6 +128,64 @@ export const useThemeParkStore = defineStore('themepark', {
             const { data } = await axios.get(`/api/themepark/events/${eventId}/slots`, { params: { date } });
             this.slots = data;
             return data;
+        },
+
+        // All events' slots together, for the staff scheduling calendar.
+        async fetchAllSlots() {
+            this.loading.event = true;
+            try {
+                const { data } = await axios.get('/api/themepark/slots');
+                this.slots = data;
+            } finally {
+                this.loading.event = false;
+            }
+        },
+
+        async updateSlot(id, payload) {
+            const { data } = await axios.patch(`/api/themepark/slots/${id}`, payload);
+            const index = this.slots.findIndex((s) => s.id === id);
+            if (index !== -1) this.slots[index] = data;
+            return data;
+        },
+
+        async cancelSlot(id) {
+            return this.updateSlot(id, { status: 'cancelled' });
+        },
+
+        async uncancelSlot(id) {
+            return this.updateSlot(id, { status: 'scheduled' });
+        },
+
+        async fetchTemplates(eventId) {
+            this.loading.templates = true;
+            this.error.templates = null;
+            try {
+                const { data } = await axios.get('/api/themepark/slot-templates', { params: { event_id: eventId } });
+                this.templates = data;
+            } catch (e) {
+                this.error.templates = e.response?.data?.message ?? 'Failed to load recurring schedules.';
+            } finally {
+                this.loading.templates = false;
+            }
+        },
+
+        async createTemplate(payload) {
+            const { data } = await axios.post('/api/themepark/slot-templates', payload);
+            this.templates.push(data);
+            return data;
+        },
+
+        async updateTemplate(id, payload) {
+            const { data } = await axios.patch(`/api/themepark/slot-templates/${id}`, payload);
+            const index = this.templates.findIndex((t) => t.id === id);
+            if (index !== -1) this.templates[index] = data;
+            return data;
+        },
+
+        async stopTemplate(id) {
+            await axios.delete(`/api/themepark/slot-templates/${id}`);
+            const index = this.templates.findIndex((t) => t.id === id);
+            if (index !== -1) this.templates[index].is_active = false;
         },
 
         async sellTicket(payload) {

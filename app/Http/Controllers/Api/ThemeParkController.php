@@ -103,6 +103,24 @@ class ThemeParkController extends Controller
         return response()->noContent();
     }
 
+    /**
+     * All slots across every event, for the staff scheduling calendar (which
+     * shows every event's slots together, color-coded per event) - unlike
+     * slots(), which scopes to one event for the visitor-facing detail page.
+     */
+    public function allSlots(Request $request): JsonResponse
+    {
+        $validated = $request->validate(['date' => ['nullable', 'date']]);
+
+        $query = EventSlot::query()->with('event');
+
+        if (! empty($validated['date'])) {
+            $query->whereDate('slot_date', $validated['date']);
+        }
+
+        return response()->json($query->orderBy('slot_date')->orderBy('slot_time')->get());
+    }
+
     public function storeSlot(Request $request, ThemeParkEvent $event): JsonResponse
     {
         Gate::authorize('update', $event);
