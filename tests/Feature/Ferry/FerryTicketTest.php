@@ -261,6 +261,7 @@ class FerryTicketTest extends TestCase
             ->assertJsonPath('capacity', 40)
             ->assertJsonPath('price_per_seat', '20.00');
         $this->assertEqualsCanonicalizing([5, 6, 7], $response->json('taken_seats'));
+        $this->assertEqualsCanonicalizing([6, 7], $response->json('boarded_seats'));
     }
 
     public function test_seat_map_is_public(): void

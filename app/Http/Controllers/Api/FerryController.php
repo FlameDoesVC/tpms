@@ -102,10 +102,15 @@ class FerryController extends Controller
             ->whereIn('status', ['pending', 'issued', 'used'])
             ->pluck('seat_number');
 
+        $boardedSeats = $schedule->tickets()
+            ->where('status', 'used')
+            ->pluck('seat_number');
+
         return response()->json([
             'capacity' => $schedule->ferry->capacity,
             'price_per_seat' => $schedule->ferry->price_per_seat,
             'taken_seats' => $takenSeats,
+            'boarded_seats' => $boardedSeats,
         ]);
     }
 

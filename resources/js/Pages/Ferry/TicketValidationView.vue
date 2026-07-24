@@ -68,10 +68,11 @@ watch(selectedScheduleId, refreshBoatSeatMap);
 
 const boatSeatRows = computed(() => (boatSeatMap.value ? computeSeatRows(boatSeatMap.value.capacity) : []));
 
-const boatSeatClass = (seat) =>
-    boatSeatMap.value?.taken_seats?.includes(seat)
-        ? 'bg-gray-300 text-gray-500'
-        : 'bg-white border border-gray-300 text-gray-500';
+const boatSeatClass = (seat) => {
+    if (boatSeatMap.value?.boarded_seats?.includes(seat)) return 'bg-black text-white';
+    if (boatSeatMap.value?.taken_seats?.includes(seat)) return 'bg-gray-300 text-gray-500';
+    return 'bg-white border border-gray-300 text-gray-500';
+};
 
 const ticketIdInput = ref('');
 const ticket = ref(null);
@@ -429,6 +430,11 @@ const markTicketUsed = async (t) => {
                             <div v-if="loadingBoatSeatMap" class="mt-2 text-sm text-gray-500">Loading seat map...</div>
                             <div v-else-if="boatSeatMap" class="mt-2 rounded-lg bg-gray-50 p-3">
                                 <FerrySeatGrid :rows="boatSeatRows" :seat-class="boatSeatClass" />
+                                <div class="mt-2 flex justify-center gap-3 text-[11px] text-gray-500">
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-black"></span> Boarded</span>
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-gray-300"></span> Taken</span>
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-gray-300 bg-white"></span> Available</span>
+                                </div>
                                 <p class="mt-2 text-center text-xs text-gray-500">
                                     {{ boatSeatMap.taken_seats.length }} of {{ boatSeatMap.capacity }} seats taken
                                 </p>
@@ -583,7 +589,7 @@ const markTicketUsed = async (t) => {
                                         <input type="radio" v-model="newPaymentMethod" value="cash" /> Cash
                                     </label>
                                     <label class="flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" v-model="newPaymentMethod" value="online" /> Already paid online
+                                        <input type="radio" v-model="newPaymentMethod" value="online" /> Card
                                     </label>
                                 </div>
 
