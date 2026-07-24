@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Ferry;
 
+use App\Models\EventSlot;
+use App\Models\EventSlotTemplate;
 use App\Models\FerrySchedule;
 use App\Models\FerryScheduleTemplate;
 use Carbon\Carbon;
@@ -40,9 +42,15 @@ class GenerateSchedulesCommandTest extends TestCase
 
         $template->update(['departure_time' => '11:00:00']);
 
+        $eventTemplate = EventSlotTemplate::factory()->create([
+            'frequency' => 'daily',
+            'starts_on' => '2026-08-01',
+        ]);
+
         $this->artisan('schedules:generate')->assertExitCode(0);
 
         $this->assertSame(61, FerrySchedule::where('template_id', $template->id)->count());
         $this->assertSame('11:00:00', $instance->fresh()->departure_time);
+        $this->assertSame(61, EventSlot::where('template_id', $eventTemplate->id)->count());
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\EventSlotTemplateController;
 use App\Http\Controllers\Api\FerryController;
 use App\Http\Controllers\Api\FerryScheduleTemplateController;
 use App\Http\Controllers\Api\GuestController;
@@ -91,6 +92,13 @@ Route::middleware('auth')->group(function () {
         Route::patch('themepark/events/{event}', [ThemeParkController::class, 'update']);
         Route::delete('themepark/events/{event}', [ThemeParkController::class, 'destroy']);
         Route::post('themepark/events/{event}/slots', [ThemeParkController::class, 'storeSlot']);
+        Route::patch('themepark/slots/{slot}', [ThemeParkController::class, 'updateSlot']);
+        Route::delete('themepark/slots/{slot}', [ThemeParkController::class, 'destroySlot']);
+
+        Route::get('themepark/slot-templates', [EventSlotTemplateController::class, 'index']);
+        Route::post('themepark/slot-templates', [EventSlotTemplateController::class, 'store']);
+        Route::patch('themepark/slot-templates/{slotTemplate}', [EventSlotTemplateController::class, 'update']);
+        Route::delete('themepark/slot-templates/{slotTemplate}', [EventSlotTemplateController::class, 'destroy']);
 
         Route::get('themepark/bookings', [ThemeParkController::class, 'myBookings']);
         Route::delete('themepark/bookings/{booking}', [ThemeParkController::class, 'cancelBooking']);
