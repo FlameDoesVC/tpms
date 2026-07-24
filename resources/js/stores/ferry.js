@@ -108,6 +108,10 @@ export const useFerryStore = defineStore('ferry', {
             return this.updateSchedule(id, { status: 'cancelled' });
         },
 
+        async uncancelSchedule(id) {
+            return this.updateSchedule(id, { status: 'scheduled' });
+        },
+
         async lookupTicket(id) {
             const { data } = await axios.get(`/api/ferry/tickets/${id}`);
             return data;
