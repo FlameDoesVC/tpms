@@ -5,11 +5,13 @@ export const useFerryStore = defineStore('ferry', {
     state: () => ({
         ferries: [],
         schedules: [],
+        templates: [],
         myTickets: [],
         passengers: [],
         loading: {
             ferries: false,
             schedules: false,
+            templates: false,
             tickets: false,
             purchasing: false,
             passengers: false,
@@ -17,6 +19,7 @@ export const useFerryStore = defineStore('ferry', {
         error: {
             ferries: null,
             schedules: null,
+            templates: null,
             tickets: null,
             purchasing: null,
             passengers: null,
@@ -141,6 +144,40 @@ export const useFerryStore = defineStore('ferry', {
                 payment_method: paymentMethod,
             });
             return data;
+        },
+
+        async fetchTemplates(ferryId) {
+            this.loading.templates = true;
+            this.error.templates = null;
+            try {
+                const { data } = await axios.get('/api/ferry/schedule-templates', { params: { ferry_id: ferryId } });
+                this.templates = data;
+            } catch (e) {
+                this.error.templates = e.response?.data?.message ?? 'Failed to load recurring schedules.';
+            } finally {
+                this.loading.templates = false;
+            }
+        },
+
+        async createTemplate(payload) {
+            const { data } = await axios.post('/api/ferry/schedule-templates', payload);
+            this.templates.push(data);
+            await this.fetchSchedules();
+            return data;
+        },
+
+        async updateTemplate(id, payload) {
+            const { data } = await axios.patch(`/api/ferry/schedule-templates/${id}`, payload);
+            const index = this.templates.findIndex((t) => t.id === id);
+            if (index !== -1) this.templates[index] = data;
+            await this.fetchSchedules();
+            return data;
+        },
+
+        async stopTemplate(id) {
+            await axios.delete(`/api/ferry/schedule-templates/${id}`);
+            const index = this.templates.findIndex((t) => t.id === id);
+            if (index !== -1) this.templates[index].is_active = false;
         },
 
         async fetchPassengers(scheduleId) {
