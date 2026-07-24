@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\FerryController;
+use App\Http\Controllers\Api\FerryScheduleTemplateController;
 use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\HotelController;
 use App\Http\Controllers\Api\RoomController;
@@ -73,6 +74,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('ferry/schedules/{schedule}', [FerryController::class, 'destroySchedule']);
         Route::get('ferry/schedules/{schedule}/passengers', [FerryController::class, 'passengers']);
         Route::get('ferry/bookings/{booking}/party', [FerryController::class, 'partyStatus']);
+
+        Route::get('ferry/schedule-templates', [FerryScheduleTemplateController::class, 'index']);
+        Route::post('ferry/schedule-templates', [FerryScheduleTemplateController::class, 'store']);
+        Route::patch('ferry/schedule-templates/{scheduleTemplate}', [FerryScheduleTemplateController::class, 'update']);
+        Route::delete('ferry/schedule-templates/{scheduleTemplate}', [FerryScheduleTemplateController::class, 'destroy']);
 
         Route::get('ferry/tickets', [FerryController::class, 'myTickets']);
         Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
