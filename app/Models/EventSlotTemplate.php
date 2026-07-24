@@ -7,25 +7,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class EventSlot extends Model
+class EventSlotTemplate extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'event_id',
-        'template_id',
-        'slot_date',
+        'frequency',
+        'weekdays',
+        'day_of_month',
         'slot_time',
         'available_capacity',
-        'status',
-        'is_overridden',
+        'starts_on',
+        'ends_on',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'slot_date' => 'date',
-            'is_overridden' => 'boolean',
+            'weekdays' => 'array',
+            'starts_on' => 'date',
+            'ends_on' => 'date',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -34,13 +38,8 @@ class EventSlot extends Model
         return $this->belongsTo(ThemeParkEvent::class, 'event_id');
     }
 
-    public function template(): BelongsTo
+    public function instances(): HasMany
     {
-        return $this->belongsTo(EventSlotTemplate::class, 'template_id');
-    }
-
-    public function bookings(): HasMany
-    {
-        return $this->hasMany(EventBooking::class, 'event_slot_id');
+        return $this->hasMany(EventSlot::class, 'template_id');
     }
 }

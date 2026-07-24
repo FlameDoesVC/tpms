@@ -36,6 +36,11 @@ class ThemeParkEvent extends Model
         return $this->hasMany(EventSlot::class, 'event_id');
     }
 
+    public function slotTemplates(): HasMany
+    {
+        return $this->hasMany(EventSlotTemplate::class, 'event_id');
+    }
+
     public function bookings(): HasManyThrough
     {
         return $this->hasManyThrough(EventBooking::class, EventSlot::class, 'event_id', 'event_slot_id');
