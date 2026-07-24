@@ -519,7 +519,24 @@ const markTicketUsed = async (t) => {
                                 {{ party.booking.room?.type }} room -
                                 {{ party.booking.check_in_date?.slice(0, 10) }} to {{ party.booking.check_out_date?.slice(0, 10) }}
                             </p>
-                            <p class="text-gray-500">{{ party.booking.reference_code }}</p>
+                            <p class="text-gray-500">
+                                {{ party.booking.reference_code }}
+                                <span
+                                    class="ml-1 rounded px-1.5 py-0.5 text-xs font-medium capitalize"
+                                    :class="{
+                                        'bg-emerald-100 text-emerald-800': party.booking.status === 'confirmed',
+                                        'bg-amber-100 text-amber-800': party.booking.status === 'pending',
+                                        'bg-red-100 text-red-700': party.booking.status === 'cancelled',
+                                    }"
+                                >
+                                    {{ party.booking.status }}
+                                </span>
+                            </p>
+                        </div>
+
+                        <div v-if="party.booking.status !== 'confirmed'" class="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                            This booking is {{ party.booking.status }}, not confirmed - walk-up ticket purchases will be
+                            rejected until the hotel booking itself is confirmed.
                         </div>
 
                         <div v-if="showingFallback" class="mt-3 rounded-md bg-red-100 p-3 text-sm font-medium text-red-800">
