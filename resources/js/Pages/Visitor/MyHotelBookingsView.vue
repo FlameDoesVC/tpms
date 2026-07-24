@@ -1,14 +1,27 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import QRCode from 'qrcode';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useHotelStore } from '@/stores/hotel';
 
 const router = useRouter();
 const hotelStore = useHotelStore();
 const selected = ref([]);
+const qrCodes = reactive({});
+const revealedIds = reactive(new Set());
 
 onMounted(() => hotelStore.fetchMyBookings());
+
+// Lets a ferry operator scan this booking at the gate to see the whole
+// party's ferry status - not rendered until asked for, same as ferry
+// tickets' QR codes, since most bookings are never actually scanned.
+const revealQr = async (booking) => {
+    if (!qrCodes[booking.id]) {
+        qrCodes[booking.id] = await QRCode.toDataURL(booking.reference_code);
+    }
+    revealedIds.add(booking.id);
+};
 
 // Cancelled bookings sink to the bottom rather than cluttering the top of the list.
 const sortedBookings = computed(() =>
@@ -100,6 +113,27 @@ const cancelSelected = async () => {
                     >
                         <div class="flex items-center gap-3">
                             <input v-if="booking.status !== 'cancelled'" type="checkbox" :value="booking.id" v-model="selected" />
+
+                            <div v-if="booking.status === 'confirmed'">
+                                <div v-if="revealedIds.has(booking.id) && qrCodes[booking.id]" class="flex flex-col items-center gap-1">
+                                    <img :src="qrCodes[booking.id]" alt="Booking QR code" class="h-14 w-14" />
+                                </div>
+                                <button
+                                    v-else
+                                    type="button"
+                                    @click="revealQr(booking)"
+                                    class="flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5">
+                                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                                        <path stroke-linecap="round" d="M14 14h3m4 0h.01M14 18h.01M18 18h3M14 21h7" />
+                                    </svg>
+                                    <span class="text-[10px] font-medium">QR</span>
+                                </button>
+                            </div>
+
                             <div>
                                 <p class="font-semibold text-gray-900">{{ booking.room?.hotel?.name }}</p>
                                 <p class="text-sm text-gray-500">

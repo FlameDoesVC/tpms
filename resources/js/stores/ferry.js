@@ -122,6 +122,27 @@ export const useFerryStore = defineStore('ferry', {
             return data;
         },
 
+        async getPartyStatus(bookingId, scheduleId) {
+            const { data } = await axios.get(`/api/ferry/bookings/${bookingId}/party`, {
+                params: { schedule_id: scheduleId },
+            });
+            return data;
+        },
+
+        // Staff selling a walk-up ticket at the gate on a visitor's behalf -
+        // the caller isn't the ticket's owner, so this can't reuse
+        // purchaseTicket (which posts to the visitor self-service endpoint
+        // and would fail its ownership check).
+        async issueWalkupTicket(scheduleId, bookingId, { seatNumbers, paymentMethod }) {
+            const { data } = await axios.post('/api/ferry/tickets/walkup', {
+                schedule_id: scheduleId,
+                booking_id: bookingId,
+                seat_numbers: seatNumbers,
+                payment_method: paymentMethod,
+            });
+            return data;
+        },
+
         async fetchPassengers(scheduleId) {
             this.loading.passengers = true;
             try {

@@ -140,7 +140,29 @@ class FerryTicketTest extends TestCase
         $this->assertCount(3, $response->json());
     }
 
-    public function test_purchase_fails_when_party_already_has_a_ticket_for_the_schedule(): void
+    public function test_purchase_succeeds_topping_up_remaining_party_capacity_for_the_date(): void
+    {
+        // A party can top up across more than one purchase - e.g. some of
+        // the party booked online ahead of time and the rest pay cash
+        // walking up to the gate. This must succeed as long as the total
+        // issued for the date still fits the party's headcount.
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 10]);
+        FerryTicket::factory()->create(['booking_id' => $booking->id, 'schedule_id' => $schedule->id, 'seat_number' => 1]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [2],
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertCreated();
+        $this->assertCount(1, $response->json());
+    }
+
+    public function test_purchase_fails_when_topping_up_would_exceed_remaining_capacity_for_the_date(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
@@ -150,16 +172,17 @@ class FerryTicketTest extends TestCase
         $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
             'schedule_id' => $schedule->id,
             'booking_id' => $booking->id,
-            'seat_numbers' => [2],
+            'seat_numbers' => [2, 3],
             'payment_method' => 'online',
         ])->assertUnprocessable();
     }
 
-    public function test_purchase_fails_for_a_different_ferry_on_the_same_date_as_an_existing_ticket(): void
+    public function test_purchase_fails_for_a_different_ferry_on_the_same_date_once_party_capacity_is_used_up(): void
     {
-        // A party makes one trip per leg - having a ticket on ANY ferry
-        // departing on this date blocks booking a DIFFERENT boat that same
-        // day too, not just re-booking the exact same schedule.
+        // A party makes one trip per leg - remaining capacity is tracked per
+        // DATE, not per exact schedule, so a party that already used up its
+        // whole headcount on one boat can't also book a different boat the
+        // same day.
         $visitor = User::factory()->create()->assignRole('visitor');
         $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 1]);
         $bookedSchedule = FerrySchedule::factory()->create(['departure_date' => '2026-09-01', 'available_seats' => 10]);
@@ -174,12 +197,12 @@ class FerryTicketTest extends TestCase
         ])->assertUnprocessable();
     }
 
-    public function test_purchase_fails_when_a_sibling_room_in_the_party_already_has_a_ticket_for_the_schedule(): void
+    public function test_purchase_sums_remaining_capacity_across_a_sibling_room_in_the_party(): void
     {
-        // The double-booking guard must look at the whole party, not just
-        // the one booking row a ferry ticket happens to reference - a
+        // Remaining capacity must be computed across the WHOLE party, not
+        // just the one booking row a ferry ticket happens to reference - a
         // 2-room purchase shares one party, so a ticket already issued
-        // against room A blocks a second purchase referencing room B.
+        // against room A counts against room B's remaining capacity too.
         $visitor = User::factory()->create()->assignRole('visitor');
         $anchor = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 1]);
         $sibling = Booking::factory()->create([
@@ -194,9 +217,18 @@ class FerryTicketTest extends TestCase
         $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
             'schedule_id' => $schedule->id,
             'booking_id' => $sibling->id,
-            'seat_numbers' => [2],
+            'seat_numbers' => [2, 3],
             'payment_method' => 'online',
         ])->assertUnprocessable();
+
+        $response = $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $sibling->id,
+            'seat_numbers' => [2],
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertCreated();
     }
 
     public function test_purchase_fails_when_a_selected_seat_is_already_taken(): void
@@ -346,6 +378,115 @@ class FerryTicketTest extends TestCase
         $ticket = FerryTicket::factory()->create(['status' => 'issued']);
 
         $this->actingAs($visitor)->postJson("/api/ferry/tickets/{$ticket->id}/cancel")
+            ->assertForbidden();
+    }
+
+    public function test_ferry_operator_can_view_party_status_for_a_scanned_hotel_booking(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $anchor = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $sibling = Booking::factory()->create([
+            'user_id' => $visitor->id,
+            'status' => 'confirmed',
+            'guests_count' => 1,
+            'group_booking_id' => $anchor->id,
+        ]);
+        $schedule = FerrySchedule::factory()->create(['departure_date' => '2026-09-01', 'available_seats' => 10]);
+        FerryTicket::factory()->create(['booking_id' => $anchor->id, 'schedule_id' => $schedule->id, 'seat_number' => 1]);
+        FerryTicket::factory()->create(['booking_id' => $sibling->id, 'schedule_id' => $schedule->id, 'seat_number' => 2]);
+
+        // Scanning the SIBLING room's booking must still surface the whole
+        // party's tickets, including the one issued against the anchor room.
+        $response = $this->actingAs($operator)->getJson(
+            "/api/ferry/bookings/{$sibling->id}/party?schedule_id={$schedule->id}"
+        );
+
+        $response->assertOk();
+        $this->assertEquals(3, $response->json('party_guests_count'));
+        $this->assertCount(2, $response->json('tickets'));
+        $this->assertEquals(1, $response->json('remaining_seats'));
+    }
+
+    public function test_ferry_operator_can_issue_a_walkup_ticket_on_a_visitors_behalf(): void
+    {
+        // The operator is NOT the booking's owner - issueTicket (the
+        // visitor self-service endpoint) would reject this on an ownership
+        // mismatch, which is exactly why the walkup endpoint exists.
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
+        $schedule = FerrySchedule::factory()->create(['ferry_id' => $ferry->id, 'available_seats' => 10]);
+
+        $response = $this->actingAs($operator)->postJson('/api/ferry/tickets/walkup', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [1, 2],
+            'payment_method' => 'cash',
+        ]);
+
+        $response->assertCreated();
+        $this->assertCount(2, $response->json());
+        $this->assertDatabaseHas('ferry_tickets', ['user_id' => $visitor->id, 'booking_id' => $booking->id, 'seat_number' => 1]);
+    }
+
+    public function test_visitor_cannot_issue_a_walkup_ticket(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 1]);
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 10]);
+
+        $this->actingAs($visitor)->postJson('/api/ferry/tickets/walkup', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [1],
+            'payment_method' => 'cash',
+        ])->assertForbidden();
+    }
+
+    public function test_walkup_ticket_still_respects_remaining_party_capacity(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 1]);
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 10]);
+        FerryTicket::factory()->create(['booking_id' => $booking->id, 'schedule_id' => $schedule->id, 'seat_number' => 1]);
+
+        $this->actingAs($operator)->postJson('/api/ferry/tickets/walkup', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [2],
+            'payment_method' => 'cash',
+        ])->assertUnprocessable();
+    }
+
+    public function test_party_status_excludes_tickets_from_a_different_date(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $arrivalSchedule = FerrySchedule::factory()->create(['departure_date' => '2026-09-01', 'available_seats' => 10]);
+        $departureSchedule = FerrySchedule::factory()->create(['departure_date' => '2026-09-03', 'available_seats' => 10]);
+        FerryTicket::factory()->create(['booking_id' => $booking->id, 'schedule_id' => $arrivalSchedule->id, 'seat_number' => 1]);
+        FerryTicket::factory()->create(['booking_id' => $booking->id, 'schedule_id' => $departureSchedule->id, 'seat_number' => 1]);
+
+        $response = $this->actingAs($operator)->getJson(
+            "/api/ferry/bookings/{$booking->id}/party?schedule_id={$arrivalSchedule->id}"
+        );
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('tickets'));
+        $this->assertEquals(1, $response->json('remaining_seats'));
+    }
+
+    public function test_visitor_cannot_view_party_status(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 1]);
+        $schedule = FerrySchedule::factory()->create();
+
+        $this->actingAs($visitor)->getJson("/api/ferry/bookings/{$booking->id}/party?schedule_id={$schedule->id}")
             ->assertForbidden();
     }
 

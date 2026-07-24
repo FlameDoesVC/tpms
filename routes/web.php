@@ -72,9 +72,11 @@ Route::middleware('auth')->group(function () {
         Route::patch('ferry/schedules/{schedule}', [FerryController::class, 'updateSchedule']);
         Route::delete('ferry/schedules/{schedule}', [FerryController::class, 'destroySchedule']);
         Route::get('ferry/schedules/{schedule}/passengers', [FerryController::class, 'passengers']);
+        Route::get('ferry/bookings/{booking}/party', [FerryController::class, 'partyStatus']);
 
         Route::get('ferry/tickets', [FerryController::class, 'myTickets']);
         Route::post('ferry/tickets', [FerryController::class, 'issueTicket']);
+        Route::post('ferry/tickets/walkup', [FerryController::class, 'issueWalkupTicket']);
         Route::get('ferry/tickets/{ticket}', [FerryController::class, 'showTicket']);
         Route::post('ferry/tickets/{ticket}/validate', [FerryController::class, 'validateTicket']);
         Route::post('ferry/tickets/{ticket}/cancel', [FerryController::class, 'cancelTicket']);

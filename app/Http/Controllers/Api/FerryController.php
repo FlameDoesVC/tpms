@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\Ferry;
 use App\Models\FerrySchedule;
 use App\Models\FerryTicket;
@@ -113,6 +114,32 @@ class FerryController extends Controller
         return response()->json($tickets, 201);
     }
 
+    /**
+     * A ferry_operator selling a walk-up (cash) ticket at the gate on a
+     * visitor's behalf - unlike issueTicket, the caller isn't the ticket's
+     * owner, so the booking's own user_id is passed through instead of the
+     * operator's.
+     */
+    public function issueWalkupTicket(Request $request): JsonResponse
+    {
+        if (! $request->user()->hasRole('ferry_operator')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'schedule_id' => ['required', 'exists:ferry_schedules,id'],
+            'booking_id' => ['required', 'exists:bookings,id'],
+            'seat_numbers' => ['required', 'array', 'min:1'],
+            'seat_numbers.*' => ['integer', 'min:1', 'distinct'],
+            'payment_method' => ['required', 'in:online,cash'],
+        ]);
+
+        $booking = Booking::findOrFail($validated['booking_id']);
+        $tickets = DB::transaction(fn () => $this->tickets->issue($booking->user_id, $validated));
+
+        return response()->json($tickets, 201);
+    }
+
     public function myTickets(Request $request): JsonResponse
     {
         $tickets = FerryTicket::query()
@@ -179,6 +206,42 @@ class FerryController extends Controller
         });
 
         return response()->json($ticket->load(['user', 'schedule.ferry']));
+    }
+
+    /**
+     * Ties a scanned hotel booking to the whole party's ferry status for one
+     * date - a multi-room purchase splits into several booking rows sharing
+     * one party (see Booking::partyBookingIds()), so scanning ANY one of
+     * them surfaces every ticket already issued to the group for that date,
+     * plus how many seats are still unaccounted for (e.g. some of the party
+     * paying cash walking up to the gate rather than booking ahead).
+     */
+    public function partyStatus(Request $request, Booking $booking): JsonResponse
+    {
+        if (! $request->user()->hasRole('ferry_operator')) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'schedule_id' => ['required', 'exists:ferry_schedules,id'],
+        ]);
+
+        $schedule = FerrySchedule::findOrFail($validated['schedule_id']);
+        $partyBookingIds = $booking->partyBookingIds();
+        $partyGuestsCount = $booking->partyGuestsCount();
+
+        $tickets = FerryTicket::whereIn('booking_id', $partyBookingIds)
+            ->whereHas('schedule', fn ($query) => $query->whereDate('departure_date', $schedule->departure_date))
+            ->whereIn('status', ['pending', 'issued', 'used'])
+            ->with(['user', 'schedule.ferry', 'booking'])
+            ->get();
+
+        return response()->json([
+            'booking' => $booking->load('room.hotel'),
+            'party_guests_count' => $partyGuestsCount,
+            'tickets' => $tickets,
+            'remaining_seats' => max(0, $partyGuestsCount - $tickets->count()),
+        ]);
     }
 
     public function passengers(Request $request, FerrySchedule $schedule): JsonResponse
