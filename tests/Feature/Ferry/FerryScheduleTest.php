@@ -4,6 +4,7 @@ namespace Tests\Feature\Ferry;
 
 use App\Models\Ferry;
 use App\Models\FerrySchedule;
+use App\Models\FerryScheduleTemplate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -87,5 +88,42 @@ class FerryScheduleTest extends TestCase
             ->assertNoContent();
 
         $this->assertDatabaseMissing('ferry_schedules', ['id' => $schedule->id]);
+    }
+
+    public function test_updating_a_template_generated_schedule_marks_it_overridden(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $template = FerryScheduleTemplate::factory()->create();
+        $schedule = FerrySchedule::factory()->create(['ferry_id' => $template->ferry_id, 'template_id' => $template->id]);
+
+        $response = $this->actingAs($operator)->patchJson("/api/ferry/schedules/{$schedule->id}", [
+            'status' => 'cancelled',
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', 'cancelled')->assertJsonPath('is_overridden', true);
+    }
+
+    public function test_updating_a_manual_schedule_does_not_mark_it_overridden(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $schedule = FerrySchedule::factory()->create();
+
+        $response = $this->actingAs($operator)->patchJson("/api/ferry/schedules/{$schedule->id}", [
+            'status' => 'cancelled',
+        ]);
+
+        $response->assertOk()->assertJsonPath('is_overridden', false);
+    }
+
+    public function test_deleting_a_template_generated_schedule_is_rejected(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        $template = FerryScheduleTemplate::factory()->create();
+        $schedule = FerrySchedule::factory()->create(['ferry_id' => $template->ferry_id, 'template_id' => $template->id]);
+
+        $this->actingAs($operator)->deleteJson("/api/ferry/schedules/{$schedule->id}")
+            ->assertUnprocessable();
+
+        $this->assertDatabaseHas('ferry_schedules', ['id' => $schedule->id]);
     }
 }
