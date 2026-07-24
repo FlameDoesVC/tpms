@@ -396,12 +396,18 @@ const markTicketUsed = async (t) => {
                     <div v-else-if="dateSchedules.length === 0" class="mt-1 text-sm text-gray-500">
                         No departures scheduled for this date.
                     </div>
-                    <select v-else v-model="selectedScheduleId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="" disabled>Select the departure you're checking passengers in for</option>
-                        <option v-for="schedule in dateSchedules" :key="schedule.id" :value="schedule.id">
-                            {{ schedule.ferry?.name }} - {{ schedule.departure_time }}
-                        </option>
-                    </select>
+                    <div v-else class="mt-2 space-y-2">
+                        <label
+                            v-for="schedule in dateSchedules"
+                            :key="schedule.id"
+                            class="flex items-center gap-2 rounded-md border p-3 text-sm"
+                            :class="Number(selectedScheduleId) === schedule.id ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200'"
+                        >
+                            <input type="radio" :value="schedule.id" v-model="selectedScheduleId" />
+                            <span class="font-medium text-gray-900">{{ schedule.ferry?.name }}</span>
+                            <span class="text-gray-500">- {{ schedule.departure_time }}</span>
+                        </label>
+                    </div>
                 </div>
 
                 <template v-else>
