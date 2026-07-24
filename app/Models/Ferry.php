@@ -29,4 +29,9 @@ class Ferry extends Model
     {
         return $this->hasMany(FerrySchedule::class);
     }
+
+    public function scheduleTemplates(): HasMany
+    {
+        return $this->hasMany(FerryScheduleTemplate::class);
+    }
 }

@@ -7,26 +7,30 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class FerrySchedule extends Model
+class FerryScheduleTemplate extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'ferry_id',
-        'template_id',
-        'departure_date',
+        'frequency',
+        'weekdays',
+        'day_of_month',
         'departure_time',
         'arrival_time',
         'available_seats',
-        'status',
-        'is_overridden',
+        'starts_on',
+        'ends_on',
+        'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'departure_date' => 'date',
-            'is_overridden' => 'boolean',
+            'weekdays' => 'array',
+            'starts_on' => 'date',
+            'ends_on' => 'date',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -35,13 +39,8 @@ class FerrySchedule extends Model
         return $this->belongsTo(Ferry::class);
     }
 
-    public function template(): BelongsTo
+    public function instances(): HasMany
     {
-        return $this->belongsTo(FerryScheduleTemplate::class, 'template_id');
-    }
-
-    public function tickets(): HasMany
-    {
-        return $this->hasMany(FerryTicket::class, 'schedule_id');
+        return $this->hasMany(FerrySchedule::class, 'template_id');
     }
 }
