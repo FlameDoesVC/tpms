@@ -146,6 +146,37 @@
   ::placeholder {
     color: rgb(var(--color-text-muted));
   }
+
+  /* Custom scrollbar, theme-aware via the same CSS vars as everything else.
+     `scrollbar-color`/`-width` are inherited properties, so setting them once
+     on `html` covers every scroll container in the app — the sidebar nav, the
+     TSelect/TTimePicker popovers, MonthCalendar — with no per-component CSS. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--color-border-strong)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--color-border-strong));
+    border-radius: 9999px;
+    /* Padding-box clip shrinks the visible thumb inside the track, so it
+       reads as a slim floating pill rather than a wall-to-wall bar. */
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--color-text-muted));
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @layer components {

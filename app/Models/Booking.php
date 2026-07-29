@@ -26,7 +26,7 @@ class Booking extends Model
 
     protected function referenceCode(): Attribute
     {
-        return Attribute::get(fn () => sprintf('LSJ-B%04d', $this->id));
+        return Attribute::get(fn () => sprintf('VFN-B%04d', $this->id));
     }
 
     protected function casts(): array

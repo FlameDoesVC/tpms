@@ -6,6 +6,7 @@ import TIcon from '@/Components/ui/TIcon.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import QrCameraScanner from '@/Components/QrCameraScanner.vue';
 import FerrySeatGrid from '@/Components/FerrySeatGrid.vue';
 import { useFerryStore } from '@/stores/ferry';
@@ -100,13 +101,13 @@ const resolveLegDirection = (booking, schedule) => {
     return null;
 };
 
-// A scanned/typed code identifies either a ferry ticket (LSJ-T####) or a
-// hotel booking (LSJ-B####) - the reference code's own letter says which,
+// A scanned/typed code identifies either a ferry ticket (VFN-T####) or a
+// hotel booking (VFN-B####) - the reference code's own letter says which,
 // so the same camera/input handles both without a separate mode switch.
 // A bare number (no prefix) falls back to the old behavior of being a ticket id.
 const parseScan = (raw) => {
     const text = raw.trim();
-    const prefixed = text.match(/LSJ-([A-Z])(\d+)/i);
+    const prefixed = text.match(/VFN-([A-Z])(\d+)/i);
     if (prefixed) {
         return { type: prefixed[1].toUpperCase() === 'B' ? 'booking' : 'ticket', id: parseInt(prefixed[2], 10) };
     }
@@ -394,12 +395,7 @@ const markTicketUsed = async (t) => {
 
         <div class="mx-auto max-w-lg space-y-6">
             <div v-if="!selectedSchedule" class="elevated rounded-xl border bg-surface p-4">
-                <label class="block text-sm font-medium text-foreground-secondary">Date</label>
-                <input
-                    type="date"
-                    v-model="scheduleDate"
-                    class="mt-1 block w-full rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+                <TDatePicker v-model="scheduleDate" label="Date" />
 
                 <label class="mt-3 block text-sm font-medium text-foreground-secondary">Departure</label>
                 <div v-if="loadingSchedules" class="mt-1 text-sm text-foreground-muted">Loading departures...</div>
@@ -435,7 +431,7 @@ const markTicketUsed = async (t) => {
                     <form @submit.prevent="lookupManually" class="mt-3 flex items-start gap-2">
                         <TInput
                             v-model="ticketIdInput"
-                            placeholder="Scan a ticket (LSJ-T0012) or a hotel booking (LSJ-B0007)"
+                            placeholder="Scan a ticket (VFN-T0012) or a hotel booking (VFN-B0007)"
                             class="flex-1"
                         />
                         <TButton type="submit">

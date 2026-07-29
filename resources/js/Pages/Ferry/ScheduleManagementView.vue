@@ -8,6 +8,9 @@ import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
+import TTimePicker from '@/Components/ui/TTimePicker.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
@@ -281,28 +284,25 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                         :error="errors.ferry_id?.[0]"
                     />
 
-                    <TInput
+                    <TDatePicker
                         id="departure_date"
                         v-model="form.departure_date"
                         label="Date"
-                        type="date"
                         :error="errors.departure_date?.[0]"
                     />
 
                     <div class="flex gap-4">
-                        <TInput
+                        <TTimePicker
                             id="departure_time"
                             v-model="form.departure_time"
                             label="Departure"
-                            type="time"
                             class="flex-1"
                             :error="errors.departure_time?.[0]"
                         />
-                        <TInput
+                        <TTimePicker
                             id="arrival_time"
                             v-model="form.arrival_time"
                             label="Arrival"
-                            type="time"
                             class="flex-1"
                             :error="errors.arrival_time?.[0]"
                         />
@@ -345,60 +345,55 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                         <p v-if="errors.weekdays?.[0]" class="mt-1.5 text-sm text-danger">{{ errors.weekdays[0] }}</p>
                     </div>
 
-                    <TInput
+                    <TNumberInput
                         v-if="recurringForm.frequency === 'monthly'"
                         id="day_of_month"
                         v-model="recurringForm.day_of_month"
                         label="Day of month"
-                        type="number"
-                        min="1"
-                        max="31"
+                        :min="1"
+                        :max="31"
                         :error="errors.day_of_month?.[0]"
                     />
 
                     <div class="flex gap-4">
-                        <TInput
+                        <TTimePicker
                             id="r_departure_time"
                             v-model="recurringForm.departure_time"
                             label="Departure"
-                            type="time"
                             class="flex-1"
                             :error="errors.departure_time?.[0]"
                         />
-                        <TInput
+                        <TTimePicker
                             id="r_arrival_time"
                             v-model="recurringForm.arrival_time"
                             label="Arrival"
-                            type="time"
                             class="flex-1"
                             :error="errors.arrival_time?.[0]"
                         />
                     </div>
 
-                    <TInput
+                    <TNumberInput
                         id="available_seats"
                         v-model="recurringForm.available_seats"
                         label="Seats"
-                        type="number"
-                        min="1"
+                        :min="1"
                         :error="errors.available_seats?.[0]"
                     />
 
                     <div class="flex gap-4">
-                        <TInput
+                        <TDatePicker
                             id="starts_on"
                             v-model="recurringForm.starts_on"
                             label="Starts on"
-                            type="date"
                             class="flex-1"
                             :error="errors.starts_on?.[0]"
                         />
-                        <TInput
+                        <TDatePicker
                             id="ends_on"
                             v-model="recurringForm.ends_on"
                             label="Ends on (optional)"
-                            type="date"
                             class="flex-1"
+                            :clearable="true"
                             :error="errors.ends_on?.[0]"
                         />
                     </div>

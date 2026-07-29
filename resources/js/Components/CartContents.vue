@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/stores/cart';
 import TButton from '@/Components/ui/TButton.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 
 defineEmits(['navigated']);
 
@@ -44,16 +45,14 @@ const updateTicketCount = (item, value) => {
                 <template v-else>
                     <p class="font-medium text-foreground">{{ item.eventName }}</p>
                     <p class="text-xs text-foreground-muted">{{ item.slotDate }} at {{ item.slotTime }}</p>
-                    <label class="mt-1 flex items-center gap-2 text-xs text-foreground-secondary">
-                        Tickets
-                        <input
-                            type="number"
-                            min="1"
-                            :value="item.ticketCount"
-                            @input="updateTicketCount(item, Number($event.target.value))"
-                            class="w-14 rounded-lg border bg-surface py-0.5 text-xs shadow-sm"
-                        />
-                    </label>
+                    <TNumberInput
+                        label="Tickets"
+                        :model-value="item.ticketCount"
+                        @update:model-value="v => updateTicketCount(item, v)"
+                        :min="1"
+                        size="sm"
+                        class="mt-1 w-24"
+                    />
                 </template>
                 <p class="mt-1 text-xs font-medium text-foreground-secondary">${{ Number(item.subtotal).toFixed(2) }}</p>
             </div>

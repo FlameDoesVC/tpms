@@ -7,6 +7,8 @@ import TIcon from '@/Components/ui/TIcon.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
 import { useFerryStore } from '@/stores/ferry';
 
 const ferryStore = useFerryStore();
@@ -14,6 +16,10 @@ const date = ref(new Date().toISOString().slice(0, 10));
 const selectedScheduleId = ref(null);
 
 const schedulesForDate = computed(() => ferryStore.schedules);
+
+const scheduleOptions = computed(() =>
+    schedulesForDate.value.map((s) => ({ value: s.id, label: `${s.ferry?.name} - ${s.departure_time}` }))
+);
 
 const loadSchedules = () => ferryStore.fetchSchedules(date.value);
 
@@ -55,25 +61,8 @@ const exportCsv = () => {
         <div class="max-w-4xl space-y-6">
             <TCard>
                 <div class="flex flex-wrap items-end gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Date</label>
-                        <input
-                            type="date"
-                            v-model="date"
-                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Schedule</label>
-                        <select
-                            v-model="selectedScheduleId"
-                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        >
-                            <option v-for="schedule in schedulesForDate" :key="schedule.id" :value="schedule.id">
-                                {{ schedule.ferry?.name }} - {{ schedule.departure_time }}
-                            </option>
-                        </select>
-                    </div>
+                    <TDatePicker v-model="date" label="Date" />
+                    <TSelect v-model="selectedScheduleId" label="Schedule" :options="scheduleOptions" class="w-56" />
                     <TButton variant="secondary" :disabled="!selectedScheduleId" @click="exportCsv">
                         <TIcon name="download" :size="16" />
                         Export CSV

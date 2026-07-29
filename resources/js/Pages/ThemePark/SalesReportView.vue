@@ -7,6 +7,7 @@ import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TStat from '@/Components/ui/TStat.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
 ChartJS.register(Title, Tooltip, BarElement, CategoryScale, LinearScale);
@@ -70,13 +71,7 @@ const chartOptions = {
 
         <div class="max-w-4xl space-y-6">
             <TCard>
-                <label for="report-date" class="mb-1.5 block text-sm font-medium text-foreground">Date</label>
-                <input
-                    id="report-date"
-                    type="date"
-                    v-model="date"
-                    class="rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+                <TDatePicker v-model="date" label="Date" />
             </TCard>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

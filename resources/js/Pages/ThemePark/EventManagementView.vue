@@ -6,6 +6,7 @@ import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
@@ -132,13 +133,13 @@ const typeOptions = [
                 <TInput v-model="form.location" label="Location" :error="errors.location?.[0]" />
                 <div class="flex gap-4">
                     <div class="flex-1">
-                        <TInput v-model="form.duration_minutes" label="Duration (min)" type="number" min="1" :error="errors.duration_minutes?.[0]" />
+                        <TNumberInput v-model="form.duration_minutes" label="Duration (min)" :min="1" :error="errors.duration_minutes?.[0]" />
                     </div>
                     <div class="flex-1">
-                        <TInput v-model="form.capacity_per_slot" label="Capacity" type="number" min="1" :error="errors.capacity_per_slot?.[0]" />
+                        <TNumberInput v-model="form.capacity_per_slot" label="Capacity" :min="1" :error="errors.capacity_per_slot?.[0]" />
                     </div>
                 </div>
-                <TInput v-model="form.price_per_ticket" label="Price per Ticket" type="number" step="0.01" :error="errors.price_per_ticket?.[0]" />
+                <TNumberInput v-model="form.price_per_ticket" label="Price per Ticket" step="0.01" :error="errors.price_per_ticket?.[0]" />
                 <TInput v-model="form.image_url" label="Image URL" />
             </form>
 

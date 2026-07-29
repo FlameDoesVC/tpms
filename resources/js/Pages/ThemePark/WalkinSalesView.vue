@@ -6,6 +6,8 @@ import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import { useThemeParkStore } from '@/stores/themepark';
@@ -78,11 +80,11 @@ const showReceipt = computed({
                 <form @submit.prevent="sell" class="space-y-4">
                     <TSelect v-model="eventId" label="Event" :options="eventOptions" />
 
-                    <TInput v-model="date" label="Date" type="date" />
+                    <TDatePicker v-model="date" label="Date" />
 
                     <TSelect v-model="slotId" label="Slot" :options="slotOptions" />
 
-                    <TInput v-model.number="ticketCount" label="Ticket Count" type="number" min="1" />
+                    <TNumberInput v-model="ticketCount" label="Ticket Count" :min="1" />
 
                     <TInput v-model="visitorName" label="Visitor Name (optional)" />
 

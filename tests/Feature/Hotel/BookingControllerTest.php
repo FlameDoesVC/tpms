@@ -183,6 +183,51 @@ class BookingControllerTest extends TestCase
         $this->assertNotNull($response->json('data.0.user.name'));
     }
 
+    // A multi-room booking splits guests_count evenly across its sibling
+    // rows (see HotelBookingService::create) - a visitor's own list has to
+    // expose the party's true total, not just whichever room's own share,
+    // or anything downstream that sizes itself off a booking's guest count
+    // (e.g. the ferry seat picker) silently undercounts it.
+    public function test_visitors_own_bookings_include_the_full_party_guest_count(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $rooms = Room::factory()->count(3)->create([
+            'hotel_id' => $hotel->id,
+            'type' => 'double',
+            'price_per_night' => 100,
+            'max_guests' => 2,
+        ]);
+
+        $created = $this->actingAs($visitor)->postJson('/api/bookings', [
+            'room_id' => $rooms->first()->id,
+            'check_in_date' => '2026-09-01',
+            'check_out_date' => '2026-09-04',
+            'guests_count' => 5,
+            'quantity' => 3,
+        ])->json();
+        // 5 guests split across 3 rooms: 2/2/1, none of which is the true total.
+
+        $response = $this->actingAs($visitor)->getJson('/api/bookings');
+
+        $response->assertOk();
+        $byId = collect($response->json('data'))->keyBy('id');
+        foreach ($created as $room) {
+            $this->assertSame(5, $byId[$room['id']]['party_guests_count']);
+        }
+    }
+
+    public function test_hotel_managers_booking_list_omits_party_guest_count(): void
+    {
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        Booking::factory()->create();
+
+        $response = $this->actingAs($manager)->getJson('/api/bookings');
+
+        $response->assertOk();
+        $this->assertArrayNotHasKey('party_guests_count', $response->json('data.0'));
+    }
+
     public function test_owner_can_cancel_their_booking(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');

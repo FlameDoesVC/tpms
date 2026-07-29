@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TCard from '@/Components/ui/TCard.vue';
@@ -8,6 +8,7 @@ import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useHotelStore } from '@/stores/hotel';
@@ -26,6 +27,10 @@ const ROOM_TYPE_OPTIONS = [
     { value: 'double', label: 'Double' },
     { value: 'suite', label: 'Suite' },
 ];
+
+const hotelOptions = computed(() =>
+    hotelStore.hotels.map((hotel) => ({ value: hotel.id, label: hotel.name }))
+);
 
 onMounted(async () => {
     await hotelStore.fetchHotels();
@@ -88,17 +93,7 @@ const remove = (room) => {
         <div class="max-w-5xl space-y-6">
             <TCard>
                 <div class="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Hotel</label>
-                        <select
-                            v-model="selectedHotelId"
-                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        >
-                            <option v-for="hotel in hotelStore.hotels" :key="hotel.id" :value="hotel.id">
-                                {{ hotel.name }}
-                            </option>
-                        </select>
-                    </div>
+                    <TSelect v-model="selectedHotelId" label="Hotel" :options="hotelOptions" class="w-56" />
                     <TButton :disabled="!selectedHotelId" @click="openAddModal">
                         <TIcon name="plus" :size="16" />
                         Add Room
@@ -170,21 +165,19 @@ const remove = (room) => {
                     :error="errors.type?.[0]"
                 />
 
-                <TInput
+                <TNumberInput
                     id="price_per_night"
                     v-model="form.price_per_night"
                     label="Price per Night"
-                    type="number"
                     step="0.01"
                     :error="errors.price_per_night?.[0]"
                 />
 
-                <TInput
+                <TNumberInput
                     id="max_guests"
                     v-model="form.max_guests"
                     label="Max Guests"
-                    type="number"
-                    min="1"
+                    :min="1"
                     :error="errors.max_guests?.[0]"
                 />
 

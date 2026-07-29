@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
 import SeatPickerModal from '@/Components/SeatPickerModal.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useHotelStore } from '@/stores/hotel';
@@ -23,22 +24,36 @@ const loadingSchedules = ref(false);
 const showSeatPicker = ref(false);
 const activeSchedule = ref(null);
 
-// A multi-room cart purchase (quantity > 1) splits guests across several
-// Booking rows server-side, but they all share one party - the seat count
-// only needs to fit the whole party's total, not any single room's own
-// guests_count, so one entry per cart hotel item is enough here.
+// A multi-room purchase (quantity > 1) splits guests_count evenly across
+// several Booking rows server-side, linked by group_booking_id - a single
+// row's own guests_count understates the party (see Booking::partyGuestsCount
+// on the backend). Group by that anchor so a 3-room booking becomes one
+// eligible option with the true total, not three options each showing a
+// fraction of it. party_guests_count comes from the API (BookingController);
+// summing guests_count across the group is an exact fallback if it's ever
+// missing, since every sibling row belongs to this same visitor.
 const eligibleBookings = computed(() => {
-    const confirmed = hotelStore.myBookings
-        .filter((b) => b.status === 'confirmed')
-        .map((b) => ({
-            key: `booking-${b.id}`,
-            bookingId: b.id,
+    const partiesByAnchor = new Map();
+    for (const b of hotelStore.myBookings) {
+        if (b.status !== 'confirmed') continue;
+        const anchorId = b.group_booking_id ?? b.id;
+        if (!partiesByAnchor.has(anchorId)) partiesByAnchor.set(anchorId, []);
+        partiesByAnchor.get(anchorId).push(b);
+    }
+
+    const confirmed = Array.from(partiesByAnchor.entries()).map(([anchorId, rooms]) => {
+        const anchor = rooms.find((b) => b.id === anchorId) ?? rooms[0];
+        const guestsCount = anchor.party_guests_count ?? rooms.reduce((sum, b) => sum + (b.guests_count ?? 0), 0);
+        return {
+            key: `booking-${anchorId}`,
+            bookingId: anchorId,
             hotelCartItemId: null,
-            label: `${b.reference_code} - ${b.room?.hotel?.name} (${b.check_in_date?.slice(0, 10)} to ${b.check_out_date?.slice(0, 10)})`,
-            checkIn: b.check_in_date?.slice(0, 10),
-            checkOut: b.check_out_date?.slice(0, 10),
-            guestsCount: b.guests_count,
-        }));
+            label: `${anchor.reference_code} - ${anchor.room?.hotel?.name} (${anchor.check_in_date?.slice(0, 10)} to ${anchor.check_out_date?.slice(0, 10)})${rooms.length > 1 ? ` · ${rooms.length} rooms, ${guestsCount} guests` : ''}`,
+            checkIn: anchor.check_in_date?.slice(0, 10),
+            checkOut: anchor.check_out_date?.slice(0, 10),
+            guestsCount,
+        };
+    });
 
     const pending = cart.items
         .filter((item) => item.type === 'hotel')
@@ -55,6 +70,9 @@ const eligibleBookings = computed(() => {
     return [...confirmed, ...pending];
 });
 const hasEligibleBooking = computed(() => eligibleBookings.value.length > 0);
+const bookingOptions = computed(() =>
+    eligibleBookings.value.map((b) => ({ value: b.key, label: b.label }))
+);
 const selectedBooking = computed(() =>
     eligibleBookings.value.find((b) => b.key === selectedBookingKey.value) ?? null
 );
@@ -194,16 +212,12 @@ const onAddedToCart = () => {
                 </div>
 
                 <div v-if="hasEligibleBooking" class="elevated rounded-xl border bg-surface p-4">
-                    <label class="block text-sm font-medium text-foreground-secondary">Hotel booking</label>
-                    <select
+                    <TSelect
                         v-model="selectedBookingKey"
-                        class="mt-1 block w-full rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    >
-                        <option value="" disabled>Select the hotel booking this trip is for</option>
-                        <option v-for="b in eligibleBookings" :key="b.key" :value="b.key">
-                            {{ b.label }}
-                        </option>
-                    </select>
+                        label="Hotel booking"
+                        :options="bookingOptions"
+                        placeholder="Select the hotel booking this trip is for"
+                    />
                     <p class="mt-1 text-xs text-foreground-muted">
                         Ferry departures are fixed to this booking's check-in and check-out dates. Picking a hotel
                         room still in your cart also removes this ticket if that room is removed later.

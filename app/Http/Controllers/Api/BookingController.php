@@ -17,11 +17,25 @@ class BookingController extends Controller
     {
         $query = Booking::query()->with(['room.hotel', 'user']);
 
-        if (! $request->user()->hasRole('hotel_manager')) {
+        $isOwnBookings = ! $request->user()->hasRole('hotel_manager');
+        if ($isOwnBookings) {
             $query->where('user_id', $request->user()->id);
         }
 
-        return response()->json($query->paginate(15));
+        $bookings = $query->paginate(15);
+
+        // A multi-room purchase splits guests_count across sibling rows, so a
+        // single row understates what the party can actually fit (see
+        // Booking::partyGuestsCount()). Only computed for a visitor's own,
+        // small booking list - not the hotel manager's, which can be large
+        // enough that N extra queries per row would matter.
+        if ($isOwnBookings) {
+            $bookings->getCollection()->each(
+                fn (Booking $booking) => $booking->party_guests_count = $booking->partyGuestsCount()
+            );
+        }
+
+        return response()->json($bookings);
     }
 
     public function show(Request $request, Booking $booking): JsonResponse

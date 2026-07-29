@@ -6,6 +6,10 @@ import TButton from '@/Components/ui/TButton.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
+import TMultiSelect from '@/Components/ui/TMultiSelect.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
 import { useHotelStore } from '@/stores/hotel';
 import { useCartStore } from '@/stores/cart';
 import { useThemeParkStore } from '@/stores/themepark';
@@ -40,6 +44,8 @@ const visibleHotels = computed(() =>
         : hotelStore.hotels.filter((h) => selectedHotelIds.value.includes(h.id))
 );
 
+const hotelOptions = computed(() => hotelStore.hotels.map((h) => ({ value: h.id, label: h.name })));
+
 const today = new Date().toISOString().slice(0, 10);
 const upcomingBookings = computed(() =>
     hotelStore.myBookings
@@ -52,6 +58,19 @@ const upcomingBookings = computed(() =>
 // watch-and-replace was too easy to get out of sync with guest count changes.
 const groupKey = (hotelId, group) => `${hotelId}|${group.type}|${group.price_per_night}|${group.max_guests}`;
 const quantityOverrides = reactive({});
+const expandedHotels = reactive({});
+
+const toggleExpanded = (hotelId) => { expandedHotels[hotelId] = !expandedHotels[hotelId]; };
+
+// Summarizes the room list while it's collapsed, so collapsing doesn't hide
+// whether there's anything worth expanding for.
+const roomsTeaser = (hotel) => {
+    if (loadingTypes[hotel.id]) return 'Loading rooms…';
+    const groups = roomTypesByHotel[hotel.id] ?? [];
+    if (groups.length === 0) return 'Fully booked for these dates';
+    const cheapest = groups.reduce((min, g) => (g.price_per_night < min.price_per_night ? g : min), groups[0]);
+    return `${groups.length} room type${groups.length === 1 ? '' : 's'} from $${cheapest.price_per_night}/night`;
+};
 
 const defaultQuantity = (group) =>
     Math.min(group.available_count, Math.max(1, Math.ceil(guests.value / group.max_guests)));
@@ -134,9 +153,24 @@ onMounted(async () => {
     await loadAllTypes();
 });
 
+// More rooms of this type than there are guests means at least one of them
+// would sit empty - a single bigger room is never flagged by this (quantity
+// stays at 1 no matter how much larger max_guests is than guests), only
+// renting rooms nobody's in. Two rooms sharing one guest has no reading
+// other than a stale guest count, so that specific case blocks rather than
+// just warns; anything less extreme (e.g. 4 rooms for 3 guests) still might
+// be deliberate - a caregiver's room, overflow space - so it only nudges.
+const roomsExceedGuests = (hotelId, group) => quantityFor(hotelId, group) > guests.value;
+const mustFixRoomCount = (hotelId, group) => roomsExceedGuests(hotelId, group) && guests.value === 1;
+
 const canBook = (hotelId, group) => {
     const quantity = quantityFor(hotelId, group);
-    return quantity >= 1 && quantity <= group.available_count && quantity * group.max_guests >= guests.value;
+    return (
+        quantity >= 1 &&
+        quantity <= group.available_count &&
+        quantity * group.max_guests >= guests.value &&
+        !mustFixRoomCount(hotelId, group)
+    );
 };
 
 // Even at the max available quantity, some room types simply can't seat the
@@ -218,54 +252,14 @@ const addToCart = (hotel, group) => {
                     </div>
                 </div>
 
-                <div class="elevated sticky top-[4.25rem] z-10 flex flex-wrap gap-4 rounded-xl border bg-surface p-4">
-                    <div>
-                        <div class="flex items-center justify-between gap-2">
-                            <label class="block text-sm font-medium text-foreground-secondary">Hotels</label>
-                            <button
-                                v-if="selectedHotelIds.length"
-                                type="button"
-                                @click="selectedHotelIds = []"
-                                class="text-xs text-primary hover:underline"
-                            >
-                                Clear
-                            </button>
-                        </div>
-                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
-                            <label
-                                v-for="hotel in hotelStore.hotels"
-                                :key="hotel.id"
-                                class="flex items-center gap-2 text-sm text-foreground-secondary"
-                            >
-                                <input type="checkbox" :value="hotel.id" v-model="selectedHotelIds" />
-                                {{ hotel.name }}
-                            </label>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Check in</label>
-                        <input
-                            type="date"
-                            v-model="checkIn"
-                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Check out</label>
-                        <input
-                            type="date"
-                            v-model="checkOut"
-                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary">Guests</label>
-                        <input
-                            type="number"
-                            min="1"
-                            v-model.number="guests"
-                            class="mt-1 w-20 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
+                <div class="elevated sticky top-[4.25rem] z-10 rounded-xl border bg-surface p-4">
+                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-foreground-muted">Find your stay</p>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <TMultiSelect v-model="selectedHotelIds" label="Hotels" placeholder="All hotels" :options="hotelOptions" width="12rem" />
+                        <div class="hidden h-10 w-px self-stretch bg-[rgb(var(--color-border))] sm:block" aria-hidden="true" />
+                        <TDatePicker v-model="checkIn" label="Check in" class="w-40" />
+                        <TDatePicker v-model="checkOut" label="Check out" class="w-40" />
+                        <TNumberInput v-model="guests" label="Guests" :min="1" />
                     </div>
                 </div>
 
@@ -284,83 +278,140 @@ const addToCart = (hotel, group) => {
                     icon="search"
                 />
 
-                <div v-else class="space-y-8">
+                <div v-else class="space-y-6">
                     <div
                         v-for="hotel in visibleHotels"
                         :key="hotel.id"
-                        class="elevated rounded-xl border bg-surface p-6"
+                        class="elevated overflow-hidden rounded-xl border bg-surface"
                     >
-                        <div class="flex items-start gap-4">
-                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-hover text-xs text-foreground-muted">
-                                <img v-if="hotel.image_url" :src="hotel.image_url" :alt="hotel.name" class="h-full w-full object-cover" />
-                                <span v-else>No image</span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-start justify-between gap-2">
-                                    <h3 class="font-semibold text-foreground">{{ hotel.name }}</h3>
-                                    <TBadge :variant="hotel.is_active ? 'success' : 'neutral'" class="shrink-0">
-                                        {{ hotel.is_active ? 'Open' : 'Closed' }}
-                                    </TBadge>
+                        <!-- Header + teaser together are the whole click-to-expand surface.
+                             The room list below is a separate sibling on purpose: it's full
+                             of its own interactive controls (stepper, Add to Cart), and this
+                             way a click there simply never reaches the toggle handler, rather
+                             than needing `.stop` on every one of them. -->
+                        <div
+                            role="button"
+                            tabindex="0"
+                            class="cursor-pointer transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+                            :aria-expanded="!!expandedHotels[hotel.id]"
+                            :aria-controls="`hotel-panel-${hotel.id}`"
+                            @click="toggleExpanded(hotel.id)"
+                            @keydown.enter="toggleExpanded(hotel.id)"
+                            @keydown.space.prevent="toggleExpanded(hotel.id)"
+                        >
+                            <div class="flex items-start gap-4 p-5">
+                                <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-hover text-xs text-foreground-muted">
+                                    <img v-if="hotel.image_url" :src="hotel.image_url" :alt="hotel.name" class="h-full w-full object-cover" />
+                                    <span v-else>No image</span>
                                 </div>
-                                <p class="mt-1 line-clamp-2 text-sm text-foreground-secondary">{{ hotel.description }}</p>
-                                <p class="mt-1 text-xs text-foreground-muted">{{ hotel.address }}</p>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-semibold text-foreground">{{ hotel.name }}</h3>
+                                        <TBadge :variant="hotel.is_active ? 'success' : 'neutral'" dot class="shrink-0">
+                                            {{ hotel.is_active ? 'Open' : 'Closed' }}
+                                        </TBadge>
+                                    </div>
+                                    <p class="mt-1 line-clamp-2 text-sm text-foreground-secondary">{{ hotel.description }}</p>
+                                    <p class="mt-2 inline-flex items-center gap-1 text-xs text-foreground-muted">
+                                        <TIcon name="pin" :size="13" /> {{ hotel.address }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Room list collapsed by default - with several hotels each listing
+                                 several room types, showing every row eagerly was most of each
+                                 card's height. The teaser keeps it from being a dead end when closed. -->
+                            <div class="flex items-center justify-between gap-3 border-t px-5 py-3">
+                                <span class="text-sm text-foreground-secondary">{{ roomsTeaser(hotel) }}</span>
+                                <span class="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+                                    {{ expandedHotels[hotel.id] ? 'Hide rooms' : 'View rooms' }}
+                                    <TIcon name="chevronDown" :size="15" class="transition-transform" :class="expandedHotels[hotel.id] ? 'rotate-180' : ''" />
+                                </span>
                             </div>
                         </div>
 
-                        <p
-                            v-if="hotelMessages[hotel.id]"
-                            class="mt-4 text-sm"
-                            :class="hotelMessages[hotel.id].type === 'error' ? 'text-danger' : 'text-success'"
-                        >
-                            {{ hotelMessages[hotel.id].text }}
-                            <router-link
-                                v-if="hotelMessages[hotel.id].type === 'success'"
-                                :to="{ name: 'ferry.book' }"
-                                class="font-medium underline"
-                            >
-                                Book a ferry to take you to the island?
-                            </router-link>
-                        </p>
+                        <div :id="`hotel-panel-${hotel.id}`" class="grid transition-[grid-template-rows] duration-200 ease-out" :style="{ gridTemplateRows: expandedHotels[hotel.id] ? '1fr' : '0fr' }">
+                            <div class="overflow-hidden">
+                                <div class="bg-surface-sunken/40 p-5 pt-4">
+                                    <!-- Same `guests` value as the filter bar up top - not a
+                                         per-hotel copy - so it stays right here where rooms are
+                                         actually picked instead of only living somewhere the user
+                                         has already scrolled past. -->
+                                    <div class="mb-3 flex items-center justify-between gap-3">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Room types</p>
+                                        <TNumberInput v-model="guests" label="Guests" label-position="left" :min="1" size="sm" />
+                                    </div>
 
-                        <div class="mt-4">
-                            <div v-if="loadingTypes[hotel.id]" class="text-sm text-foreground-muted">Loading rooms...</div>
-                            <div
-                                v-else-if="(roomTypesByHotel[hotel.id]?.length ?? 0) === 0"
-                                class="rounded-lg bg-surface-hover p-4 text-sm text-foreground-muted"
-                            >
-                                Fully booked for these dates.
-                            </div>
-                            <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div
-                                    v-for="group in roomTypesByHotel[hotel.id]"
-                                    :key="`${group.type}-${group.price_per_night}-${group.max_guests}`"
-                                    class="flex items-center justify-between gap-4 rounded-xl border p-4"
-                                >
-                                    <div>
-                                        <p class="font-semibold capitalize text-foreground">{{ group.type }}</p>
-                                        <p class="text-sm text-foreground-muted">Up to {{ group.max_guests }} guests / room</p>
-                                        <p class="mt-1 font-medium text-foreground">${{ group.price_per_night }} / night</p>
-                                        <p class="mt-1 text-xs text-foreground-muted">{{ group.available_count }} available</p>
-                                        <p v-if="maxCapacity(group) < guests" class="mt-1 text-xs font-medium text-danger">
-                                            Doesn't fit {{ guests }} guests, only {{ group.available_count }} room(s) available.
-                                        </p>
+                                    <!-- Room list: price/capacity/availability read left-to-right as
+                                         fixed columns, and the qty stepper + CTA sit at the end of the
+                                         same row they act on, not floated elsewhere on the card. -->
+                                    <div v-if="loadingTypes[hotel.id]" class="text-sm text-foreground-muted">Loading rooms...</div>
+                                    <div
+                                        v-else-if="(roomTypesByHotel[hotel.id]?.length ?? 0) === 0"
+                                        class="rounded-lg bg-surface-hover p-3 text-sm text-foreground-muted"
+                                    >
+                                        Fully booked for these dates.
                                     </div>
-                                    <div class="flex flex-col items-end gap-2">
-                                        <label class="flex items-center gap-2 text-sm text-foreground-secondary">
-                                            Rooms
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                :max="group.available_count"
-                                                :value="quantityFor(hotel.id, group)"
-                                                @input="setQuantity(hotel.id, group, Number($event.target.value))"
-                                                class="w-16 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                            />
-                                        </label>
-                                        <TButton :disabled="!canBook(hotel.id, group)" @click="addToCart(hotel, group)">
-                                            Add to Cart
-                                        </TButton>
+                                    <div v-else class="divide-y divide-[rgb(var(--color-border))] overflow-hidden rounded-lg border bg-surface">
+                                        <div
+                                            v-for="group in roomTypesByHotel[hotel.id]"
+                                            :key="`${group.type}-${group.price_per_night}-${group.max_guests}`"
+                                            class="flex flex-wrap items-center gap-4 p-4"
+                                        >
+                                            <div class="min-w-0 flex-1">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="font-semibold capitalize text-foreground">{{ group.type }}</p>
+                                                    <TBadge variant="neutral" size="sm">Up to {{ group.max_guests }} guests</TBadge>
+                                                    <TBadge :variant="group.available_count > 2 ? 'success' : 'warning'" size="sm" dot>
+                                                        {{ group.available_count }} left
+                                                    </TBadge>
+                                                </div>
+                                                <p v-if="maxCapacity(group) < guests" class="mt-1 text-xs font-medium text-danger">
+                                                    Doesn't fit {{ guests }} guests, only {{ group.available_count }} room(s) available.
+                                                </p>
+                                                <p v-else-if="mustFixRoomCount(hotel.id, group)" class="mt-1 text-xs font-medium text-danger">
+                                                    {{ quantityFor(hotel.id, group) }} rooms for 1 guest - set quantity to 1, or update Guests above if more people are joining.
+                                                </p>
+                                                <p v-else-if="roomsExceedGuests(hotel.id, group)" class="mt-1 text-xs font-medium text-warning">
+                                                    {{ quantityFor(hotel.id, group) }} rooms for {{ guests }} guest{{ guests === 1 ? '' : 's' }} - double check that's the party size you meant.
+                                                </p>
+                                            </div>
+
+                                            <p class="shrink-0 font-semibold text-foreground">
+                                                ${{ group.price_per_night }} <span class="font-normal text-foreground-muted">/ night</span>
+                                            </p>
+
+                                            <div class="ml-auto flex shrink-0 items-center gap-3">
+                                                <TNumberInput
+                                                    label="Rooms"
+                                                    label-position="left"
+                                                    :model-value="quantityFor(hotel.id, group)"
+                                                    @update:model-value="v => setQuantity(hotel.id, group, v)"
+                                                    :min="1"
+                                                    :max="group.available_count"
+                                                    size="sm"
+                                                />
+                                                <TButton :disabled="!canBook(hotel.id, group)" @click="addToCart(hotel, group)">
+                                                    Add to Cart
+                                                </TButton>
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <p
+                                        v-if="hotelMessages[hotel.id]"
+                                        class="mt-3 text-sm"
+                                        :class="hotelMessages[hotel.id].type === 'error' ? 'text-danger' : 'text-success'"
+                                    >
+                                        {{ hotelMessages[hotel.id].text }}
+                                        <router-link
+                                            v-if="hotelMessages[hotel.id].type === 'success'"
+                                            :to="{ name: 'ferry.book' }"
+                                            class="font-medium underline"
+                                        >
+                                            Book a ferry to take you to the island?
+                                        </router-link>
+                                    </p>
                                 </div>
                             </div>
                         </div>

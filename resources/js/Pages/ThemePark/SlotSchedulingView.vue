@@ -6,6 +6,9 @@ import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
+import TDatePicker from '@/Components/ui/TDatePicker.vue';
+import TTimePicker from '@/Components/ui/TTimePicker.vue';
+import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
@@ -262,9 +265,9 @@ const frequencyOptions = [
 
                 <template v-if="scheduleMode === 'oneoff'">
                     <TSelect v-model="form.event_id" label="Event" :error="errors.event_id?.[0]" :options="eventOptions" />
-                    <TInput v-model="form.slot_date" label="Date" type="date" :error="errors.slot_date?.[0]" />
-                    <TInput v-model="form.slot_time" label="Time" type="time" :error="errors.slot_time?.[0]" />
-                    <TInput v-model="form.capacity" label="Capacity Override (optional)" type="number" min="1" />
+                    <TDatePicker v-model="form.slot_date" label="Date" :error="errors.slot_date?.[0]" />
+                    <TTimePicker v-model="form.slot_time" label="Time" :error="errors.slot_time?.[0]" />
+                    <TNumberInput v-model="form.capacity" label="Capacity Override (optional)" :min="1" />
                 </template>
 
                 <template v-else>
@@ -282,16 +285,16 @@ const frequencyOptions = [
                         <p v-if="errors.weekdays?.[0]" class="mt-1.5 text-sm text-danger">{{ errors.weekdays[0] }}</p>
                     </div>
 
-                    <TInput v-if="recurringForm.frequency === 'monthly'" v-model="recurringForm.day_of_month" label="Day of month" type="number" min="1" max="31" :error="errors.day_of_month?.[0]" />
-                    <TInput v-model="recurringForm.slot_time" label="Time" type="time" :error="errors.slot_time?.[0]" />
-                    <TInput v-model="recurringForm.available_capacity" label="Capacity" type="number" min="1" :error="errors.available_capacity?.[0]" />
+                    <TNumberInput v-if="recurringForm.frequency === 'monthly'" v-model="recurringForm.day_of_month" label="Day of month" :min="1" :max="31" :error="errors.day_of_month?.[0]" />
+                    <TTimePicker v-model="recurringForm.slot_time" label="Time" :error="errors.slot_time?.[0]" />
+                    <TNumberInput v-model="recurringForm.available_capacity" label="Capacity" :min="1" :error="errors.available_capacity?.[0]" />
 
                     <div class="flex gap-4">
                         <div class="flex-1">
-                            <TInput v-model="recurringForm.starts_on" label="Starts on" type="date" :error="errors.starts_on?.[0]" />
+                            <TDatePicker v-model="recurringForm.starts_on" label="Starts on" :error="errors.starts_on?.[0]" />
                         </div>
                         <div class="flex-1">
-                            <TInput v-model="recurringForm.ends_on" label="Ends on (optional)" type="date" :error="errors.ends_on?.[0]" />
+                            <TDatePicker v-model="recurringForm.ends_on" label="Ends on (optional)" :clearable="true" :error="errors.ends_on?.[0]" />
                         </div>
                     </div>
                 </template>

@@ -6,7 +6,15 @@ import TStat from '@/Components/ui/TStat.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
 import { useHotelStore } from '@/stores/hotel';
+
+const STATUS_FILTER_OPTIONS = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'cancelled', label: 'Cancelled' },
+];
 
 const hotelStore = useHotelStore();
 const statusFilter = ref('all');
@@ -69,15 +77,7 @@ const setStatus = async (booking, status) => {
 
             <TCard icon="inbox" title="Bookings" :padding="false">
                 <template #headerAction>
-                    <select
-                        v-model="statusFilter"
-                        class="rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    >
-                        <option value="all">All statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
+                    <TSelect v-model="statusFilter" :options="STATUS_FILTER_OPTIONS" class="w-44" />
                 </template>
 
                 <div v-if="hotelStore.loading.bookings" class="p-4 text-foreground-muted">Loading...</div>
