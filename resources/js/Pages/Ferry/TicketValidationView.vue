@@ -97,13 +97,13 @@ const resolveLegDirection = (booking, schedule) => {
     return null;
 };
 
-// A scanned/typed code identifies either a ferry ticket (LSJ-T####) or a
-// hotel booking (LSJ-B####) - the reference code's own letter says which,
+// A scanned/typed code identifies either a ferry ticket (VFN-T####) or a
+// hotel booking (VFN-B####) - the reference code's own letter says which,
 // so the same camera/input handles both without a separate mode switch.
 // A bare number (no prefix) falls back to the old behavior of being a ticket id.
 const parseScan = (raw) => {
     const text = raw.trim();
-    const prefixed = text.match(/LSJ-([A-Z])(\d+)/i);
+    const prefixed = text.match(/VFN-([A-Z])(\d+)/i);
     if (prefixed) {
         return { type: prefixed[1].toUpperCase() === 'B' ? 'booking' : 'ticket', id: parseInt(prefixed[2], 10) };
     }
@@ -425,7 +425,7 @@ const markTicketUsed = async (t) => {
                         <form @submit.prevent="lookupManually" class="mt-3 flex gap-2">
                             <input
                                 v-model="ticketIdInput"
-                                placeholder="Scan a ticket (LSJ-T0012) or a hotel booking (LSJ-B0007)"
+                                placeholder="Scan a ticket (VFN-T0012) or a hotel booking (VFN-B0007)"
                                 class="flex-1 rounded-md border-gray-300 text-sm shadow-sm"
                             />
                             <PrimaryButton type="submit">Look Up</PrimaryButton>

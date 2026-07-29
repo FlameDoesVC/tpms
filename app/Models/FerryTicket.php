@@ -32,7 +32,7 @@ class FerryTicket extends Model
 
     protected function referenceCode(): Attribute
     {
-        return Attribute::get(fn () => sprintf('LSJ-T%04d', $this->id));
+        return Attribute::get(fn () => sprintf('VFN-T%04d', $this->id));
     }
 
     public function user(): BelongsTo

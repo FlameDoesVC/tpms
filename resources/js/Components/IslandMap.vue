@@ -9,12 +9,12 @@ const props = defineProps({
 });
 
 // Fixed pin positions (percent of the map frame), calibrated against
-// public/images/little-saint-james.jpg. Keep in sync with the location
+// public/images/velaafinolhu.png. Keep in sync with the location
 // strings staff use when creating events.
 const ZONES = {
-    'North Shore': { top: '17%', left: '62%' },
-    'Marine Theatre': { top: '46%', left: '76%' },
-    'Main Beach': { top: '78%', left: '28%' },
+    'North Shore': { top: '31%', left: '39%' },
+    'Marine Theatre': { top: '48%', left: '70%' },
+    'Main Beach': { top: '56%', left: '45%' },
 };
 
 const markers = computed(() => {
@@ -43,12 +43,12 @@ const otherLocations = computed(() => {
 <template>
     <div class="rounded-lg bg-white p-4 shadow-sm">
         <h2 class="text-xl font-semibold text-gray-900">Island Map</h2>
-        <p class="mt-1 text-sm text-gray-500">Little Saint James - where today's events are happening.</p>
+        <p class="mt-1 text-sm text-gray-500">Velaa Finolhu - where today's events are happening.</p>
 
         <div class="relative mt-4 aspect-[900/869] w-full overflow-hidden rounded-lg">
             <img
-                src="/images/little-saint-james.jpg"
-                alt="Map of Little Saint James"
+                src="/images/velaafinolhu.png"
+                alt="Map of Velaa Finolhu"
                 class="absolute inset-0 h-full w-full object-cover"
             />
 
