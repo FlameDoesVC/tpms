@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
-import AppModal from '@/Components/ui/AppModal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useCartStore } from '@/stores/cart';
 
@@ -94,21 +94,21 @@ const confirm = () => {
 </script>
 
 <template>
-    <AppModal v-model:show="show" max-width="lg">
+    <TModal v-model:show="show" max-width="lg">
         <template #title>Choose your seats</template>
 
-        <div v-if="loading" class="py-8 text-center text-sm text-gray-500">Loading seat map...</div>
+        <div v-if="loading" class="py-8 text-center text-sm text-foreground-muted">Loading seat map...</div>
 
         <div v-else-if="schedule" class="space-y-6">
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-foreground-secondary">
                 {{ schedule.ferry?.name }} - {{ schedule.departure_time }} - {{ schedule.arrival_time }}
             </p>
-            <p class="text-sm font-medium text-gray-900">
+            <p class="text-sm font-medium text-foreground">
                 Select {{ seatsNeeded }} seat{{ seatsNeeded === 1 ? '' : 's' }}
                 ({{ selectedSeats.length }}/{{ seatsNeeded }} chosen)
             </p>
 
-            <div class="rounded-lg bg-gray-50 p-4">
+            <div class="rounded-lg bg-surface-hover p-4">
                 <div class="mx-auto flex w-fit flex-col gap-2">
                     <div v-for="(row, i) in rows" :key="i" class="flex items-center gap-4">
                         <div class="flex gap-1">
@@ -118,11 +118,11 @@ const confirm = () => {
                                 type="button"
                                 :disabled="seatState(seat) === 'taken'"
                                 @click="toggleSeat(seat)"
-                                class="flex h-8 w-8 items-center justify-center rounded text-xs font-medium"
+                                class="flex h-8 w-8 items-center justify-center rounded text-xs font-medium transition-colors"
                                 :class="{
-                                    'bg-gray-300 text-gray-400 cursor-not-allowed': seatState(seat) === 'taken',
-                                    'bg-indigo-600 text-white': seatState(seat) === 'selected',
-                                    'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400': seatState(seat) === 'available',
+                                    'bg-foreground-muted/30 text-foreground-muted cursor-not-allowed': seatState(seat) === 'taken',
+                                    'bg-primary text-white': seatState(seat) === 'selected',
+                                    'bg-surface border text-foreground-secondary hover:border-primary': seatState(seat) === 'available',
                                 }"
                             >
                                 {{ seat }}
@@ -136,11 +136,11 @@ const confirm = () => {
                                 type="button"
                                 :disabled="seatState(seat) === 'taken'"
                                 @click="toggleSeat(seat)"
-                                class="flex h-8 w-8 items-center justify-center rounded text-xs font-medium"
+                                class="flex h-8 w-8 items-center justify-center rounded text-xs font-medium transition-colors"
                                 :class="{
-                                    'bg-gray-300 text-gray-400 cursor-not-allowed': seatState(seat) === 'taken',
-                                    'bg-indigo-600 text-white': seatState(seat) === 'selected',
-                                    'bg-white border border-gray-300 text-gray-700 hover:border-indigo-400': seatState(seat) === 'available',
+                                    'bg-foreground-muted/30 text-foreground-muted cursor-not-allowed': seatState(seat) === 'taken',
+                                    'bg-primary text-white': seatState(seat) === 'selected',
+                                    'bg-surface border text-foreground-secondary hover:border-primary': seatState(seat) === 'available',
                                 }"
                             >
                                 {{ seat }}
@@ -149,41 +149,37 @@ const confirm = () => {
                     </div>
                 </div>
 
-                <div class="mt-4 flex justify-center gap-4 text-xs text-gray-500">
-                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-white border border-gray-300"></span> Available</span>
-                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-indigo-600"></span> Selected</span>
-                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-gray-300"></span> Taken</span>
+                <div class="mt-4 flex justify-center gap-4 text-xs text-foreground-muted">
+                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded border bg-surface"></span> Available</span>
+                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-primary"></span> Selected</span>
+                    <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-foreground-muted/30"></span> Taken</span>
                 </div>
             </div>
 
-            <div class="space-y-3 border-t border-gray-200 pt-4">
-                <p class="text-sm font-medium text-gray-900">Payment</p>
+            <div class="space-y-3 border-t pt-4">
+                <p class="text-sm font-medium text-foreground">Payment</p>
                 <div class="flex gap-4">
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="radio" v-model="paymentMethod" value="online" />
+                    <label class="flex items-center gap-2 text-sm text-foreground-secondary">
+                        <input type="radio" v-model="paymentMethod" value="online" class="text-primary focus:ring-primary/30" />
                         Pay online now
                     </label>
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="radio" v-model="paymentMethod" value="cash" />
+                    <label class="flex items-center gap-2 text-sm text-foreground-secondary">
+                        <input type="radio" v-model="paymentMethod" value="cash" class="text-primary focus:ring-primary/30" />
                         Pay cash on board
                     </label>
                 </div>
 
-                <p v-if="paymentMethod === 'cash'" class="text-sm text-gray-500">
+                <p v-if="paymentMethod === 'cash'" class="text-sm text-foreground-muted">
                     Have exact cash ready - the ferry operator will collect payment before boarding.
                 </p>
 
-                <p class="text-sm font-semibold text-gray-900">Total: ${{ totalPrice }}</p>
+                <p class="text-sm font-semibold text-foreground">Total: ${{ totalPrice }}</p>
             </div>
         </div>
 
         <template #footer>
-            <button type="button" @click="show = false" class="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                Cancel
-            </button>
-            <PrimaryButton :disabled="!canConfirm" @click="confirm">
-                Add to Cart
-            </PrimaryButton>
+            <TButton variant="secondary" @click="show = false">Cancel</TButton>
+            <TButton :disabled="!canConfirm" @click="confirm">Add to Cart</TButton>
         </template>
-    </AppModal>
+    </TModal>
 </template>

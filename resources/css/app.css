@@ -1,3 +1,250 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Light: warm, sand-tinted neutrals rather than cold grey — the resort has
+     sun and limestone in it, and a blue-grey UI fought that. */
+  :root {
+    --color-primary: 13 110 110;
+    --color-primary-hover: 10 88 88;
+    --color-primary-soft: 226 242 240;
+    --color-accent: 194 100 12;
+    --color-accent-hover: 154 78 8;
+    /* Text that sits on the accent fill; flips with the theme because the
+       dark accent is a bright amber that white text can't survive. */
+    --color-accent-fg: 255 255 255;
+    --color-surface: 255 255 255;
+    --color-surface-hover: 250 247 241;
+    --color-surface-sunken: 243 239 231;
+    --color-background: 247 244 237;
+    --color-text: 28 27 24;
+    --color-text-secondary: 88 83 76;
+    --color-text-muted: 142 136 127;
+    --color-border: 231 225 214;
+    --color-border-strong: 209 201 187;
+
+    /* Layered, hue-tinted elevation. Flat single-drop shadows read cheap; two
+       offset stops (contact + ambient) is what makes a card feel lifted. */
+    --shadow-xs: 0 1px 2px rgb(41 37 30 / 0.05);
+    --shadow-sm: 0 1px 2px rgb(41 37 30 / 0.06), 0 1px 3px rgb(41 37 30 / 0.04);
+    --shadow-md: 0 2px 4px rgb(41 37 30 / 0.05), 0 6px 16px rgb(41 37 30 / 0.07);
+    --shadow-lg: 0 4px 8px rgb(41 37 30 / 0.05), 0 14px 32px rgb(41 37 30 / 0.09);
+    --shadow-xl: 0 8px 16px rgb(41 37 30 / 0.06), 0 28px 56px rgb(41 37 30 / 0.12);
+    --shadow-ring: 0 0 0 1px rgb(41 37 30 / 0.04);
+    /* Top rim light — sells "raised" far better than a bigger blur. */
+    --rim-top: inset 0 1px 0 rgb(255 255 255 / 0.9);
+    --depth-from: 250 248 243;
+    --depth-to: 243 238 229;
+    --color-success: 5 150 105;
+    --color-success-soft: 236 253 245;
+    --color-warning: 217 119 6;
+    --color-warning-soft: 255 251 235;
+    --color-danger: 220 38 38;
+    --color-danger-soft: 254 242 242;
+    --color-info: 2 132 199;
+    --color-info-soft: 240 249 255;
+    --color-danger-hover: 185 28 28;
+  }
+
+  [data-theme="dark"] {
+    --color-primary: 45 212 191;
+    --color-primary-hover: 94 234 212;
+    --color-primary-soft: 9 44 42;
+    --color-accent: 251 191 36;
+    --color-accent-hover: 252 211 77;
+    --color-accent-fg: 26 22 12;
+    /* Near-black and neutral, not navy — depth comes from elevation and the
+       teal accent, not from tinting every surface blue. */
+    --color-surface: 18 18 20;
+    --color-surface-hover: 27 27 30;
+    --color-surface-sunken: 12 12 14;
+    --color-background: 10 10 11;
+    --color-text: 245 245 244;
+    --color-text-secondary: 195 193 189;
+    --color-text-muted: 138 136 132;
+    --color-border: 38 38 41;
+    --color-border-strong: 57 57 62;
+
+    /* On near-black, drop shadows barely register — depth has to come from a
+       light rim on the top edge plus a deeper ambient pool. */
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.6), 0 1px 3px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 2px 4px rgb(0 0 0 / 0.5), 0 6px 16px rgb(0 0 0 / 0.55);
+    --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.5), 0 14px 32px rgb(0 0 0 / 0.6);
+    --shadow-xl: 0 8px 16px rgb(0 0 0 / 0.55), 0 28px 56px rgb(0 0 0 / 0.7);
+    --shadow-ring: 0 0 0 1px rgb(255 255 255 / 0.04);
+    --rim-top: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --depth-from: 24 24 27;
+    --depth-to: 15 15 17;
+    --color-success: 52 211 153;
+    --color-success-soft: 12 38 31;
+    --color-warning: 251 191 36;
+    --color-warning-soft: 40 29 13;
+    --color-danger: 248 113 113;
+    --color-danger-soft: 45 19 23;
+    --color-info: 56 189 248;
+    --color-info-soft: 11 33 48;
+    --color-danger-hover: 252 165 165;
+  }
+
+  body {
+    background-color: rgb(var(--color-background));
+    color: rgb(var(--color-text));
+  }
+
+  /* Override @tailwindcss/forms plugin colors for theme support */
+  [type='text'],
+  [type='email'],
+  [type='url'],
+  [type='password'],
+  [type='number'],
+  [type='date'],
+  [type='datetime-local'],
+  [type='month'],
+  [type='search'],
+  [type='tel'],
+  [type='time'],
+  [type='week'],
+  select,
+  textarea {
+    background-color: rgb(var(--color-surface));
+    border-color: rgb(var(--color-border-strong));
+    color: rgb(var(--color-text));
+  }
+
+  [type='text']:focus,
+  [type='email']:focus,
+  [type='url']:focus,
+  [type='password']:focus,
+  [type='number']:focus,
+  [type='date']:focus,
+  [type='datetime-local']:focus,
+  [type='month']:focus,
+  [type='search']:focus,
+  [type='tel']:focus,
+  [type='time']:focus,
+  [type='week']:focus,
+  select:focus,
+  textarea:focus {
+    border-color: rgb(var(--color-primary));
+    --tw-ring-color: rgb(var(--color-primary) / 0.25);
+  }
+
+  [type='checkbox'],
+  [type='radio'] {
+    color: rgb(var(--color-primary));
+    border-color: rgb(var(--color-border-strong));
+    background-color: rgb(var(--color-surface));
+  }
+
+  [type='checkbox']:focus,
+  [type='radio']:focus {
+    --tw-ring-color: rgb(var(--color-primary) / 0.25);
+  }
+
+  ::placeholder {
+    color: rgb(var(--color-text-muted));
+  }
+}
+
+@layer components {
+  /* Tide line — the signature wave accent below navigation */
+  .tide-line {
+    position: relative;
+  }
+  .tide-line::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background-color: rgb(var(--color-primary) / 0.12);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' fill='black'%3E%3Cpath d='M0 3 Q25 0 50 3 T100 3 T150 3 T200 3 V6 H0 Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' fill='black'%3E%3Cpath d='M0 3 Q25 0 50 3 T100 3 T150 3 T200 3 V6 H0 Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 200px 6px;
+    mask-size: 200px 6px;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    pointer-events: none;
+  }
+
+  /* Raised surface: contact shadow + ambient pool + top rim light. */
+  .elevated {
+    box-shadow: var(--shadow-ring), var(--shadow-sm), var(--rim-top);
+  }
+  .elevated-md {
+    box-shadow: var(--shadow-ring), var(--shadow-md), var(--rim-top);
+  }
+  .elevated-lg {
+    box-shadow: var(--shadow-ring), var(--shadow-lg), var(--rim-top);
+  }
+
+  /* Interactive card: settles on press rather than only lifting on hover. */
+  .lift {
+    transition: box-shadow 180ms ease, transform 180ms ease;
+  }
+  .lift:hover {
+    box-shadow: var(--shadow-ring), var(--shadow-lg), var(--rim-top);
+    transform: translateY(-2px);
+  }
+  .lift:active {
+    box-shadow: var(--shadow-ring), var(--shadow-xs);
+    transform: translateY(0);
+  }
+
+  /* Vertical falloff for headers — light at the top, settling darker, the way
+     water reads with depth. Very low contrast on purpose. */
+  .depth-gradient {
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--depth-from)),
+      rgb(var(--depth-to))
+    );
+  }
+
+  /* Boarding-pass edge: punched notches on the left and right, so a ferry or
+     event ticket reads as a torn stub instead of another rectangle. */
+  .ticket-edge {
+    --notch: 11px;
+    position: relative;
+    -webkit-mask-image:
+      radial-gradient(circle at left var(--notch-y, 50%), transparent calc(var(--notch) - 1px), black var(--notch)),
+      radial-gradient(circle at right var(--notch-y, 50%), transparent calc(var(--notch) - 1px), black var(--notch));
+    mask-image:
+      radial-gradient(circle at left var(--notch-y, 50%), transparent calc(var(--notch) - 1px), black var(--notch)),
+      radial-gradient(circle at right var(--notch-y, 50%), transparent calc(var(--notch) - 1px), black var(--notch));
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* Perforation between a ticket's body and its stub. */
+  .perforation {
+    background-image: repeating-linear-gradient(
+      to right,
+      rgb(var(--color-border-strong)) 0 5px,
+      transparent 5px 11px
+    );
+    height: 1px;
+    width: 100%;
+  }
+  .perforation-y {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgb(var(--color-border-strong)) 0 5px,
+      transparent 5px 11px
+    );
+    width: 1px;
+    align-self: stretch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lift,
+    .lift:hover,
+    .lift:active {
+      transition: none;
+      transform: none;
+    }
+  }
+}

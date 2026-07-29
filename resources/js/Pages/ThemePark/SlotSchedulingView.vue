@@ -1,12 +1,13 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
-import InputError from '@/Components/InputError.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
@@ -154,56 +155,64 @@ const calendarItems = computed(() => themeParkStore.slots.map((s) => ({
     ...s,
     date: s.slot_date?.slice(0, 10),
 })));
+
+const eventOptions = computed(() =>
+    themeParkStore.events.map((e) => ({ value: e.id, label: e.name }))
+);
+
+const frequencyOptions = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+];
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Slot Scheduling
-            </h2>
+            <TPageHeader compact title="Slot Scheduling" icon="calendar">
+                <template #actions>
+                    <TButton size="sm" @click="openAddModal">
+                        <TIcon name="plus" :size="16" />
+                        Add Slots
+                    </TButton>
+                </template>
+            </TPageHeader>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-end">
-                    <PrimaryButton @click="openAddModal">Add Slots</PrimaryButton>
-                </div>
-
-                <MonthCalendar v-model="calendarMonth" :items="calendarItems">
-                    <template #legend>
-                        <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-gray-600">
-                            <span v-for="event in themeParkStore.events" :key="event.id" class="flex items-center gap-1">
-                                <span class="h-2.5 w-2.5 rounded-full" :class="eventColor(event.id).dot" />
-                                {{ event.name }}
-                            </span>
-                        </div>
-                    </template>
-                    <template #day="{ items }">
-                        <div class="space-y-1">
-                            <button
-                                v-for="item in items"
-                                :key="item.id"
-                                type="button"
-                                class="block w-full rounded px-1.5 py-0.5 text-left text-xs"
-                                :class="[eventColor(item.event_id).bg, eventColor(item.event_id).text, item.status === 'cancelled' && 'opacity-50 line-through']"
-                                :title="item.status === 'cancelled' ? `${item.event?.name} - cancelled (click to restore)` : `${item.event?.name} - ${item.status}`"
-                                @click="toggleSlot(item)"
-                            >
-                                {{ item.slot_time?.slice(0, 5) }} ({{ item.event?.capacity_per_slot - item.available_capacity }}/{{ item.event?.capacity_per_slot }})
-                                <span v-if="item.is_overridden">⚠</span>
-                            </button>
-                        </div>
-                    </template>
-                </MonthCalendar>
-
-                <div class="rounded-lg bg-white shadow-sm">
-                    <div class="border-b border-gray-100 p-4">
-                        <h3 class="text-sm font-semibold text-gray-700">Recurring Schedules</h3>
+        <div class="max-w-5xl space-y-6">
+            <MonthCalendar v-model="calendarMonth" :items="calendarItems">
+                <template #legend>
+                    <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-foreground-secondary">
+                        <span v-for="event in themeParkStore.events" :key="event.id" class="flex items-center gap-1">
+                            <span class="h-2.5 w-2.5 rounded-full" :class="eventColor(event.id).dot" />
+                            {{ event.name }}
+                        </span>
                     </div>
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                </template>
+                <template #day="{ items }">
+                    <div class="space-y-1">
+                        <button
+                            v-for="item in items"
+                            :key="item.id"
+                            type="button"
+                            class="block w-full rounded px-1.5 py-0.5 text-left text-xs"
+                            :class="[eventColor(item.event_id).bg, eventColor(item.event_id).text, item.status === 'cancelled' && 'opacity-50 line-through']"
+                            :title="item.status === 'cancelled' ? `${item.event?.name} - cancelled (click to restore)` : `${item.event?.name} - ${item.status}`"
+                            @click="toggleSlot(item)"
+                        >
+                            {{ item.slot_time?.slice(0, 5) }} ({{ item.event?.capacity_per_slot - item.available_capacity }}/{{ item.event?.capacity_per_slot }})
+                            <span v-if="item.is_overridden">⚠</span>
+                        </button>
+                    </div>
+                </template>
+            </MonthCalendar>
+
+            <TCard icon="clock" title="Recurring Schedules" :padding="false">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Event</th>
                                 <th class="p-4">Pattern</th>
                                 <th class="p-4">Range</th>
@@ -211,34 +220,32 @@ const calendarItems = computed(() => themeParkStore.slots.map((s) => ({
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))]">
                             <tr v-for="template in themeParkStore.templates" :key="template.id">
                                 <td class="p-4">{{ template.event?.name }}</td>
                                 <td class="p-4">{{ patternSummary(template) }}</td>
                                 <td class="p-4">{{ template.starts_on?.slice(0, 10) }} - {{ template.ends_on?.slice(0, 10) ?? 'ongoing' }}</td>
                                 <td class="p-4">{{ template.is_active ? 'Yes' : 'Stopped' }}</td>
                                 <td class="p-4 space-x-3">
-                                    <button v-if="template.is_active" class="text-sm text-indigo-600 hover:underline" @click="openEditTemplateModal(template)">Edit</button>
-                                    <button v-if="template.is_active" class="text-sm text-red-600 hover:underline" @click="stopTemplate(template)">Stop</button>
+                                    <button v-if="template.is_active" class="text-sm text-primary hover:underline" @click="openEditTemplateModal(template)">Edit</button>
+                                    <button v-if="template.is_active" class="text-sm text-danger hover:underline" @click="stopTemplate(template)">Stop</button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
 
-        <Modal :show="showModal" @close="closeModal">
-            <form @submit.prevent="save" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">
-                    {{ editingTemplateId ? 'Edit Recurring Schedule' : 'Add Slots' }}
-                </h2>
+        <TModal v-model:show="showModal">
+            <template #title>{{ editingTemplateId ? 'Edit Recurring Schedule' : 'Add Slots' }}</template>
 
-                <div v-if="!editingTemplateId" class="mt-4 flex gap-2 rounded-md bg-gray-100 p-1 text-sm">
+            <form id="slot-form" @submit.prevent="save" class="space-y-4">
+                <div v-if="!editingTemplateId" class="flex gap-2 rounded-lg bg-surface-hover p-1 text-sm">
                     <button
                         type="button"
                         class="flex-1 rounded px-3 py-1"
-                        :class="scheduleMode === 'oneoff' ? 'bg-white shadow-sm' : 'text-gray-500'"
+                        :class="scheduleMode === 'oneoff' ? 'bg-surface shadow-sm' : 'text-foreground-muted'"
                         @click="scheduleMode = 'oneoff'"
                     >
                         One-off
@@ -246,7 +253,7 @@ const calendarItems = computed(() => themeParkStore.slots.map((s) => ({
                     <button
                         type="button"
                         class="flex-1 rounded px-3 py-1"
-                        :class="scheduleMode === 'recurring' ? 'bg-white shadow-sm' : 'text-gray-500'"
+                        :class="scheduleMode === 'recurring' ? 'bg-surface shadow-sm' : 'text-foreground-muted'"
                         @click="scheduleMode = 'recurring'"
                     >
                         Recurring
@@ -254,103 +261,46 @@ const calendarItems = computed(() => themeParkStore.slots.map((s) => ({
                 </div>
 
                 <template v-if="scheduleMode === 'oneoff'">
-                    <div class="mt-4">
-                        <InputLabel for="event_id" value="Event" />
-                        <select id="event_id" v-model="form.event_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="event in themeParkStore.events" :key="event.id" :value="event.id">
-                                {{ event.name }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.event_id?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4">
-                        <InputLabel for="slot_date" value="Date" />
-                        <TextInput id="slot_date" type="date" v-model="form.slot_date" class="mt-1 block w-full" />
-                        <InputError :message="errors.slot_date?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4">
-                        <InputLabel for="slot_time" value="Time" />
-                        <TextInput id="slot_time" type="time" v-model="form.slot_time" class="mt-1 block w-full" />
-                        <InputError :message="errors.slot_time?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4">
-                        <InputLabel for="capacity" value="Capacity Override (optional)" />
-                        <TextInput id="capacity" type="number" min="1" v-model="form.capacity" class="mt-1 block w-full" />
-                    </div>
+                    <TSelect v-model="form.event_id" label="Event" :error="errors.event_id?.[0]" :options="eventOptions" />
+                    <TInput v-model="form.slot_date" label="Date" type="date" :error="errors.slot_date?.[0]" />
+                    <TInput v-model="form.slot_time" label="Time" type="time" :error="errors.slot_time?.[0]" />
+                    <TInput v-model="form.capacity" label="Capacity Override (optional)" type="number" min="1" />
                 </template>
 
                 <template v-else>
-                    <div class="mt-4">
-                        <InputLabel for="r_event_id" value="Event" />
-                        <select id="r_event_id" v-model="recurringForm.event_id" :disabled="!!editingTemplateId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="event in themeParkStore.events" :key="event.id" :value="event.id">
-                                {{ event.name }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.event_id?.[0]" class="mt-2" />
-                    </div>
+                    <TSelect v-model="recurringForm.event_id" label="Event" :error="errors.event_id?.[0]" :options="eventOptions" />
+                    <TSelect v-model="recurringForm.frequency" label="Frequency" :error="errors.frequency?.[0]" :options="frequencyOptions" />
 
-                    <div class="mt-4">
-                        <InputLabel for="frequency" value="Frequency" />
-                        <select id="frequency" v-model="recurringForm.frequency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
-                        <InputError :message="errors.frequency?.[0]" class="mt-2" />
-                    </div>
-
-                    <div v-if="recurringForm.frequency === 'weekly'" class="mt-4">
-                        <InputLabel value="Weekdays" />
-                        <div class="mt-1 flex flex-wrap gap-3">
+                    <div v-if="recurringForm.frequency === 'weekly'">
+                        <label class="mb-1.5 block text-sm font-medium text-foreground">Weekdays</label>
+                        <div class="flex flex-wrap gap-3">
                             <label v-for="option in WEEKDAY_OPTIONS" :key="option.value" class="flex items-center gap-1 text-sm">
                                 <input type="checkbox" :value="option.value" v-model="recurringForm.weekdays" />
                                 {{ option.label }}
                             </label>
                         </div>
-                        <InputError :message="errors.weekdays?.[0]" class="mt-2" />
+                        <p v-if="errors.weekdays?.[0]" class="mt-1.5 text-sm text-danger">{{ errors.weekdays[0] }}</p>
                     </div>
 
-                    <div v-if="recurringForm.frequency === 'monthly'" class="mt-4">
-                        <InputLabel for="day_of_month" value="Day of month" />
-                        <TextInput id="day_of_month" type="number" min="1" max="31" v-model="recurringForm.day_of_month" class="mt-1 block w-full" />
-                        <InputError :message="errors.day_of_month?.[0]" class="mt-2" />
-                    </div>
+                    <TInput v-if="recurringForm.frequency === 'monthly'" v-model="recurringForm.day_of_month" label="Day of month" type="number" min="1" max="31" :error="errors.day_of_month?.[0]" />
+                    <TInput v-model="recurringForm.slot_time" label="Time" type="time" :error="errors.slot_time?.[0]" />
+                    <TInput v-model="recurringForm.available_capacity" label="Capacity" type="number" min="1" :error="errors.available_capacity?.[0]" />
 
-                    <div class="mt-4">
-                        <InputLabel for="r_slot_time" value="Time" />
-                        <TextInput id="r_slot_time" type="time" v-model="recurringForm.slot_time" class="mt-1 block w-full" />
-                        <InputError :message="errors.slot_time?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4">
-                        <InputLabel for="available_capacity" value="Capacity" />
-                        <TextInput id="available_capacity" type="number" min="1" v-model="recurringForm.available_capacity" class="mt-1 block w-full" />
-                        <InputError :message="errors.available_capacity?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4 flex gap-4">
+                    <div class="flex gap-4">
                         <div class="flex-1">
-                            <InputLabel for="starts_on" value="Starts on" />
-                            <TextInput id="starts_on" type="date" v-model="recurringForm.starts_on" class="mt-1 block w-full" />
-                            <InputError :message="errors.starts_on?.[0]" class="mt-2" />
+                            <TInput v-model="recurringForm.starts_on" label="Starts on" type="date" :error="errors.starts_on?.[0]" />
                         </div>
                         <div class="flex-1">
-                            <InputLabel for="ends_on" value="Ends on (optional)" />
-                            <TextInput id="ends_on" type="date" v-model="recurringForm.ends_on" class="mt-1 block w-full" />
-                            <InputError :message="errors.ends_on?.[0]" class="mt-2" />
+                            <TInput v-model="recurringForm.ends_on" label="Ends on (optional)" type="date" :error="errors.ends_on?.[0]" />
                         </div>
                     </div>
                 </template>
-
-                <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton type="button" @click="closeModal">Cancel</SecondaryButton>
-                    <PrimaryButton type="submit">Save</PrimaryButton>
-                </div>
             </form>
-        </Modal>
-    </AuthenticatedLayout>
+
+            <template #footer>
+                <TButton variant="secondary" type="button" @click="closeModal">Cancel</TButton>
+                <TButton type="submit" form="slot-form">Save</TButton>
+            </template>
+        </TModal>
+    </StaffLayout>
 </template>

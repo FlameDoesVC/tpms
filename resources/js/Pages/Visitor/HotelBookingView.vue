@@ -2,7 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useHotelStore } from '@/stores/hotel';
 import { useCartStore } from '@/stores/cart';
 import { useThemeParkStore } from '@/stores/themepark';
@@ -179,29 +182,27 @@ const addToCart = (hotel, group) => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Hotels
-            </h2>
+            <TPageHeader title="Hotels" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="auth.isAuthenticated" class="rounded-lg bg-white p-4 shadow-sm">
+                <div v-if="auth.isAuthenticated" class="elevated rounded-xl border bg-surface p-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="font-semibold text-gray-900">My Bookings</h3>
-                        <router-link :to="{ name: 'bookings.my' }" class="text-sm text-indigo-600 hover:underline">
+                        <h3 class="font-semibold text-foreground">My Bookings</h3>
+                        <router-link :to="{ name: 'bookings.my' }" class="text-sm text-primary hover:underline">
                             View all
                         </router-link>
                     </div>
 
-                    <p v-if="upcomingBookings.length === 0" class="mt-2 text-sm text-gray-500">
+                    <p v-if="upcomingBookings.length === 0" class="mt-2 text-sm text-foreground-muted">
                         No upcoming bookings.
                     </p>
                     <div v-else class="mt-3 space-y-2">
                         <div
                             v-for="booking in upcomingBookings"
                             :key="booking.id"
-                            class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                            class="flex items-center justify-between rounded-lg bg-surface-hover px-3 py-2 text-sm text-foreground-secondary"
                         >
                             <span>
                                 {{ booking.room?.hotel?.name }} -
@@ -209,7 +210,7 @@ const addToCart = (hotel, group) => {
                             </span>
                             <router-link
                                 :to="{ name: 'bookings.confirm', query: { ids: String(booking.id) } }"
-                                class="font-medium text-indigo-600 hover:underline"
+                                class="font-medium text-primary hover:underline"
                             >
                                 {{ booking.status === 'pending' ? 'Complete Payment' : 'View' }}
                             </router-link>
@@ -217,24 +218,24 @@ const addToCart = (hotel, group) => {
                     </div>
                 </div>
 
-                <div class="sticky top-0 z-10 flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-sm">
+                <div class="elevated sticky top-[4.25rem] z-10 flex flex-wrap gap-4 rounded-xl border bg-surface p-4">
                     <div>
                         <div class="flex items-center justify-between gap-2">
-                            <label class="block text-sm font-medium text-gray-700">Hotels</label>
+                            <label class="block text-sm font-medium text-foreground-secondary">Hotels</label>
                             <button
                                 v-if="selectedHotelIds.length"
                                 type="button"
                                 @click="selectedHotelIds = []"
-                                class="text-xs text-indigo-600 hover:underline"
+                                class="text-xs text-primary hover:underline"
                             >
                                 Clear
                             </button>
                         </div>
-                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-md border border-gray-300 p-2">
+                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
                             <label
                                 v-for="hotel in hotelStore.hotels"
                                 :key="hotel.id"
-                                class="flex items-center gap-2 text-sm text-gray-700"
+                                class="flex items-center gap-2 text-sm text-foreground-secondary"
                             >
                                 <input type="checkbox" :value="hotel.id" v-model="selectedHotelIds" />
                                 {{ hotel.name }}
@@ -242,54 +243,74 @@ const addToCart = (hotel, group) => {
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Check in</label>
-                        <input type="date" v-model="checkIn" class="mt-1 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Check in</label>
+                        <input
+                            type="date"
+                            v-model="checkIn"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Check out</label>
-                        <input type="date" v-model="checkOut" class="mt-1 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Check out</label>
+                        <input
+                            type="date"
+                            v-model="checkOut"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Guests</label>
-                        <input type="number" min="1" v-model.number="guests" class="mt-1 w-20 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Guests</label>
+                        <input
+                            type="number"
+                            min="1"
+                            v-model.number="guests"
+                            class="mt-1 w-20 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                 </div>
 
-                <div v-if="hotelStore.loading.hotels" class="text-gray-500">Loading hotels...</div>
-                <div v-else-if="hotelStore.error.hotels" class="text-red-600">{{ hotelStore.error.hotels }}</div>
-                <div v-else-if="hotelStore.hotels.length === 0" class="text-gray-500">No hotels available yet.</div>
-                <div v-else-if="visibleHotels.length === 0" class="text-gray-500">No hotels match the selected filter.</div>
+                <div v-if="hotelStore.loading.hotels" class="text-foreground-muted">Loading hotels...</div>
+                <div v-else-if="hotelStore.error.hotels" class="text-danger">{{ hotelStore.error.hotels }}</div>
+                <TEmptyState
+                    v-else-if="hotelStore.hotels.length === 0"
+                    title="No hotels available yet"
+                    description="Check back soon for places to stay on the island."
+                    icon="inbox"
+                />
+                <TEmptyState
+                    v-else-if="visibleHotels.length === 0"
+                    title="No hotels match the selected filter"
+                    description="Try clearing the hotel filter to see everything available."
+                    icon="search"
+                />
 
                 <div v-else class="space-y-8">
                     <div
                         v-for="hotel in visibleHotels"
                         :key="hotel.id"
-                        class="rounded-lg bg-white p-6 shadow-sm"
+                        class="elevated rounded-xl border bg-surface p-6"
                     >
                         <div class="flex items-start gap-4">
-                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100 text-xs text-gray-400">
+                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-hover text-xs text-foreground-muted">
                                 <img v-if="hotel.image_url" :src="hotel.image_url" :alt="hotel.name" class="h-full w-full object-cover" />
                                 <span v-else>No image</span>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-2">
-                                    <h3 class="font-semibold text-gray-900">{{ hotel.name }}</h3>
-                                    <span
-                                        class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="hotel.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
-                                    >
+                                    <h3 class="font-semibold text-foreground">{{ hotel.name }}</h3>
+                                    <TBadge :variant="hotel.is_active ? 'success' : 'neutral'" class="shrink-0">
                                         {{ hotel.is_active ? 'Open' : 'Closed' }}
-                                    </span>
+                                    </TBadge>
                                 </div>
-                                <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ hotel.description }}</p>
-                                <p class="mt-1 text-xs text-gray-500">{{ hotel.address }}</p>
+                                <p class="mt-1 line-clamp-2 text-sm text-foreground-secondary">{{ hotel.description }}</p>
+                                <p class="mt-1 text-xs text-foreground-muted">{{ hotel.address }}</p>
                             </div>
                         </div>
 
                         <p
                             v-if="hotelMessages[hotel.id]"
                             class="mt-4 text-sm"
-                            :class="hotelMessages[hotel.id].type === 'error' ? 'text-red-600' : 'text-green-600'"
+                            :class="hotelMessages[hotel.id].type === 'error' ? 'text-danger' : 'text-success'"
                         >
                             {{ hotelMessages[hotel.id].text }}
                             <router-link
@@ -302,10 +323,10 @@ const addToCart = (hotel, group) => {
                         </p>
 
                         <div class="mt-4">
-                            <div v-if="loadingTypes[hotel.id]" class="text-sm text-gray-500">Loading rooms...</div>
+                            <div v-if="loadingTypes[hotel.id]" class="text-sm text-foreground-muted">Loading rooms...</div>
                             <div
                                 v-else-if="(roomTypesByHotel[hotel.id]?.length ?? 0) === 0"
-                                class="rounded-md bg-gray-50 p-4 text-sm text-gray-500"
+                                class="rounded-lg bg-surface-hover p-4 text-sm text-foreground-muted"
                             >
                                 Fully booked for these dates.
                             </div>
@@ -313,19 +334,19 @@ const addToCart = (hotel, group) => {
                                 <div
                                     v-for="group in roomTypesByHotel[hotel.id]"
                                     :key="`${group.type}-${group.price_per_night}-${group.max_guests}`"
-                                    class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4"
+                                    class="flex items-center justify-between gap-4 rounded-xl border p-4"
                                 >
                                     <div>
-                                        <p class="font-semibold capitalize text-gray-900">{{ group.type }}</p>
-                                        <p class="text-sm text-gray-500">Up to {{ group.max_guests }} guests / room</p>
-                                        <p class="mt-1 font-medium text-gray-900">${{ group.price_per_night }} / night</p>
-                                        <p class="mt-1 text-xs text-gray-400">{{ group.available_count }} available</p>
-                                        <p v-if="maxCapacity(group) < guests" class="mt-1 text-xs font-medium text-red-600">
+                                        <p class="font-semibold capitalize text-foreground">{{ group.type }}</p>
+                                        <p class="text-sm text-foreground-muted">Up to {{ group.max_guests }} guests / room</p>
+                                        <p class="mt-1 font-medium text-foreground">${{ group.price_per_night }} / night</p>
+                                        <p class="mt-1 text-xs text-foreground-muted">{{ group.available_count }} available</p>
+                                        <p v-if="maxCapacity(group) < guests" class="mt-1 text-xs font-medium text-danger">
                                             Doesn't fit {{ guests }} guests, only {{ group.available_count }} room(s) available.
                                         </p>
                                     </div>
                                     <div class="flex flex-col items-end gap-2">
-                                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                                        <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                                             Rooms
                                             <input
                                                 type="number"
@@ -333,12 +354,12 @@ const addToCart = (hotel, group) => {
                                                 :max="group.available_count"
                                                 :value="quantityFor(hotel.id, group)"
                                                 @input="setQuantity(hotel.id, group, Number($event.target.value))"
-                                                class="w-16 rounded-md border-gray-300 shadow-sm"
+                                                class="w-16 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                             />
                                         </label>
-                                        <PrimaryButton :disabled="!canBook(hotel.id, group)" @click="addToCart(hotel, group)">
+                                        <TButton :disabled="!canBook(hotel.id, group)" @click="addToCart(hotel, group)">
                                             Add to Cart
-                                        </PrimaryButton>
+                                        </TButton>
                                     </div>
                                 </div>
                             </div>

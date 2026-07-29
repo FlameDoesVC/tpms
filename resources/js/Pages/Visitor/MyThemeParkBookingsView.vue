@@ -1,6 +1,9 @@
 <script setup>
 import { computed, onMounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const themeParkStore = useThemeParkStore();
@@ -26,50 +29,46 @@ const cancel = (booking) => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                My Theme Park Bookings
-            </h2>
+            <TPageHeader title="My Theme Park Bookings" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-3xl space-y-4 sm:px-6 lg:px-8">
-                <div v-if="themeParkStore.loading.bookings" class="text-gray-500">Loading bookings...</div>
-                <div v-else-if="themeParkStore.myBookings.length === 0" class="rounded-lg bg-white p-8 text-center text-gray-500">
-                    You have no theme park bookings yet.
-                </div>
+                <div v-if="themeParkStore.loading.bookings" class="text-foreground-muted">Loading bookings...</div>
+                <TEmptyState
+                    v-else-if="themeParkStore.myBookings.length === 0"
+                    title="No theme park bookings yet"
+                    description="Rides, shows and beach events you book will appear here."
+                    icon="ticket"
+                />
 
                 <div
                     v-for="booking in sortedBookings"
                     :key="booking.id"
-                    class="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm"
+                    class="flex items-center justify-between rounded-xl border bg-surface p-4"
                     :class="{ 'opacity-50 grayscale': booking.status === 'cancelled' }"
                 >
                     <div>
                         <div class="flex items-center gap-2">
-                            <p class="font-semibold text-gray-900">{{ booking.slot?.event?.name }}</p>
-                            <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-800">
+                            <p class="font-semibold text-foreground">{{ booking.slot?.event?.name }}</p>
+                            <TBadge variant="primary" class="capitalize">
                                 {{ booking.slot?.event?.type?.replace('_', ' ') }}
-                            </span>
+                            </TBadge>
                         </div>
-                        <p class="text-sm text-gray-500">
+                        <p class="text-sm text-foreground-muted">
                             {{ booking.slot?.slot_date?.slice(0, 10) }} at {{ booking.slot?.slot_time }} - {{ booking.ticket_count }} ticket(s)
                         </p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span
-                            class="rounded-full px-2 py-0.5 text-xs font-medium"
-                            :class="{
-                                'bg-green-100 text-green-800': booking.status === 'confirmed',
-                                'bg-gray-100 text-gray-600': booking.status === 'cancelled',
-                                'bg-blue-100 text-blue-800': booking.status === 'used',
-                            }"
+                        <TBadge
+                            :variant="booking.status === 'confirmed' ? 'success' : booking.status === 'used' ? 'info' : 'neutral'"
                         >
                             {{ booking.status }}
-                        </span>
+                        </TBadge>
                         <button
                             v-if="booking.status === 'confirmed' && isUpcoming(booking)"
                             @click="cancel(booking)"
-                            class="text-sm text-red-600 hover:underline"
+                            class="text-sm text-danger hover:underline"
                         >
                             Cancel
                         </button>

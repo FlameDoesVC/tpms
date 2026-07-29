@@ -3,6 +3,10 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import QRCode from 'qrcode';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useHotelStore } from '@/stores/hotel';
 
 const router = useRouter();
@@ -69,46 +73,48 @@ const cancelSelected = async () => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                My Hotel Bookings
-            </h2>
+            <TPageHeader title="My Hotel Bookings" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-3xl space-y-4 sm:px-6 lg:px-8">
-                <div v-if="hotelStore.loading.bookings" class="text-gray-500">Loading bookings...</div>
-                <div v-else-if="hotelStore.myBookings.length === 0" class="rounded-lg bg-white p-8 text-center text-gray-500">
-                    You have no hotel bookings yet.
-                </div>
+                <div v-if="hotelStore.loading.bookings" class="text-foreground-muted">Loading bookings...</div>
+                <TEmptyState
+                    v-else-if="hotelStore.myBookings.length === 0"
+                    title="No hotel bookings yet"
+                    description="Once you book a room, it will show up here."
+                    icon="calendar"
+                />
 
                 <template v-else>
-                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-4 shadow-sm">
-                        <span class="text-sm text-gray-500">
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface p-4">
+                        <span class="text-sm text-foreground-muted">
                             {{ selected.length }} selected
                             <span v-if="payableSelected.length">- ${{ selectedTotal }} due</span>
                         </span>
                         <div class="flex gap-2">
-                            <button
+                            <TButton
+                                size="sm"
                                 :disabled="payableSelected.length === 0"
                                 @click="paySelected"
-                                class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                             >
                                 Pay Selected ({{ payableSelected.length }})
-                            </button>
-                            <button
+                            </TButton>
+                            <TButton
+                                size="sm"
+                                variant="danger"
                                 :disabled="cancellableSelected.length === 0"
                                 @click="cancelSelected"
-                                class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                             >
                                 Cancel Selected ({{ cancellableSelected.length }})
-                            </button>
+                            </TButton>
                         </div>
                     </div>
 
                     <div
                         v-for="booking in sortedBookings"
                         :key="booking.id"
-                        class="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm"
+                        class="flex items-center justify-between rounded-xl border bg-surface p-4"
                         :class="{ 'opacity-50 grayscale': booking.status === 'cancelled' }"
                     >
                         <div class="flex items-center gap-3">
@@ -122,7 +128,7 @@ const cancelSelected = async () => {
                                     v-else
                                     type="button"
                                     @click="revealQr(booking)"
-                                    class="flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
+                                    class="flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-strong bg-surface-hover text-foreground-muted transition-colors hover:border-primary hover:text-primary"
                                 >
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5">
                                         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -135,35 +141,30 @@ const cancelSelected = async () => {
                             </div>
 
                             <div>
-                                <p class="font-semibold text-gray-900">{{ booking.room?.hotel?.name }}</p>
-                                <p class="text-sm text-gray-500">
+                                <p class="font-semibold text-foreground">{{ booking.room?.hotel?.name }}</p>
+                                <p class="text-sm text-foreground-muted">
                                     {{ booking.check_in_date?.slice(0, 10) }} to {{ booking.check_out_date?.slice(0, 10) }}
                                     - ${{ booking.total_price }} - {{ booking.reference_code }}
                                 </p>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                :class="{
-                                    'bg-yellow-100 text-yellow-800': booking.status === 'pending',
-                                    'bg-green-100 text-green-800': booking.status === 'confirmed',
-                                    'bg-gray-100 text-gray-600': booking.status === 'cancelled',
-                                }"
+                            <TBadge
+                                :variant="booking.status === 'pending' ? 'warning' : booking.status === 'confirmed' ? 'success' : 'neutral'"
                             >
                                 {{ booking.status }}
-                            </span>
+                            </TBadge>
                             <router-link
                                 v-if="booking.status === 'pending'"
                                 :to="{ name: 'bookings.confirm', query: { ids: String(booking.id) } }"
-                                class="text-sm text-indigo-600 hover:underline"
+                                class="text-sm text-primary hover:underline"
                             >
                                 Complete Payment
                             </router-link>
                             <button
                                 v-if="isCancellable(booking)"
                                 @click="cancel(booking)"
-                                class="text-sm text-red-600 hover:underline"
+                                class="text-sm text-danger hover:underline"
                             >
                                 Cancel
                             </button>

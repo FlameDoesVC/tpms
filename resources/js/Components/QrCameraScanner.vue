@@ -43,9 +43,9 @@ defineExpose({
 <template>
     <div>
         <video ref="videoEl" class="aspect-square w-full rounded-lg bg-black object-cover" />
-        <p v-if="cameraError" class="mt-2 text-sm text-red-600">
+        <p v-if="cameraError" class="mt-2 text-sm text-danger">
             {{ cameraError }}
-            <button type="button" @click="requestCamera" class="font-medium text-indigo-600 underline hover:text-indigo-800">
+            <button type="button" @click="requestCamera" class="font-medium text-primary underline hover:text-primary-hover">
                 Allow camera access
             </button>
         </p>

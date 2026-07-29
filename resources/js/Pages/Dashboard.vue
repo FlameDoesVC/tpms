@@ -1,6 +1,10 @@
 <script setup>
 import { computed, onMounted, reactive } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
 import TimelineIcon from '@/Components/icons/TimelineIcon.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useHotelStore } from '@/stores/hotel';
@@ -8,6 +12,10 @@ import { useFerryStore } from '@/stores/ferry';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const auth = useAuthStore();
+
+const STAFF_ROLES = ['hotel_manager', 'ferry_operator', 'themepark_staff', 'admin'];
+const layout = computed(() => (STAFF_ROLES.includes(auth.userRole) ? StaffLayout : AuthenticatedLayout));
+const isStaff = computed(() => STAFF_ROLES.includes(auth.userRole));
 const hotelStore = useHotelStore();
 const ferryStore = useFerryStore();
 const themeParkStore = useThemeParkStore();
@@ -23,21 +31,12 @@ onMounted(() => {
     }
 });
 
-// A ferry ticket's own record has no notion of direction - it's inferred by
-// comparing its departure date against the linked hotel booking's stay dates
-// (the booking flow only ever sells departures on check-in or check-out day).
-// Drives both the arrow icon and same-day sort ties (arrive by ferry before
-// checking into the hotel, check out of the hotel before the ferry back).
 const ferryDirection = (ticket) => {
     const departureDate = (ticket.schedule?.departure_date ?? '').slice(0, 10);
     if (departureDate && departureDate === (ticket.booking?.check_out_date ?? '').slice(0, 10)) return 'back';
     return 'out';
 };
 
-// Groups a flat list of raw rows sharing the same groupKey (same hotel/ferry/
-// event AND same date+time) into one summary row with a `children` list -
-// e.g. a 2-room hotel purchase or a multi-seat ferry ticket set collapses
-// into one row instead of listing each room/seat separately.
 const groupItems = (rows) => {
     const groups = new Map();
     for (const row of rows) {
@@ -51,8 +50,9 @@ const groupItems = (rows) => {
     }));
 };
 
-// Dashboard only ever shows what's still relevant — past bookings live in
-// each module's dedicated "my bookings" page, not here.
+const badgeVariant = { hotel: 'success', ferry: 'warning', themepark: 'info' };
+const iconColor = { hotel: 'text-success', ferry: 'text-warning', themepark: 'text-info' };
+
 const upcomingItems = computed(() => {
     const hotel = groupItems(
         hotelStore.myBookings
@@ -134,55 +134,40 @@ const toggleExpanded = (key) => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <component :is="layout">
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Dashboard
-            </h2>
+            <TPageHeader :compact="isStaff" title="Dashboard" icon="dashboard" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-4xl sm:px-6 lg:px-8">
                 <template v-if="isVisitor">
-                    <h3 class="mb-4 font-semibold text-gray-900">Coming Up</h3>
+                    <h3 class="mb-4 font-semibold text-foreground">Coming Up</h3>
 
-                    <div v-if="upcomingItems.length === 0" class="rounded-lg bg-white p-8 text-center text-gray-500 shadow-sm">
-                        Nothing coming up yet. Browse hotels, ferry schedules, or theme park events to get started.
-                    </div>
+                    <TEmptyState
+                        v-if="upcomingItems.length === 0"
+                        title="Nothing coming up"
+                        description="Browse hotels, ferry schedules, or theme park events to get started."
+                        icon="calendar"
+                    />
 
                     <div v-else class="space-y-3">
-                        <div v-for="item in upcomingItems" :key="item.key" class="rounded-lg bg-white shadow-sm hover:shadow-md">
+                        <div v-for="item in upcomingItems" :key="item.key" class="overflow-hidden rounded-xl border bg-surface transition-shadow hover:shadow-md">
                             <router-link :to="item.to" class="flex items-center justify-between p-4">
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <TimelineIcon
-                                            :type="item.icon"
-                                            :class="{
-                                                'text-green-600': item.group === 'hotel',
-                                                'text-yellow-600': item.group === 'ferry',
-                                                'text-blue-600': item.group === 'themepark',
-                                            }"
-                                        />
-                                        <span
-                                            class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                            :class="{
-                                                'bg-green-100 text-green-800': item.group === 'hotel',
-                                                'bg-yellow-100 text-yellow-800': item.group === 'ferry',
-                                                'bg-blue-100 text-blue-800': item.group === 'themepark',
-                                            }"
-                                        >
-                                            {{ item.type }}
-                                        </span>
-                                        <p class="font-semibold text-gray-900">{{ item.title }}</p>
+                                        <TimelineIcon :type="item.icon" :class="iconColor[item.group]" />
+                                        <TBadge :variant="badgeVariant[item.group]">{{ item.type }}</TBadge>
+                                        <p class="font-semibold text-foreground">{{ item.title }}</p>
                                     </div>
-                                    <p class="mt-1 text-sm text-gray-500">{{ item.detail }}</p>
+                                    <p class="mt-1 text-sm text-foreground-muted">{{ item.detail }}</p>
                                 </div>
 
                                 <button
                                     v-if="item.children.length > 1"
                                     type="button"
                                     @click.stop.prevent="toggleExpanded(item.key)"
-                                    class="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                    class="shrink-0 rounded-lg p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground"
                                 >
                                     <svg
                                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -194,8 +179,8 @@ const toggleExpanded = (key) => {
                                 </button>
                             </router-link>
 
-                            <div v-if="item.children.length > 1 && expandedKeys.has(item.key)" class="space-y-1 border-t border-gray-100 px-4 py-2">
-                                <p v-for="child in item.children" :key="child.key" class="text-sm text-gray-500">
+                            <div v-if="item.children.length > 1 && expandedKeys.has(item.key)" class="space-y-1 border-t px-4 py-2">
+                                <p v-for="child in item.children" :key="child.key" class="text-sm text-foreground-muted">
                                     {{ child.childLabel }}
                                 </p>
                             </div>
@@ -203,12 +188,12 @@ const toggleExpanded = (key) => {
                     </div>
                 </template>
 
-                <div v-else class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">
+                <div v-else class="overflow-hidden rounded-xl border bg-surface">
+                    <div class="p-6 text-foreground">
                         You're logged in!
                     </div>
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </component>
 </template>

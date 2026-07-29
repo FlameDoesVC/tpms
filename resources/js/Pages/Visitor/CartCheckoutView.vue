@@ -2,9 +2,11 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useCartStore } from '@/stores/cart';
 import { useAuthStore } from '@/stores/auth';
 
@@ -51,58 +53,56 @@ const checkout = async () => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Checkout
-            </h2>
+            <TPageHeader title="Checkout" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-2xl space-y-6 sm:px-6 lg:px-8">
                 <div v-if="confirmation" class="space-y-6">
-                    <div class="rounded-lg bg-green-50 p-6 text-center">
-                        <p class="text-lg font-semibold text-green-800">All set!</p>
-                        <p class="mt-1 text-sm text-green-700">
+                    <div class="rounded-xl bg-success-soft p-6 text-center">
+                        <p class="text-lg font-semibold text-success">All set!</p>
+                        <p class="mt-1 text-sm text-success">
                             {{ confirmation.hotel.length + confirmation.ferry.length + confirmation.themepark.length }} item(s) confirmed.
                         </p>
                     </div>
 
-                    <div v-if="confirmation.hotel.length" class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="font-semibold text-gray-900">Hotel</p>
-                        <p v-for="b in confirmation.hotel" :key="b.id" class="mt-1 text-sm text-gray-600">
+                    <div v-if="confirmation.hotel.length" class="elevated rounded-xl border bg-surface p-4">
+                        <p class="font-semibold text-foreground">Hotel</p>
+                        <p v-for="b in confirmation.hotel" :key="b.id" class="mt-1 text-sm text-foreground-secondary">
                             {{ b.reference_code }} - ${{ b.total_price }}
                         </p>
                     </div>
-                    <div v-if="confirmation.ferry.length" class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="font-semibold text-gray-900">Ferry</p>
-                        <p v-for="t in confirmation.ferry" :key="t.id" class="mt-1 text-sm text-gray-600">
+                    <div v-if="confirmation.ferry.length" class="elevated rounded-xl border bg-surface p-4">
+                        <p class="font-semibold text-foreground">Ferry</p>
+                        <p v-for="t in confirmation.ferry" :key="t.id" class="mt-1 text-sm text-foreground-secondary">
                             {{ t.reference_code }} - seat {{ t.seat_number }}
                         </p>
                     </div>
-                    <div v-if="confirmation.themepark.length" class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="font-semibold text-gray-900">Theme Park</p>
-                        <p v-for="b in confirmation.themepark" :key="b.id" class="mt-1 text-sm text-gray-600">
+                    <div v-if="confirmation.themepark.length" class="elevated rounded-xl border bg-surface p-4">
+                        <p class="font-semibold text-foreground">Theme Park</p>
+                        <p v-for="b in confirmation.themepark" :key="b.id" class="mt-1 text-sm text-foreground-secondary">
                             Booking #{{ b.id }} - {{ b.ticket_count }} ticket(s)
                         </p>
                     </div>
 
                     <div class="flex justify-center gap-4 text-sm">
-                        <router-link :to="{ name: 'bookings.my' }" class="font-medium text-indigo-600 underline">My Bookings</router-link>
-                        <router-link :to="{ name: 'ferry.my-tickets' }" class="font-medium text-indigo-600 underline">My Tickets</router-link>
-                        <router-link :to="{ name: 'themepark.my-bookings' }" class="font-medium text-indigo-600 underline">My Theme Park Bookings</router-link>
+                        <router-link :to="{ name: 'bookings.my' }" class="font-medium text-primary underline">My Bookings</router-link>
+                        <router-link :to="{ name: 'ferry.my-tickets' }" class="font-medium text-primary underline">My Tickets</router-link>
+                        <router-link :to="{ name: 'themepark.my-bookings' }" class="font-medium text-primary underline">My Theme Park Bookings</router-link>
                     </div>
 
-                    <div v-if="auth.isGuest" class="rounded-lg border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-800">
+                    <div v-if="auth.isGuest" class="rounded-xl border bg-primary-soft p-4 text-sm text-primary">
                         <p>You checked out as a guest. Log in or create an account to save this booking.</p>
                         <div class="mt-3 flex gap-3">
                             <router-link
                                 :to="{ name: 'login', query: { redirect: route.fullPath } }"
-                                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                                class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
                             >
                                 Log In
                             </router-link>
                             <router-link
                                 :to="{ name: 'register', query: { redirect: route.fullPath } }"
-                                class="rounded-md border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100"
+                                class="rounded-lg border border-strong bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
                             >
                                 Create Account
                             </router-link>
@@ -111,79 +111,75 @@ const checkout = async () => {
                 </div>
 
                 <template v-else>
-                    <div v-if="cart.items.length === 0" class="rounded-lg bg-white p-8 text-center text-gray-500 shadow-sm">
-                        Your cart is empty.
-                    </div>
+                    <TEmptyState
+                        v-if="cart.items.length === 0"
+                        title="Your cart is empty"
+                        description="Add a hotel room, ferry ticket or theme park slot to get started."
+                        icon="inbox"
+                    />
 
                     <template v-else>
-                        <div class="rounded-lg bg-white p-6 shadow-sm">
-                            <h3 class="font-semibold text-gray-900">Order Summary</h3>
-                            <div class="mt-4 divide-y divide-gray-100">
+                        <div class="elevated rounded-xl border bg-surface p-6">
+                            <h3 class="font-semibold text-foreground">Order Summary</h3>
+                            <div class="mt-4 divide-y divide-[rgb(var(--color-border))]">
                                 <div v-for="item in cart.items" :key="item.id" class="flex items-start justify-between gap-2 py-3 text-sm">
                                     <div>
-                                        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
-                                            {{ typeLabel(item.type) }}
-                                        </span>
+                                        <TBadge variant="primary">{{ typeLabel(item.type) }}</TBadge>
                                         <template v-if="item.type === 'hotel'">
-                                            <p class="mt-1 font-medium text-gray-900">{{ item.hotelName }} - {{ item.roomType }}</p>
-                                            <p class="text-xs text-gray-500">{{ item.quantity }} room(s), {{ item.checkIn }} to {{ item.checkOut }}</p>
+                                            <p class="mt-1 font-medium text-foreground">{{ item.hotelName }} - {{ item.roomType }}</p>
+                                            <p class="text-xs text-foreground-muted">{{ item.quantity }} room(s), {{ item.checkIn }} to {{ item.checkOut }}</p>
                                         </template>
                                         <template v-else-if="item.type === 'ferry'">
-                                            <p class="mt-1 font-medium text-gray-900">{{ item.ferryName }}</p>
-                                            <p class="text-xs text-gray-500">
+                                            <p class="mt-1 font-medium text-foreground">{{ item.ferryName }}</p>
+                                            <p class="text-xs text-foreground-muted">
                                                 {{ item.departureDate }} at {{ item.departureTime }} - {{ item.seatNumbers.length }} seat(s)
                                                 ({{ item.paymentMethod === 'cash' ? 'cash on board' : 'online' }})
                                             </p>
                                         </template>
                                         <template v-else>
-                                            <p class="mt-1 font-medium text-gray-900">{{ item.eventName }}</p>
-                                            <p class="text-xs text-gray-500">{{ item.slotDate }} at {{ item.slotTime }} - {{ item.ticketCount }} ticket(s)</p>
+                                            <p class="mt-1 font-medium text-foreground">{{ item.eventName }}</p>
+                                            <p class="text-xs text-foreground-muted">{{ item.slotDate }} at {{ item.slotTime }} - {{ item.ticketCount }} ticket(s)</p>
                                         </template>
                                     </div>
                                     <div class="flex items-center gap-3">
-                                        <span class="font-medium text-gray-900">${{ Number(item.subtotal).toFixed(2) }}</span>
-                                        <button type="button" @click="cart.removeItem(item.id)" class="text-xs text-red-600 hover:underline">
+                                        <span class="font-medium text-foreground">${{ Number(item.subtotal).toFixed(2) }}</span>
+                                        <button type="button" @click="cart.removeItem(item.id)" class="text-xs text-danger hover:underline">
                                             Remove
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="mt-2 flex justify-between border-t border-gray-200 pt-3 text-sm font-semibold">
-                                <span class="text-gray-900">Total due now</span>
-                                <span class="text-gray-900">${{ cart.onlineTotal.toFixed(2) }}</span>
+                            <div class="mt-2 flex justify-between border-t pt-3 text-sm font-semibold">
+                                <span class="text-foreground">Total due now</span>
+                                <span class="text-foreground">${{ cart.onlineTotal.toFixed(2) }}</span>
                             </div>
-                            <p v-if="cart.cashDueTotal > 0" class="mt-1 text-xs text-gray-500">
+                            <p v-if="cart.cashDueTotal > 0" class="mt-1 text-xs text-foreground-muted">
                                 Plus ${{ cart.cashDueTotal.toFixed(2) }} cash due on board for ferry tickets.
                             </p>
                         </div>
 
-                        <form @submit.prevent="checkout" class="space-y-4 rounded-lg bg-white p-6 shadow-sm">
-                            <h3 class="font-semibold text-gray-900">Payment</h3>
+                        <form @submit.prevent="checkout" class="space-y-4 rounded-xl border bg-surface p-6">
+                            <h3 class="font-semibold text-foreground">Payment</h3>
 
                             <template v-if="paymentRequired">
-                                <div>
-                                    <InputLabel value="Card Number" />
-                                    <TextInput v-model="cardNumber" class="mt-1 block w-full" placeholder="4242 4242 4242 4242" />
-                                </div>
+                                <TInput v-model="cardNumber" label="Card Number" placeholder="4242 4242 4242 4242" />
                                 <div class="flex gap-4">
                                     <div class="flex-1">
-                                        <InputLabel value="Expiry" />
-                                        <TextInput v-model="expiry" class="mt-1 block w-full" placeholder="MM/YY" />
+                                        <TInput v-model="expiry" label="Expiry" placeholder="MM/YY" />
                                     </div>
                                     <div class="w-24">
-                                        <InputLabel value="CVV" />
-                                        <TextInput v-model="cvv" class="mt-1 block w-full" placeholder="123" />
+                                        <TInput v-model="cvv" label="CVV" placeholder="123" />
                                     </div>
                                 </div>
                             </template>
-                            <p v-else class="text-sm text-gray-500">No online payment needed - everything in your cart is cash on board.</p>
+                            <p v-else class="text-sm text-foreground-muted">No online payment needed - everything in your cart is cash on board.</p>
 
-                            <p v-if="payError" class="text-sm text-red-600">{{ payError }}</p>
+                            <p v-if="payError" class="text-sm text-danger">{{ payError }}</p>
 
-                            <PrimaryButton :disabled="paying" type="submit">
+                            <TButton :disabled="paying" :loading="paying" type="submit">
                                 {{ paying ? 'Processing...' : `Pay $${cart.onlineTotal.toFixed(2)} & Confirm` }}
-                            </PrimaryButton>
+                            </TButton>
                         </form>
                     </template>
                 </template>

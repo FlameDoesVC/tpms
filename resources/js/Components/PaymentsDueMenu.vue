@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHotelStore } from '@/stores/hotel';
+import TButton from '@/Components/ui/TButton.vue';
 
 const router = useRouter();
 const hotelStore = useHotelStore();
@@ -29,8 +30,6 @@ const payForSelected = () => {
     router.push({ name: 'bookings.confirm', query: { ids: selected.value.join(',') } });
 };
 
-// Deliberately not closing on clicks inside the panel (unlike Dropdown.vue) -
-// this menu needs checkboxes to stay open while the visitor picks what to pay.
 const closeOnEscape = (e) => {
     if (open.value && e.key === 'Escape') open.value = false;
 };
@@ -43,50 +42,49 @@ onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
         <button
             type="button"
             @click="toggle"
-            class="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-200"
+            class="rounded bg-warning-soft px-3 py-1 text-xs font-medium text-warning hover:opacity-80"
         >
             {{ pendingBookings.length }} payment{{ pendingBookings.length === 1 ? '' : 's' }} due
         </button>
 
         <div v-if="open" class="fixed inset-0 z-40" @click="open = false"></div>
 
-        <div v-if="open" class="absolute end-0 z-50 mt-2 w-80 rounded-md bg-white p-4 shadow-lg ring-1 ring-black ring-opacity-5">
-            <h4 class="text-sm font-semibold text-gray-900">Payments due</h4>
+        <div v-if="open" class="absolute end-0 z-50 mt-2 w-80 rounded-xl border bg-surface p-4 shadow-lg">
+            <h4 class="text-sm font-semibold text-foreground">Payments due</h4>
             <div class="mt-3 max-h-64 space-y-2 overflow-y-auto">
                 <label
                     v-for="booking in pendingBookings"
                     :key="booking.id"
-                    class="flex items-center justify-between gap-2 rounded-md bg-gray-50 p-2 text-sm"
+                    class="flex cursor-pointer items-center justify-between gap-2 rounded-lg bg-surface-hover p-2.5 text-sm"
                 >
                     <span class="flex items-center gap-2">
-                        <input type="checkbox" :value="booking.id" v-model="selected" />
+                        <input type="checkbox" :value="booking.id" v-model="selected" class="rounded text-primary focus:ring-primary/20" />
                         <span>
                             {{ booking.room?.hotel?.name }}
-                            <span class="block text-xs text-gray-500">
+                            <span class="block text-xs text-foreground-muted">
                                 {{ booking.check_in_date?.slice(0, 10) }} - {{ booking.reference_code }}
                             </span>
                         </span>
                     </span>
-                    <span class="font-medium text-gray-900">${{ booking.total_price }}</span>
+                    <span class="font-medium text-foreground">${{ booking.total_price }}</span>
                 </label>
             </div>
 
-            <div class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3">
-                <span class="text-sm font-semibold text-gray-900">Total: ${{ selectedTotal }}</span>
-                <button
-                    type="button"
+            <div class="mt-3 flex items-center justify-between border-t pt-3">
+                <span class="text-sm font-semibold text-foreground">Total: ${{ selectedTotal }}</span>
+                <TButton
+                    size="sm"
                     :disabled="selected.length === 0"
                     @click="payForSelected"
-                    class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                     Pay Selected
-                </button>
+                </TButton>
             </div>
 
             <router-link
                 :to="{ name: 'bookings.my' }"
                 @click="open = false"
-                class="mt-2 block text-center text-xs text-indigo-600 hover:underline"
+                class="mt-2 block text-center text-xs text-primary hover:underline"
             >
                 View all bookings
             </router-link>

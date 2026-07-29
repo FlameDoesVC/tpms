@@ -1,12 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
-import InputError from '@/Components/InputError.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const themeParkStore = useThemeParkStore();
@@ -61,26 +63,33 @@ const remove = (event) => {
         themeParkStore.deleteEvent(event.id);
     }
 };
+
+const typeOptions = [
+    { value: 'ride', label: 'Ride' },
+    { value: 'show', label: 'Show' },
+    { value: 'beach_event', label: 'Beach Event' },
+];
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Event Management
-            </h2>
+            <TPageHeader compact title="Event Management" icon="sparkle">
+                <template #actions>
+                    <TButton size="sm" @click="openAddModal">
+                        <TIcon name="plus" :size="16" />
+                        Add Event
+                    </TButton>
+                </template>
+            </TPageHeader>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div class="flex justify-end">
-                    <PrimaryButton @click="openAddModal">Add Event</PrimaryButton>
-                </div>
-
-                <div class="rounded-lg bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <div class="max-w-5xl">
+            <TCard icon="sparkle" title="Events" :padding="false">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Name</th>
                                 <th class="p-4">Type</th>
                                 <th class="p-4">Location</th>
@@ -89,94 +98,54 @@ const remove = (event) => {
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))]">
                             <tr v-for="event in themeParkStore.events" :key="event.id">
                                 <td class="p-4">{{ event.name }}</td>
                                 <td class="p-4 capitalize">{{ event.type.replace('_', ' ') }}</td>
                                 <td class="p-4">{{ event.location }}</td>
                                 <td class="p-4">{{ event.capacity_per_slot }}</td>
                                 <td class="p-4">
-                                    <button
-                                        @click="toggleActive(event)"
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="event.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
-                                    >
-                                        {{ event.is_active ? 'Active' : 'Inactive' }}
+                                    <button @click="toggleActive(event)">
+                                        <TBadge :variant="event.is_active ? 'success' : 'neutral'">
+                                            {{ event.is_active ? 'Active' : 'Inactive' }}
+                                        </TBadge>
                                     </button>
                                 </td>
                                 <td class="p-4 space-x-2">
-                                    <button @click="openEditModal(event)" class="text-sm text-indigo-600 hover:underline">Edit</button>
-                                    <button @click="remove(event)" class="text-sm text-red-600 hover:underline">Delete</button>
+                                    <button @click="openEditModal(event)" class="text-sm text-primary hover:underline">Edit</button>
+                                    <button @click="remove(event)" class="text-sm text-danger hover:underline">Delete</button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
 
-        <Modal :show="showModal" @close="closeModal">
-            <form @submit.prevent="save" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">
-                    {{ editingEvent ? 'Edit Event' : 'Add Event' }}
-                </h2>
+        <TModal v-model:show="showModal">
+            <template #title>{{ editingEvent ? 'Edit Event' : 'Add Event' }}</template>
 
-                <div class="mt-4">
-                    <InputLabel for="name" value="Name" />
-                    <TextInput id="name" v-model="form.name" class="mt-1 block w-full" />
-                    <InputError :message="errors.name?.[0]" class="mt-2" />
-                </div>
-
-                <div class="mt-4">
-                    <InputLabel for="description" value="Description" />
-                    <TextInput id="description" v-model="form.description" class="mt-1 block w-full" />
-                </div>
-
-                <div class="mt-4">
-                    <InputLabel for="type" value="Type" />
-                    <select id="type" v-model="form.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="ride">Ride</option>
-                        <option value="show">Show</option>
-                        <option value="beach_event">Beach Event</option>
-                    </select>
-                    <InputError :message="errors.type?.[0]" class="mt-2" />
-                </div>
-
-                <div class="mt-4">
-                    <InputLabel for="location" value="Location" />
-                    <TextInput id="location" v-model="form.location" class="mt-1 block w-full" />
-                    <InputError :message="errors.location?.[0]" class="mt-2" />
-                </div>
-
-                <div class="mt-4 flex gap-4">
+            <form id="event-form" @submit.prevent="save" class="space-y-4">
+                <TInput v-model="form.name" label="Name" :error="errors.name?.[0]" />
+                <TInput v-model="form.description" label="Description" />
+                <TSelect v-model="form.type" label="Type" :error="errors.type?.[0]" :options="typeOptions" />
+                <TInput v-model="form.location" label="Location" :error="errors.location?.[0]" />
+                <div class="flex gap-4">
                     <div class="flex-1">
-                        <InputLabel for="duration_minutes" value="Duration (min)" />
-                        <TextInput id="duration_minutes" type="number" min="1" v-model="form.duration_minutes" class="mt-1 block w-full" />
-                        <InputError :message="errors.duration_minutes?.[0]" class="mt-2" />
+                        <TInput v-model="form.duration_minutes" label="Duration (min)" type="number" min="1" :error="errors.duration_minutes?.[0]" />
                     </div>
                     <div class="flex-1">
-                        <InputLabel for="capacity_per_slot" value="Capacity" />
-                        <TextInput id="capacity_per_slot" type="number" min="1" v-model="form.capacity_per_slot" class="mt-1 block w-full" />
-                        <InputError :message="errors.capacity_per_slot?.[0]" class="mt-2" />
+                        <TInput v-model="form.capacity_per_slot" label="Capacity" type="number" min="1" :error="errors.capacity_per_slot?.[0]" />
                     </div>
                 </div>
-
-                <div class="mt-4">
-                    <InputLabel for="price_per_ticket" value="Price per Ticket" />
-                    <TextInput id="price_per_ticket" type="number" step="0.01" v-model="form.price_per_ticket" class="mt-1 block w-full" />
-                    <InputError :message="errors.price_per_ticket?.[0]" class="mt-2" />
-                </div>
-
-                <div class="mt-4">
-                    <InputLabel for="image_url" value="Image URL" />
-                    <TextInput id="image_url" v-model="form.image_url" class="mt-1 block w-full" />
-                </div>
-
-                <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton type="button" @click="closeModal">Cancel</SecondaryButton>
-                    <PrimaryButton type="submit">Save</PrimaryButton>
-                </div>
+                <TInput v-model="form.price_per_ticket" label="Price per Ticket" type="number" step="0.01" :error="errors.price_per_ticket?.[0]" />
+                <TInput v-model="form.image_url" label="Image URL" />
             </form>
-        </Modal>
-    </AuthenticatedLayout>
+
+            <template #footer>
+                <TButton variant="secondary" type="button" @click="closeModal">Cancel</TButton>
+                <TButton type="submit" form="event-form">Save</TButton>
+            </template>
+        </TModal>
+    </StaffLayout>
 </template>

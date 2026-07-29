@@ -2,6 +2,9 @@
 import { onMounted, reactive } from 'vue';
 import QRCode from 'qrcode';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useFerryStore } from '@/stores/ferry';
 
 const ferryStore = useFerryStore();
@@ -59,33 +62,36 @@ const downloadTicket = async (ticket) => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                My Ferry Tickets
-            </h2>
+            <TPageHeader title="My Ferry Tickets" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-4xl space-y-4 sm:px-6 lg:px-8">
-                <div v-if="ferryStore.loading.tickets" class="text-gray-500">Loading tickets...</div>
-                <div v-else-if="ferryStore.myTickets.length === 0" class="text-gray-500">
-                    You have no ferry tickets yet.
-                </div>
+                <div v-if="ferryStore.loading.tickets" class="text-foreground-muted">Loading tickets...</div>
+                <TEmptyState
+                    v-else-if="ferryStore.myTickets.length === 0"
+                    title="No ferry tickets yet"
+                    description="Tickets you book for the crossing will appear here."
+                    icon="ship"
+                />
 
+                <!-- Boarding-pass form: notched edges and a perforated seam
+                     between the stub (QR + route) and the fare details. -->
                 <div
                     v-for="ticket in ferryStore.myTickets"
                     :key="ticket.id"
-                    class="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm"
+                    class="ticket-edge elevated relative flex flex-col gap-4 rounded-xl border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                     <div class="flex items-center gap-4">
                         <div v-if="revealedIds.has(ticket.id) && qrCodes[ticket.id]" class="flex flex-col items-center gap-1">
                             <img :src="qrCodes[ticket.id]" alt="Ticket QR code" class="h-20 w-20" />
-                            <p class="font-mono text-xs text-gray-500">{{ ticket.reference_code }}</p>
+                            <p class="font-mono text-xs text-foreground-muted">{{ ticket.reference_code }}</p>
                         </div>
                         <button
                             v-else
                             type="button"
                             @click="revealQr(ticket)"
-                            class="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-indigo-400 hover:text-indigo-500"
+                            class="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-strong bg-surface-hover text-foreground-muted transition-colors hover:border-primary hover:text-primary"
                         >
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-8 w-8">
                                 <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -96,30 +102,28 @@ const downloadTicket = async (ticket) => {
                             <span class="text-xs font-medium">Show QR</span>
                         </button>
                         <div>
-                            <p class="font-semibold text-gray-900">{{ ticket.schedule?.ferry?.name }}</p>
-                            <p class="text-sm text-gray-500">
+                            <p class="font-semibold text-foreground">{{ ticket.schedule?.ferry?.name }}</p>
+                            <p class="text-sm text-foreground-muted">
                                 {{ ticket.schedule?.departure_date?.slice(0, 10) }} at {{ ticket.schedule?.departure_time }}
                             </p>
-                            <p class="text-sm text-gray-500">Seat {{ ticket.seat_number }}</p>
+                            <p class="text-sm text-foreground-muted">Seat {{ ticket.seat_number }}</p>
                         </div>
                     </div>
-                    <div class="flex flex-col items-end gap-2">
-                        <span
-                            class="rounded-full px-2 py-0.5 text-xs font-medium"
-                            :class="{
-                                'bg-yellow-100 text-yellow-800': ticket.status === 'pending',
-                                'bg-green-100 text-green-800': ticket.status === 'issued',
-                                'bg-gray-100 text-gray-600': ticket.status === 'used',
-                            }"
+                    <span class="perforation sm:hidden" aria-hidden="true" />
+                    <span class="perforation-y hidden sm:block" aria-hidden="true" />
+
+                    <div class="flex flex-col items-end gap-2 sm:min-w-[13rem]">
+                        <TBadge
+                            :variant="ticket.status === 'pending' ? 'warning' : ticket.status === 'issued' ? 'success' : 'neutral'"
                         >
                             {{ ticket.status }}
-                        </span>
-                        <span class="text-xs text-gray-500">
+                        </TBadge>
+                        <span class="text-xs text-foreground-muted">
                             ${{ ticket.price }} - {{ ticket.payment_method === 'cash' ? 'pay cash on board' : 'paid online' }}
                         </span>
                         <button
                             @click="downloadTicket(ticket)"
-                            class="text-sm text-indigo-600 hover:underline"
+                            class="text-sm text-primary hover:underline"
                         >
                             Download
                         </button>

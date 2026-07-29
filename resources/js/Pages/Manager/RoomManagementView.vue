@@ -1,13 +1,15 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import DangerButton from '@/Components/DangerButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
-import InputError from '@/Components/InputError.vue';
+import { onMounted, ref, watch } from 'vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useHotelStore } from '@/stores/hotel';
 
 const hotelStore = useHotelStore();
@@ -18,6 +20,12 @@ const errors = ref({});
 
 const emptyForm = () => ({ room_number: '', type: 'single', price_per_night: '', max_guests: 1 });
 const form = ref(emptyForm());
+
+const ROOM_TYPE_OPTIONS = [
+    { value: 'single', label: 'Single' },
+    { value: 'double', label: 'Double' },
+    { value: 'suite', label: 'Suite' },
+];
 
 onMounted(async () => {
     await hotelStore.fetchHotels();
@@ -72,31 +80,44 @@ const remove = (room) => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Room Management
-            </h2>
+            <TPageHeader compact title="Room Management" icon="bed" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div class="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-white p-4 shadow-sm">
+        <div class="max-w-5xl space-y-6">
+            <TCard>
+                <div class="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Hotel</label>
-                        <select v-model="selectedHotelId" class="mt-1 rounded-md border-gray-300 shadow-sm">
+                        <label class="block text-sm font-medium text-foreground-secondary">Hotel</label>
+                        <select
+                            v-model="selectedHotelId"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        >
                             <option v-for="hotel in hotelStore.hotels" :key="hotel.id" :value="hotel.id">
                                 {{ hotel.name }}
                             </option>
                         </select>
                     </div>
-                    <PrimaryButton :disabled="!selectedHotelId" @click="openAddModal">Add Room</PrimaryButton>
+                    <TButton :disabled="!selectedHotelId" @click="openAddModal">
+                        <TIcon name="plus" :size="16" />
+                        Add Room
+                    </TButton>
                 </div>
+            </TCard>
 
-                <div class="rounded-lg bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <TCard icon="bed" title="Rooms" :padding="false">
+                <div v-if="hotelStore.rooms.length === 0" class="p-4">
+                    <TEmptyState
+                        title="No rooms yet"
+                        description="Add a room to this hotel to get started."
+                        icon="bed"
+                    />
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Room #</th>
                                 <th class="p-4">Type</th>
                                 <th class="p-4">Price / night</th>
@@ -104,27 +125,23 @@ const remove = (room) => {
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))] text-foreground-secondary">
                             <tr v-for="room in hotelStore.rooms" :key="room.id">
-                                <td class="p-4">{{ room.room_number }}</td>
+                                <td class="p-4 text-foreground">{{ room.room_number }}</td>
                                 <td class="p-4 capitalize">{{ room.type }}</td>
                                 <td class="p-4">${{ room.price_per_night }}</td>
                                 <td class="p-4">
-                                    <button
-                                        @click="toggleAvailability(room)"
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="room.is_available
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-gray-100 text-gray-600'"
-                                    >
-                                        {{ room.is_available ? 'Available' : 'Unavailable' }}
+                                    <button type="button" @click="toggleAvailability(room)">
+                                        <TBadge :variant="room.is_available ? 'success' : 'neutral'">
+                                            {{ room.is_available ? 'Available' : 'Unavailable' }}
+                                        </TBadge>
                                     </button>
                                 </td>
                                 <td class="p-4 space-x-2">
-                                    <button @click="openEditModal(room)" class="text-sm text-indigo-600 hover:underline">
+                                    <button @click="openEditModal(room)" class="text-sm text-primary hover:underline">
                                         Edit
                                     </button>
-                                    <button @click="remove(room)" class="text-sm text-red-600 hover:underline">
+                                    <button @click="remove(room)" class="text-sm text-danger hover:underline">
                                         Delete
                                     </button>
                                 </td>
@@ -132,48 +149,52 @@ const remove = (room) => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
 
-        <Modal :show="showModal" @close="closeModal">
-            <form @submit.prevent="save" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">
-                    {{ editingRoom ? 'Edit Room' : 'Add Room' }}
-                </h2>
+        <TModal v-model:show="showModal" @close="closeModal">
+            <template #title>{{ editingRoom ? 'Edit Room' : 'Add Room' }}</template>
 
-                <div class="mt-4">
-                    <InputLabel for="room_number" value="Room Number" />
-                    <TextInput id="room_number" v-model="form.room_number" class="mt-1 block w-full" />
-                    <InputError :message="errors.room_number?.[0]" class="mt-2" />
-                </div>
+            <form @submit.prevent="save" class="space-y-4">
+                <TInput
+                    id="room_number"
+                    v-model="form.room_number"
+                    label="Room Number"
+                    :error="errors.room_number?.[0]"
+                />
 
-                <div class="mt-4">
-                    <InputLabel for="type" value="Type" />
-                    <select id="type" v-model="form.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        <option value="single">Single</option>
-                        <option value="double">Double</option>
-                        <option value="suite">Suite</option>
-                    </select>
-                    <InputError :message="errors.type?.[0]" class="mt-2" />
-                </div>
+                <TSelect
+                    v-model="form.type"
+                    label="Type"
+                    :options="ROOM_TYPE_OPTIONS"
+                    :error="errors.type?.[0]"
+                />
 
-                <div class="mt-4">
-                    <InputLabel for="price_per_night" value="Price per Night" />
-                    <TextInput id="price_per_night" type="number" step="0.01" v-model="form.price_per_night" class="mt-1 block w-full" />
-                    <InputError :message="errors.price_per_night?.[0]" class="mt-2" />
-                </div>
+                <TInput
+                    id="price_per_night"
+                    v-model="form.price_per_night"
+                    label="Price per Night"
+                    type="number"
+                    step="0.01"
+                    :error="errors.price_per_night?.[0]"
+                />
 
-                <div class="mt-4">
-                    <InputLabel for="max_guests" value="Max Guests" />
-                    <TextInput id="max_guests" type="number" min="1" v-model="form.max_guests" class="mt-1 block w-full" />
-                    <InputError :message="errors.max_guests?.[0]" class="mt-2" />
-                </div>
+                <TInput
+                    id="max_guests"
+                    v-model="form.max_guests"
+                    label="Max Guests"
+                    type="number"
+                    min="1"
+                    :error="errors.max_guests?.[0]"
+                />
 
-                <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton type="button" @click="closeModal">Cancel</SecondaryButton>
-                    <PrimaryButton type="submit">Save</PrimaryButton>
-                </div>
+                <button type="submit" class="hidden" />
             </form>
-        </Modal>
-    </AuthenticatedLayout>
+
+            <template #footer>
+                <TButton variant="secondary" type="button" @click="closeModal">Cancel</TButton>
+                <TButton type="button" @click="save">Save</TButton>
+            </template>
+        </TModal>
+    </StaffLayout>
 </template>

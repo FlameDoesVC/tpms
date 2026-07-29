@@ -1,10 +1,13 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const themeParkStore = useThemeParkStore();
@@ -41,80 +44,79 @@ const sell = async () => {
 
 const closeReceipt = () => (receipt.value = null);
 const print = () => window.print();
+
+const eventOptions = computed(() =>
+    themeParkStore.events.map((event) => ({ value: event.id, label: event.name }))
+);
+
+// Sold-out slots stay visible but unselectable, so staff can see the time is
+// on the schedule rather than wondering why it vanished.
+const slotOptions = computed(() =>
+    themeParkStore.slots.map((slot) => ({
+        value: slot.id,
+        label: `${slot.slot_time} (${slot.available_capacity} left)`,
+        disabled: slot.available_capacity < 1,
+    }))
+);
+
+const showReceipt = computed({
+    get: () => !!receipt.value,
+    set: (value) => {
+        if (!value) receipt.value = null;
+    },
+});
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Walk-in Ticket Sales
-            </h2>
+            <TPageHeader compact title="Walk-in Ticket Sales" icon="ticket" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-lg space-y-4 sm:px-6 lg:px-8">
-                <form @submit.prevent="sell" class="space-y-4 rounded-lg bg-white p-6 shadow-sm">
-                    <div>
-                        <InputLabel for="event" value="Event" />
-                        <select id="event" v-model="eventId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="event in themeParkStore.events" :key="event.id" :value="event.id">
-                                {{ event.name }}
-                            </option>
-                        </select>
-                    </div>
+        <div class="mx-auto max-w-lg">
+            <TCard icon="cart" title="New Sale">
+                <form @submit.prevent="sell" class="space-y-4">
+                    <TSelect v-model="eventId" label="Event" :options="eventOptions" />
 
-                    <div>
-                        <InputLabel for="date" value="Date" />
-                        <TextInput id="date" type="date" v-model="date" class="mt-1 block w-full" />
-                    </div>
+                    <TInput v-model="date" label="Date" type="date" />
 
-                    <div>
-                        <InputLabel for="slot" value="Slot" />
-                        <select id="slot" v-model="slotId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="slot in themeParkStore.slots" :key="slot.id" :value="slot.id" :disabled="slot.available_capacity < 1">
-                                {{ slot.slot_time }} ({{ slot.available_capacity }} left)
-                            </option>
-                        </select>
-                    </div>
+                    <TSelect v-model="slotId" label="Slot" :options="slotOptions" />
 
-                    <div>
-                        <InputLabel for="ticket_count" value="Ticket Count" />
-                        <TextInput id="ticket_count" type="number" min="1" v-model.number="ticketCount" class="mt-1 block w-full" />
-                    </div>
+                    <TInput v-model.number="ticketCount" label="Ticket Count" type="number" min="1" />
 
-                    <div>
-                        <InputLabel for="visitor_name" value="Visitor Name (optional)" />
-                        <TextInput id="visitor_name" v-model="visitorName" class="mt-1 block w-full" />
-                    </div>
+                    <TInput v-model="visitorName" label="Visitor Name (optional)" />
 
-                    <p v-if="saleError" class="text-sm text-red-600">{{ saleError }}</p>
+                    <p v-if="saleError" class="text-sm text-danger">{{ saleError }}</p>
 
-                    <PrimaryButton type="submit" :disabled="!slotId">Sell Ticket</PrimaryButton>
+                    <TButton type="submit" :disabled="!slotId">
+                        <TIcon name="cart" :size="16" />
+                        Sell Ticket
+                    </TButton>
                 </form>
-            </div>
+            </TCard>
         </div>
 
-        <Modal :show="!!receipt" @close="closeReceipt">
-            <div v-if="receipt" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">Ticket Sold</h2>
-                <dl class="mt-4 space-y-1 text-sm">
-                    <div class="flex justify-between">
-                        <dt class="text-gray-500">Reference</dt>
-                        <dd class="font-mono">#{{ receipt.id }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-gray-500">Visitor</dt>
-                        <dd>{{ receipt.visitor_name }}</dd>
-                    </div>
-                    <div class="flex justify-between">
-                        <dt class="text-gray-500">Tickets</dt>
-                        <dd>{{ receipt.ticket_count }}</dd>
-                    </div>
-                </dl>
-                <div class="mt-6 flex justify-end gap-3">
-                    <PrimaryButton @click="print">Print</PrimaryButton>
+        <TModal v-model:show="showReceipt" @close="closeReceipt">
+            <template #title>Ticket Sold</template>
+
+            <dl v-if="receipt" class="space-y-1 text-sm text-foreground">
+                <div class="flex justify-between">
+                    <dt class="text-foreground-muted">Reference</dt>
+                    <dd class="font-mono">#{{ receipt.id }}</dd>
                 </div>
-            </div>
-        </Modal>
-    </AuthenticatedLayout>
+                <div class="flex justify-between">
+                    <dt class="text-foreground-muted">Visitor</dt>
+                    <dd>{{ receipt.visitor_name }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-foreground-muted">Tickets</dt>
+                    <dd>{{ receipt.ticket_count }}</dd>
+                </div>
+            </dl>
+
+            <template #footer>
+                <TButton @click="print">Print</TButton>
+            </template>
+        </TModal>
+    </StaffLayout>
 </template>

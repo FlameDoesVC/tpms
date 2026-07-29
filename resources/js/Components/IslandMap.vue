@@ -41,9 +41,9 @@ const otherLocations = computed(() => {
 </script>
 
 <template>
-    <div class="rounded-lg bg-white p-4 shadow-sm">
-        <h2 class="text-xl font-semibold text-gray-900">Island Map</h2>
-        <p class="mt-1 text-sm text-gray-500">Little Saint James - where today's events are happening.</p>
+    <div class="rounded-xl border bg-surface p-4">
+        <h2 class="text-xl font-semibold text-foreground">Island Map</h2>
+        <p class="mt-1 text-sm text-foreground-muted">Little Saint James - where today's events are happening.</p>
 
         <div class="relative mt-4 aspect-[900/869] w-full overflow-hidden rounded-lg">
             <img
@@ -59,7 +59,7 @@ const otherLocations = computed(() => {
                 class="group absolute -translate-x-1/2 -translate-y-full"
                 :style="{ top: marker.top, left: marker.left }"
             >
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-8 w-8 text-red-600 drop-shadow">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-8 w-8 text-primary drop-shadow">
                     <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
                 </svg>
                 <div
@@ -73,7 +73,7 @@ const otherLocations = computed(() => {
             </button>
         </div>
 
-        <p v-if="otherLocations.length" class="mt-3 text-xs text-gray-400">
+        <p v-if="otherLocations.length" class="mt-3 text-xs text-foreground-muted">
             Also happening elsewhere on the island: {{ otherLocations.join(', ') }}
         </p>
     </div>

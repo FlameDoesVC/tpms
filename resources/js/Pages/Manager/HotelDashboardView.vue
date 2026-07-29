@@ -1,6 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TStat from '@/Components/ui/TStat.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useHotelStore } from '@/stores/hotel';
 
 const hotelStore = useHotelStore();
@@ -31,6 +36,12 @@ const occupancyRate = computed(() => {
     return Math.round((bookedToday.value / totalRooms.value) * 100);
 });
 
+const statusVariant = (status) => ({
+    pending: 'warning',
+    confirmed: 'success',
+    cancelled: 'neutral',
+}[status] ?? 'neutral');
+
 const setStatus = async (booking, status) => {
     if (status === 'confirmed') await hotelStore.confirmBooking(booking.id);
     else await hotelStore.cancelBooking(booking.id);
@@ -38,45 +49,49 @@ const setStatus = async (booking, status) => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Hotel Dashboard
-            </h2>
+            <TPageHeader compact title="Hotel Dashboard" icon="calendar" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="text-sm text-gray-500">Total Rooms</p>
-                        <p class="mt-1 text-2xl font-semibold text-gray-900">{{ totalRooms }}</p>
-                    </div>
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="text-sm text-gray-500">Booked Today</p>
-                        <p class="mt-1 text-2xl font-semibold text-gray-900">{{ bookedToday }}</p>
-                    </div>
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="text-sm text-gray-500">Occupancy Rate</p>
-                        <p class="mt-1 text-2xl font-semibold text-gray-900">{{ occupancyRate }}%</p>
-                    </div>
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <TStat label="Total Rooms" :value="totalRooms" icon="bed" tone="info" />
+                <TStat label="Booked Today" :value="bookedToday" icon="calendar" tone="primary" />
+                <TStat
+                    label="Occupancy Rate"
+                    :value="`${occupancyRate}%`"
+                    icon="capacity"
+                    tone="success"
+                    :progress="occupancyRate / 100"
+                />
+            </div>
+
+            <TCard icon="inbox" title="Bookings" :padding="false">
+                <template #headerAction>
+                    <select
+                        v-model="statusFilter"
+                        class="rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
+                        <option value="all">All statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </template>
+
+                <div v-if="hotelStore.loading.bookings" class="p-4 text-foreground-muted">Loading...</div>
+                <div v-else-if="filteredBookings.length === 0" class="p-4">
+                    <TEmptyState
+                        title="No bookings"
+                        description="No bookings match the selected status filter."
+                        icon="calendar"
+                    />
                 </div>
-
-                <div class="rounded-lg bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b p-4">
-                        <h3 class="font-semibold text-gray-900">Bookings</h3>
-                        <select v-model="statusFilter" class="rounded-md border-gray-300 text-sm shadow-sm">
-                            <option value="all">All statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="confirmed">Confirmed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
-                    </div>
-
-                    <div v-if="hotelStore.loading.bookings" class="p-4 text-gray-500">Loading...</div>
-                    <table v-else class="min-w-full divide-y divide-gray-200 text-sm">
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Guest</th>
                                 <th class="p-4">Room</th>
                                 <th class="p-4">Dates</th>
@@ -84,37 +99,30 @@ const setStatus = async (booking, status) => {
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))] text-foreground-secondary">
                             <tr v-for="booking in filteredBookings" :key="booking.id">
-                                <td class="p-4">{{ booking.user?.name }}</td>
+                                <td class="p-4 text-foreground">{{ booking.user?.name }}</td>
                                 <td class="p-4 capitalize">
                                     {{ booking.room?.type }} - {{ booking.room?.room_number }}
                                 </td>
                                 <td class="p-4">{{ booking.check_in_date?.slice(0, 10) }} to {{ booking.check_out_date?.slice(0, 10) }}</td>
                                 <td class="p-4">
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="{
-                                            'bg-yellow-100 text-yellow-800': booking.status === 'pending',
-                                            'bg-green-100 text-green-800': booking.status === 'confirmed',
-                                            'bg-gray-100 text-gray-600': booking.status === 'cancelled',
-                                        }"
-                                    >
+                                    <TBadge :variant="statusVariant(booking.status)" class="capitalize">
                                         {{ booking.status }}
-                                    </span>
+                                    </TBadge>
                                 </td>
                                 <td class="p-4 space-x-2">
                                     <button
                                         v-if="booking.status === 'pending'"
                                         @click="setStatus(booking, 'confirmed')"
-                                        class="text-sm text-indigo-600 hover:underline"
+                                        class="text-sm text-primary hover:underline"
                                     >
                                         Confirm
                                     </button>
                                     <button
                                         v-if="booking.status !== 'cancelled'"
                                         @click="setStatus(booking, 'cancelled')"
-                                        class="text-sm text-red-600 hover:underline"
+                                        class="text-sm text-danger hover:underline"
                                     >
                                         Cancel
                                     </button>
@@ -123,7 +131,7 @@ const setStatus = async (booking, status) => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
-    </AuthenticatedLayout>
+    </StaffLayout>
 </template>

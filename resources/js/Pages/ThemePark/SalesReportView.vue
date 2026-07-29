@@ -2,7 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Bar } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, BarElement, CategoryScale, LinearScale } from 'chart.js';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TStat from '@/Components/ui/TStat.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
 ChartJS.register(Title, Tooltip, BarElement, CategoryScale, LinearScale);
@@ -25,54 +29,76 @@ const chartData = computed(() => ({
     labels: themeParkStore.salesReport.map((r) => r.event_name),
     datasets: [{
         label: 'Tickets Sold',
-        backgroundColor: '#6366f1',
+        backgroundColor: 'rgb(13, 110, 110)',
+        borderRadius: 4,
         data: themeParkStore.salesReport.map((r) => r.tickets_sold),
     }],
 }));
 
-const chartOptions = { responsive: true, plugins: { legend: { display: false } } };
+const chartOptions = {
+    responsive: true,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: 'rgb(13, 110, 110)',
+            padding: 10,
+            cornerRadius: 6,
+            displayColors: false,
+        },
+    },
+    scales: {
+        x: {
+            grid: { display: false },
+            border: { color: 'rgba(148, 163, 184, 0.35)' },
+            ticks: { color: 'rgba(100, 116, 139, 1)' },
+        },
+        y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(148, 163, 184, 0.2)' },
+            border: { display: false },
+            ticks: { color: 'rgba(100, 116, 139, 1)', precision: 0 },
+        },
+    },
+};
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Theme Park Sales Report
-            </h2>
+            <TPageHeader compact title="Theme Park Sales Report" icon="report" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
-                <div class="rounded-lg bg-white p-4 shadow-sm">
-                    <label class="block text-sm font-medium text-gray-700">Date</label>
-                    <input type="date" v-model="date" class="mt-1 rounded-md border-gray-300 shadow-sm" />
-                </div>
+        <div class="max-w-4xl space-y-6">
+            <TCard>
+                <label for="report-date" class="mb-1.5 block text-sm font-medium text-foreground">Date</label>
+                <input
+                    id="report-date"
+                    type="date"
+                    v-model="date"
+                    class="rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+            </TCard>
 
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="text-sm text-gray-500">Tickets Sold</p>
-                        <p class="mt-1 text-2xl font-semibold text-gray-900">{{ totalTickets }}</p>
-                    </div>
-                    <div class="rounded-lg bg-white p-4 shadow-sm">
-                        <p class="text-sm text-gray-500">Revenue</p>
-                        <p class="mt-1 text-2xl font-semibold text-gray-900">${{ totalRevenue }}</p>
-                    </div>
-                </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <TStat label="Tickets Sold" :value="totalTickets" icon="ticket" tone="primary" />
+                <TStat label="Revenue" :value="`$${totalRevenue}`" icon="card" tone="success" />
+            </div>
 
-                <div v-if="themeParkStore.salesReport.length" class="rounded-lg bg-white p-4 shadow-sm">
-                    <Bar :data="chartData" :options="chartOptions" />
-                </div>
+            <TCard v-if="themeParkStore.salesReport.length" icon="capacity" title="Tickets by Event">
+                <Bar :data="chartData" :options="chartOptions" />
+            </TCard>
 
-                <div class="rounded-lg bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <TCard v-if="themeParkStore.salesReport.length" icon="report" title="Breakdown" :padding="false">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Event</th>
                                 <th class="p-4">Tickets</th>
                                 <th class="p-4">Revenue</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))] text-foreground">
                             <tr v-for="row in themeParkStore.salesReport" :key="row.event_id">
                                 <td class="p-4">{{ row.event_name }}</td>
                                 <td class="p-4">{{ row.tickets_sold }}</td>
@@ -80,11 +106,15 @@ const chartOptions = { responsive: true, plugins: { legend: { display: false } }
                             </tr>
                         </tbody>
                     </table>
-                    <p v-if="themeParkStore.salesReport.length === 0" class="p-4 text-sm text-gray-500">
-                        No sales for this date.
-                    </p>
                 </div>
-            </div>
+            </TCard>
+
+            <TEmptyState
+                v-else
+                title="No sales for this date"
+                description="Pick another date to see ticket sales and revenue."
+                icon="ticket"
+            />
         </div>
-    </AuthenticatedLayout>
+    </StaffLayout>
 </template>

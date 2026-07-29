@@ -1,6 +1,12 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useFerryStore } from '@/stores/ferry';
 
 const ferryStore = useFerryStore();
@@ -41,41 +47,52 @@ const exportCsv = () => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Passenger List
-            </h2>
+            <TPageHeader compact title="Passenger List" icon="users" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-4xl space-y-6 sm:px-6 lg:px-8">
-                <div class="flex flex-wrap items-end gap-4 rounded-lg bg-white p-4 shadow-sm">
+        <div class="max-w-4xl space-y-6">
+            <TCard>
+                <div class="flex flex-wrap items-end gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Date</label>
-                        <input type="date" v-model="date" class="mt-1 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Date</label>
+                        <input
+                            type="date"
+                            v-model="date"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Schedule</label>
-                        <select v-model="selectedScheduleId" class="mt-1 rounded-md border-gray-300 shadow-sm">
+                        <label class="block text-sm font-medium text-foreground-secondary">Schedule</label>
+                        <select
+                            v-model="selectedScheduleId"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        >
                             <option v-for="schedule in schedulesForDate" :key="schedule.id" :value="schedule.id">
                                 {{ schedule.ferry?.name }} - {{ schedule.departure_time }}
                             </option>
                         </select>
                     </div>
-                    <button
-                        :disabled="!selectedScheduleId"
-                        @click="exportCsv"
-                        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
+                    <TButton variant="secondary" :disabled="!selectedScheduleId" @click="exportCsv">
+                        <TIcon name="download" :size="16" />
                         Export CSV
-                    </button>
+                    </TButton>
                 </div>
+            </TCard>
 
-                <div v-if="selectedScheduleId" class="rounded-lg bg-white shadow-sm">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <TCard v-if="selectedScheduleId" icon="users" title="Passengers" :padding="false">
+                <div v-if="ferryStore.passengers.length === 0" class="p-4">
+                    <TEmptyState
+                        title="No passengers"
+                        description="No tickets have been issued for this departure yet."
+                        icon="ticket"
+                    />
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Ticket Ref</th>
                                 <th class="p-4">Seat</th>
                                 <th class="p-4">Passenger</th>
@@ -84,26 +101,23 @@ const exportCsv = () => {
                                 <th class="p-4">Payment</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))] text-foreground-secondary">
                             <tr v-for="ticket in ferryStore.passengers" :key="ticket.id">
-                                <td class="p-4 font-mono text-xs">{{ ticket.reference_code }}</td>
+                                <td class="p-4 font-mono text-xs text-foreground">{{ ticket.reference_code }}</td>
                                 <td class="p-4">{{ ticket.seat_number }}</td>
-                                <td class="p-4">{{ ticket.user?.name }}</td>
+                                <td class="p-4 text-foreground">{{ ticket.user?.name }}</td>
                                 <td class="p-4 font-mono text-xs">{{ ticket.booking?.reference_code }}</td>
                                 <td class="p-4 capitalize">{{ ticket.status }}</td>
                                 <td class="p-4">
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        :class="ticket.payment_method === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
-                                    >
+                                    <TBadge :variant="ticket.payment_method === 'cash' ? 'warning' : 'success'">
                                         {{ ticket.payment_method === 'cash' ? 'Cash due' : 'Paid online' }}
-                                    </span>
+                                    </TBadge>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
-    </AuthenticatedLayout>
+    </StaffLayout>
 </template>

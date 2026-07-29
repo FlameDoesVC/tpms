@@ -74,31 +74,31 @@ const goToToday = () => {
 </script>
 
 <template>
-    <div class="rounded-lg bg-white shadow-sm">
-        <div class="flex items-center justify-between border-b border-gray-100 p-4">
-            <h3 class="text-sm font-semibold text-gray-700">{{ monthLabel }}</h3>
+    <div class="rounded-xl border bg-surface">
+        <div class="flex items-center justify-between border-b p-4">
+            <h3 class="text-sm font-semibold text-foreground-secondary">{{ monthLabel }}</h3>
             <div class="flex items-center gap-2 text-sm">
-                <button type="button" class="rounded px-2 py-1 hover:bg-gray-100" @click="goToMonth(-1)">&lsaquo; Prev</button>
-                <button type="button" class="rounded px-2 py-1 hover:bg-gray-100" @click="goToToday">Today</button>
-                <button type="button" class="rounded px-2 py-1 hover:bg-gray-100" @click="goToMonth(1)">Next &rsaquo;</button>
+                <button type="button" class="rounded px-2 py-1 text-foreground-secondary hover:bg-surface-hover" @click="goToMonth(-1)">&lsaquo; Prev</button>
+                <button type="button" class="rounded px-2 py-1 text-foreground-secondary hover:bg-surface-hover" @click="goToToday">Today</button>
+                <button type="button" class="rounded px-2 py-1 text-foreground-secondary hover:bg-surface-hover" @click="goToMonth(1)">Next &rsaquo;</button>
             </div>
         </div>
 
-        <div v-if="$slots.legend" class="flex justify-end border-b border-gray-100 p-2">
+        <div v-if="$slots.legend" class="flex justify-end border-b p-2">
             <slot name="legend" />
         </div>
 
-        <div class="grid grid-cols-7 border-b border-gray-100 text-xs font-medium text-gray-500">
+        <div class="grid grid-cols-7 border-b text-xs font-medium text-foreground-muted">
             <div v-for="label in WEEKDAY_LABELS" :key="label" class="p-2 text-center">{{ label }}</div>
         </div>
 
-        <div class="divide-y divide-gray-100">
-            <div v-for="(week, wi) in weeks" :key="wi" class="grid grid-cols-7 divide-x divide-gray-100">
+        <div class="divide-y divide-[rgb(var(--color-border))]">
+            <div v-for="(week, wi) in weeks" :key="wi" class="grid grid-cols-7 divide-x divide-[rgb(var(--color-border))]">
                 <div
                     v-for="cell in week"
                     :key="cell.iso"
                     class="min-h-[6rem] p-1.5 align-top"
-                    :class="cell.inCurrentMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'"
+                    :class="cell.inCurrentMonth ? 'bg-surface' : 'bg-surface-hover text-foreground-muted'"
                 >
                     <div class="mb-1 text-xs">{{ cell.day }}</div>
                     <slot name="day" :date="cell.iso" :items="cell.items" />

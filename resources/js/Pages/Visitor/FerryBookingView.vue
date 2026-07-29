@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import SeatPickerModal from '@/Components/SeatPickerModal.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useHotelStore } from '@/stores/hotel';
@@ -161,29 +162,27 @@ const onAddedToCart = () => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Ferry Schedules
-            </h2>
+            <TPageHeader title="Ferry Schedules" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="auth.isAuthenticated" class="rounded-lg bg-white p-4 shadow-sm">
+                <div v-if="auth.isAuthenticated" class="elevated rounded-xl border bg-surface p-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="font-semibold text-gray-900">My Tickets</h3>
-                        <router-link :to="{ name: 'ferry.my-tickets' }" class="text-sm text-indigo-600 hover:underline">
+                        <h3 class="font-semibold text-foreground">My Tickets</h3>
+                        <router-link :to="{ name: 'ferry.my-tickets' }" class="text-sm text-primary hover:underline">
                             View all
                         </router-link>
                     </div>
 
-                    <p v-if="upcomingTickets.length === 0" class="mt-2 text-sm text-gray-500">
+                    <p v-if="upcomingTickets.length === 0" class="mt-2 text-sm text-foreground-muted">
                         No upcoming tickets.
                     </p>
                     <div v-else class="mt-3 space-y-2">
                         <div
                             v-for="ticket in upcomingTickets"
                             :key="ticket.id"
-                            class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                            class="flex items-center justify-between rounded-lg bg-surface-hover px-3 py-2 text-sm text-foreground-secondary"
                         >
                             <span>
                                 {{ ticket.schedule?.ferry?.name }} -
@@ -194,34 +193,37 @@ const onAddedToCart = () => {
                     </div>
                 </div>
 
-                <div v-if="hasEligibleBooking" class="rounded-lg bg-white p-4 shadow-sm">
-                    <label class="block text-sm font-medium text-gray-700">Hotel booking</label>
-                    <select v-model="selectedBookingKey" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                <div v-if="hasEligibleBooking" class="elevated rounded-xl border bg-surface p-4">
+                    <label class="block text-sm font-medium text-foreground-secondary">Hotel booking</label>
+                    <select
+                        v-model="selectedBookingKey"
+                        class="mt-1 block w-full rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    >
                         <option value="" disabled>Select the hotel booking this trip is for</option>
                         <option v-for="b in eligibleBookings" :key="b.key" :value="b.key">
                             {{ b.label }}
                         </option>
                     </select>
-                    <p class="mt-1 text-xs text-gray-500">
+                    <p class="mt-1 text-xs text-foreground-muted">
                         Ferry departures are fixed to this booking's check-in and check-out dates. Picking a hotel
                         room still in your cart also removes this ticket if that room is removed later.
                     </p>
                 </div>
-                <div v-else class="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800">
+                <div v-else class="rounded-xl bg-warning-soft p-4 text-sm text-warning">
                     You need a confirmed hotel booking, or a hotel room in your cart, to add a ferry ticket.
                     <router-link :to="{ name: 'hotels.index' }" class="font-medium underline">Browse hotels</router-link>
                 </div>
 
-                <div v-if="loadingSchedules" class="text-gray-500">Loading schedules...</div>
+                <div v-if="loadingSchedules" class="text-foreground-muted">Loading schedules...</div>
 
                 <div v-else-if="selectedBooking" class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div v-for="column in columns" :key="column.key">
-                        <div class="mb-3 rounded-lg bg-indigo-50 p-3">
-                            <p class="text-sm font-semibold text-indigo-900">{{ column.title }}</p>
-                            <p class="text-xs text-indigo-700">{{ column.date }} (fixed to your booking)</p>
+                        <div class="mb-3 rounded-xl bg-primary-soft p-3">
+                            <p class="text-sm font-semibold text-primary">{{ column.title }}</p>
+                            <p class="text-xs text-primary">{{ column.date }} (fixed to your booking)</p>
                         </div>
 
-                        <div v-if="column.schedules.length === 0" class="text-sm text-gray-500">
+                        <div v-if="column.schedules.length === 0" class="text-sm text-foreground-muted">
                             No departures scheduled for this date.
                         </div>
 
@@ -229,32 +231,32 @@ const onAddedToCart = () => {
                             <div
                                 v-for="schedule in column.schedules"
                                 :key="schedule.id"
-                                class="rounded-lg bg-white p-4 shadow-sm"
+                                class="elevated rounded-xl border bg-surface p-4"
                             >
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="font-semibold text-gray-900">{{ schedule.ferry?.name }}</p>
-                                        <p class="text-sm text-gray-500">
+                                        <p class="font-semibold text-foreground">{{ schedule.ferry?.name }}</p>
+                                        <p class="text-sm text-foreground-muted">
                                             {{ schedule.departure_time }} - {{ schedule.arrival_time }}
                                         </p>
                                     </div>
-                                    <PrimaryButton
+                                    <TButton
                                         :disabled="schedule.available_seats < selectedBooking.guestsCount || cartedScheduleIds.includes(schedule.id) || alreadyBookedDates.has(schedule.departure_date?.slice(0, 10))"
                                         @click="openSeatPicker(schedule)"
                                     >
                                         {{ cartedScheduleIds.includes(schedule.id) ? 'In Cart' : alreadyBookedDates.has(schedule.departure_date?.slice(0, 10)) ? 'Already Booked' : 'Select Seats' }}
-                                    </PrimaryButton>
+                                    </TButton>
                                 </div>
 
                                 <div class="mt-3">
-                                    <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div class="h-2 w-full overflow-hidden rounded-sm bg-surface-hover">
                                         <div
-                                            class="h-full rounded-full"
-                                            :class="fillPercent(schedule) > 90 ? 'bg-red-500' : 'bg-indigo-500'"
+                                            class="h-full rounded-sm"
+                                            :class="fillPercent(schedule) > 90 ? 'bg-danger' : 'bg-primary'"
                                             :style="{ width: fillPercent(schedule) + '%' }"
                                         />
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">
+                                    <p class="mt-1 text-xs text-foreground-muted">
                                         {{ schedule.available_seats }} of {{ schedule.ferry?.capacity }} seats available
                                     </p>
                                 </div>

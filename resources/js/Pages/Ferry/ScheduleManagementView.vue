@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import Modal from '@/Components/Modal.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
-import InputError from '@/Components/InputError.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TCard from '@/Components/ui/TCard.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TModal from '@/Components/ui/TModal.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TSelect from '@/Components/ui/TSelect.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
 import { useFerryStore } from '@/stores/ferry';
 
@@ -40,6 +43,16 @@ const WEEKDAY_OPTIONS = [
     { value: 6, label: 'Sat' },
     { value: 7, label: 'Sun' },
 ];
+
+const FREQUENCY_OPTIONS = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+];
+
+const ferryOptions = computed(() =>
+    ferryStore.ferries.map((ferry) => ({ value: ferry.id, label: ferry.name }))
+);
 
 const emptyOneOffForm = () => ({ ferry_id: '', departure_date: '', departure_time: '', arrival_time: '' });
 const emptyRecurringForm = () => ({
@@ -152,58 +165,63 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Ferry Schedule Management
-            </h2>
+            <TPageHeader compact title="Ferry Schedule Management" icon="calendar">
+                <template #actions>
+                    <TButton size="sm" @click="openAddModal">
+                        <TIcon name="plus" :size="16" />
+                        Add Schedule
+                    </TButton>
+                </template>
+            </TPageHeader>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-end">
-                    <PrimaryButton @click="openAddModal">Add Schedule</PrimaryButton>
-                </div>
-
-                <MonthCalendar v-model="calendarMonth" :items="calendarItems">
-                    <template #legend>
-                        <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-gray-600">
-                            <span v-for="ferry in ferryStore.ferries" :key="ferry.id" class="flex items-center gap-1">
-                                <span class="h-2.5 w-2.5 rounded-full" :class="ferryColor(ferry.id).dot" />
-                                {{ ferry.name }}
-                            </span>
-                        </div>
-                    </template>
-                    <template #day="{ items }">
-                        <div class="space-y-1">
-                            <button
-                                v-for="item in items"
-                                :key="item.id"
-                                type="button"
-                                class="block w-full rounded px-1.5 py-0.5 text-left text-xs"
-                                :class="[
-                                    ferryColor(item.ferry_id).bg,
-                                    ferryColor(item.ferry_id).text,
-                                    item.status !== 'scheduled' && 'opacity-50',
-                                    item.status === 'cancelled' && 'line-through',
-                                ]"
-                                :title="item.status === 'cancelled' ? `${item.ferry?.name} - cancelled (click to restore)` : `${item.ferry?.name} - ${item.status}`"
-                                @click="toggleSchedule(item)"
-                            >
-                                {{ item.departure_time?.slice(0, 5) }} ({{ item.ferry?.capacity - item.available_seats }}/{{ item.ferry?.capacity }})
-                                <span v-if="item.is_overridden">⚠</span>
-                            </button>
-                        </div>
-                    </template>
-                </MonthCalendar>
-
-                <div class="rounded-lg bg-white shadow-sm">
-                    <div class="border-b border-gray-100 p-4">
-                        <h3 class="text-sm font-semibold text-gray-700">Recurring Schedules</h3>
+        <div class="max-w-5xl space-y-6">
+            <MonthCalendar v-model="calendarMonth" :items="calendarItems">
+                <template #legend>
+                    <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-foreground-secondary">
+                        <span v-for="ferry in ferryStore.ferries" :key="ferry.id" class="flex items-center gap-1">
+                            <span class="h-2.5 w-2.5 rounded-full" :class="ferryColor(ferry.id).dot" />
+                            {{ ferry.name }}
+                        </span>
                     </div>
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                </template>
+                <template #day="{ items }">
+                    <div class="space-y-1">
+                        <button
+                            v-for="item in items"
+                            :key="item.id"
+                            type="button"
+                            class="block w-full rounded px-1.5 py-0.5 text-left text-xs"
+                            :class="[
+                                ferryColor(item.ferry_id).bg,
+                                ferryColor(item.ferry_id).text,
+                                item.status !== 'scheduled' && 'opacity-50',
+                                item.status === 'cancelled' && 'line-through',
+                            ]"
+                            :title="item.status === 'cancelled' ? `${item.ferry?.name} - cancelled (click to restore)` : `${item.ferry?.name} - ${item.status}`"
+                            @click="toggleSchedule(item)"
+                        >
+                            {{ item.departure_time?.slice(0, 5) }} ({{ item.ferry?.capacity - item.available_seats }}/{{ item.ferry?.capacity }})
+                            <span v-if="item.is_overridden">⚠</span>
+                        </button>
+                    </div>
+                </template>
+            </MonthCalendar>
+
+            <TCard icon="clock" title="Recurring Schedules" :padding="false">
+                <div v-if="ferryStore.templates.length === 0" class="p-4">
+                    <TEmptyState
+                        title="No recurring schedules"
+                        description="Add a recurring schedule to generate departures automatically."
+                        icon="calendar"
+                    />
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
                         <thead>
-                            <tr class="text-left text-gray-500">
+                            <tr class="text-left text-foreground-muted">
                                 <th class="p-4">Ferry</th>
                                 <th class="p-4">Pattern</th>
                                 <th class="p-4">Range</th>
@@ -211,42 +229,44 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                                 <th class="p-4">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100">
+                        <tbody class="divide-y divide-[rgb(var(--color-border))] text-foreground-secondary">
                             <tr v-for="template in ferryStore.templates" :key="template.id">
-                                <td class="p-4">{{ template.ferry?.name }}</td>
+                                <td class="p-4 text-foreground">{{ template.ferry?.name }}</td>
                                 <td class="p-4">{{ patternSummary(template) }}</td>
                                 <td class="p-4">{{ template.starts_on?.slice(0, 10) }} - {{ template.ends_on?.slice(0, 10) ?? 'ongoing' }}</td>
-                                <td class="p-4">{{ template.is_active ? 'Yes' : 'Stopped' }}</td>
+                                <td class="p-4">
+                                    <TBadge :variant="template.is_active ? 'success' : 'neutral'">
+                                        {{ template.is_active ? 'Yes' : 'Stopped' }}
+                                    </TBadge>
+                                </td>
                                 <td class="p-4 space-x-3">
-                                    <button v-if="template.is_active" class="text-sm text-indigo-600 hover:underline" @click="openEditTemplateModal(template)">Edit</button>
-                                    <button v-if="template.is_active" class="text-sm text-red-600 hover:underline" @click="stopTemplate(template)">Stop</button>
+                                    <button v-if="template.is_active" class="text-sm text-primary hover:underline" @click="openEditTemplateModal(template)">Edit</button>
+                                    <button v-if="template.is_active" class="text-sm text-danger hover:underline" @click="stopTemplate(template)">Stop</button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </TCard>
         </div>
 
-        <Modal :show="showModal" @close="closeModal">
-            <form @submit.prevent="save" class="p-6">
-                <h2 class="text-lg font-medium text-gray-900">
-                    {{ editingTemplateId ? 'Edit Recurring Schedule' : 'Add Schedule' }}
-                </h2>
+        <TModal v-model:show="showModal" max-width="lg" @close="closeModal">
+            <template #title>{{ editingTemplateId ? 'Edit Recurring Schedule' : 'Add Schedule' }}</template>
 
-                <div v-if="!editingTemplateId" class="mt-4 flex gap-2 rounded-md bg-gray-100 p-1 text-sm">
+            <form @submit.prevent="save" class="space-y-4">
+                <div v-if="!editingTemplateId" class="flex gap-2 rounded-lg bg-surface-hover p-1 text-sm">
                     <button
                         type="button"
-                        class="flex-1 rounded px-3 py-1"
-                        :class="scheduleMode === 'oneoff' ? 'bg-white shadow-sm' : 'text-gray-500'"
+                        class="flex-1 rounded-md px-3 py-1 transition-colors"
+                        :class="scheduleMode === 'oneoff' ? 'bg-surface font-medium text-foreground shadow-sm' : 'text-foreground-muted'"
                         @click="scheduleMode = 'oneoff'"
                     >
                         One-off
                     </button>
                     <button
                         type="button"
-                        class="flex-1 rounded px-3 py-1"
-                        :class="scheduleMode === 'recurring' ? 'bg-white shadow-sm' : 'text-gray-500'"
+                        class="flex-1 rounded-md px-3 py-1 transition-colors"
+                        :class="scheduleMode === 'recurring' ? 'bg-surface font-medium text-foreground shadow-sm' : 'text-foreground-muted'"
                         @click="scheduleMode = 'recurring'"
                     >
                         Recurring
@@ -254,112 +274,143 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                 </div>
 
                 <template v-if="scheduleMode === 'oneoff'">
-                    <div class="mt-4">
-                        <InputLabel for="ferry_id" value="Ferry" />
-                        <select id="ferry_id" v-model="form.ferry_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="ferry in ferryStore.ferries" :key="ferry.id" :value="ferry.id">
-                                {{ ferry.name }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.ferry_id?.[0]" class="mt-2" />
-                    </div>
+                    <TSelect
+                        v-model="form.ferry_id"
+                        label="Ferry"
+                        :options="ferryOptions"
+                        :error="errors.ferry_id?.[0]"
+                    />
 
-                    <div class="mt-4">
-                        <InputLabel for="departure_date" value="Date" />
-                        <TextInput id="departure_date" type="date" v-model="form.departure_date" class="mt-1 block w-full" />
-                        <InputError :message="errors.departure_date?.[0]" class="mt-2" />
-                    </div>
+                    <TInput
+                        id="departure_date"
+                        v-model="form.departure_date"
+                        label="Date"
+                        type="date"
+                        :error="errors.departure_date?.[0]"
+                    />
 
-                    <div class="mt-4 flex gap-4">
-                        <div class="flex-1">
-                            <InputLabel for="departure_time" value="Departure" />
-                            <TextInput id="departure_time" type="time" v-model="form.departure_time" class="mt-1 block w-full" />
-                            <InputError :message="errors.departure_time?.[0]" class="mt-2" />
-                        </div>
-                        <div class="flex-1">
-                            <InputLabel for="arrival_time" value="Arrival" />
-                            <TextInput id="arrival_time" type="time" v-model="form.arrival_time" class="mt-1 block w-full" />
-                            <InputError :message="errors.arrival_time?.[0]" class="mt-2" />
-                        </div>
+                    <div class="flex gap-4">
+                        <TInput
+                            id="departure_time"
+                            v-model="form.departure_time"
+                            label="Departure"
+                            type="time"
+                            class="flex-1"
+                            :error="errors.departure_time?.[0]"
+                        />
+                        <TInput
+                            id="arrival_time"
+                            v-model="form.arrival_time"
+                            label="Arrival"
+                            type="time"
+                            class="flex-1"
+                            :error="errors.arrival_time?.[0]"
+                        />
                     </div>
                 </template>
 
                 <template v-else>
-                    <div class="mt-4">
-                        <InputLabel for="r_ferry_id" value="Ferry" />
-                        <select id="r_ferry_id" v-model="recurringForm.ferry_id" :disabled="!!editingTemplateId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option v-for="ferry in ferryStore.ferries" :key="ferry.id" :value="ferry.id">
-                                {{ ferry.name }}
-                            </option>
-                        </select>
-                        <InputError :message="errors.ferry_id?.[0]" class="mt-2" />
-                    </div>
+                    <TSelect
+                        v-model="recurringForm.ferry_id"
+                        label="Ferry"
+                        :options="ferryOptions"
+                        :error="errors.ferry_id?.[0]"
+                        :class="editingTemplateId ? 'pointer-events-none opacity-60' : ''"
+                    />
 
-                    <div class="mt-4">
-                        <InputLabel for="frequency" value="Frequency" />
-                        <select id="frequency" v-model="recurringForm.frequency" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
-                        <InputError :message="errors.frequency?.[0]" class="mt-2" />
-                    </div>
+                    <TSelect
+                        v-model="recurringForm.frequency"
+                        label="Frequency"
+                        :options="FREQUENCY_OPTIONS"
+                        :error="errors.frequency?.[0]"
+                    />
 
-                    <div v-if="recurringForm.frequency === 'weekly'" class="mt-4">
-                        <InputLabel value="Weekdays" />
-                        <div class="mt-1 flex flex-wrap gap-3">
-                            <label v-for="option in WEEKDAY_OPTIONS" :key="option.value" class="flex items-center gap-1 text-sm">
-                                <input type="checkbox" :value="option.value" v-model="recurringForm.weekdays" />
+                    <div v-if="recurringForm.frequency === 'weekly'">
+                        <label class="mb-1.5 block text-sm font-medium text-foreground">Weekdays</label>
+                        <div class="flex flex-wrap gap-3">
+                            <label
+                                v-for="option in WEEKDAY_OPTIONS"
+                                :key="option.value"
+                                class="flex items-center gap-1 text-sm text-foreground-secondary"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :value="option.value"
+                                    v-model="recurringForm.weekdays"
+                                    class="rounded border-strong text-primary focus:ring-primary/30"
+                                />
                                 {{ option.label }}
                             </label>
                         </div>
-                        <InputError :message="errors.weekdays?.[0]" class="mt-2" />
+                        <p v-if="errors.weekdays?.[0]" class="mt-1.5 text-sm text-danger">{{ errors.weekdays[0] }}</p>
                     </div>
 
-                    <div v-if="recurringForm.frequency === 'monthly'" class="mt-4">
-                        <InputLabel for="day_of_month" value="Day of month" />
-                        <TextInput id="day_of_month" type="number" min="1" max="31" v-model="recurringForm.day_of_month" class="mt-1 block w-full" />
-                        <InputError :message="errors.day_of_month?.[0]" class="mt-2" />
+                    <TInput
+                        v-if="recurringForm.frequency === 'monthly'"
+                        id="day_of_month"
+                        v-model="recurringForm.day_of_month"
+                        label="Day of month"
+                        type="number"
+                        min="1"
+                        max="31"
+                        :error="errors.day_of_month?.[0]"
+                    />
+
+                    <div class="flex gap-4">
+                        <TInput
+                            id="r_departure_time"
+                            v-model="recurringForm.departure_time"
+                            label="Departure"
+                            type="time"
+                            class="flex-1"
+                            :error="errors.departure_time?.[0]"
+                        />
+                        <TInput
+                            id="r_arrival_time"
+                            v-model="recurringForm.arrival_time"
+                            label="Arrival"
+                            type="time"
+                            class="flex-1"
+                            :error="errors.arrival_time?.[0]"
+                        />
                     </div>
 
-                    <div class="mt-4 flex gap-4">
-                        <div class="flex-1">
-                            <InputLabel for="r_departure_time" value="Departure" />
-                            <TextInput id="r_departure_time" type="time" v-model="recurringForm.departure_time" class="mt-1 block w-full" />
-                            <InputError :message="errors.departure_time?.[0]" class="mt-2" />
-                        </div>
-                        <div class="flex-1">
-                            <InputLabel for="r_arrival_time" value="Arrival" />
-                            <TextInput id="r_arrival_time" type="time" v-model="recurringForm.arrival_time" class="mt-1 block w-full" />
-                            <InputError :message="errors.arrival_time?.[0]" class="mt-2" />
-                        </div>
-                    </div>
+                    <TInput
+                        id="available_seats"
+                        v-model="recurringForm.available_seats"
+                        label="Seats"
+                        type="number"
+                        min="1"
+                        :error="errors.available_seats?.[0]"
+                    />
 
-                    <div class="mt-4">
-                        <InputLabel for="available_seats" value="Seats" />
-                        <TextInput id="available_seats" type="number" min="1" v-model="recurringForm.available_seats" class="mt-1 block w-full" />
-                        <InputError :message="errors.available_seats?.[0]" class="mt-2" />
-                    </div>
-
-                    <div class="mt-4 flex gap-4">
-                        <div class="flex-1">
-                            <InputLabel for="starts_on" value="Starts on" />
-                            <TextInput id="starts_on" type="date" v-model="recurringForm.starts_on" class="mt-1 block w-full" />
-                            <InputError :message="errors.starts_on?.[0]" class="mt-2" />
-                        </div>
-                        <div class="flex-1">
-                            <InputLabel for="ends_on" value="Ends on (optional)" />
-                            <TextInput id="ends_on" type="date" v-model="recurringForm.ends_on" class="mt-1 block w-full" />
-                            <InputError :message="errors.ends_on?.[0]" class="mt-2" />
-                        </div>
+                    <div class="flex gap-4">
+                        <TInput
+                            id="starts_on"
+                            v-model="recurringForm.starts_on"
+                            label="Starts on"
+                            type="date"
+                            class="flex-1"
+                            :error="errors.starts_on?.[0]"
+                        />
+                        <TInput
+                            id="ends_on"
+                            v-model="recurringForm.ends_on"
+                            label="Ends on (optional)"
+                            type="date"
+                            class="flex-1"
+                            :error="errors.ends_on?.[0]"
+                        />
                     </div>
                 </template>
 
-                <div class="mt-6 flex justify-end gap-3">
-                    <SecondaryButton type="button" @click="closeModal">Cancel</SecondaryButton>
-                    <PrimaryButton type="submit">Save</PrimaryButton>
-                </div>
+                <button type="submit" class="hidden" />
             </form>
-        </Modal>
-    </AuthenticatedLayout>
+
+            <template #footer>
+                <TButton variant="secondary" type="button" @click="closeModal">Cancel</TButton>
+                <TButton type="button" @click="save">Save</TButton>
+            </template>
+        </TModal>
+    </StaffLayout>
 </template>

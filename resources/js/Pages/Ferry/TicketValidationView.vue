@@ -1,8 +1,11 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import DangerButton from '@/Components/DangerButton.vue';
+import StaffLayout from '@/Layouts/StaffLayout.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TInput from '@/Components/ui/TInput.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
 import QrCameraScanner from '@/Components/QrCameraScanner.vue';
 import FerrySeatGrid from '@/Components/FerrySeatGrid.vue';
 import { useFerryStore } from '@/stores/ferry';
@@ -69,9 +72,9 @@ watch(selectedScheduleId, refreshBoatSeatMap);
 const boatSeatRows = computed(() => (boatSeatMap.value ? computeSeatRows(boatSeatMap.value.capacity) : []));
 
 const boatSeatClass = (seat) => {
-    if (boatSeatMap.value?.boarded_seats?.includes(seat)) return 'bg-black text-white';
-    if (boatSeatMap.value?.taken_seats?.includes(seat)) return 'bg-gray-300 text-gray-500';
-    return 'bg-white border border-gray-300 text-gray-500';
+    if (boatSeatMap.value?.boarded_seats?.includes(seat)) return 'bg-foreground text-surface';
+    if (boatSeatMap.value?.taken_seats?.includes(seat)) return 'bg-foreground-muted text-surface';
+    return 'bg-surface border border-strong text-foreground-muted';
 };
 
 const ticketIdInput = ref('');
@@ -242,20 +245,20 @@ const statusLabel = computed(() => {
 
 const panelClasses = computed(() => {
     if (!ticket.value) return '';
-    if (scheduleMismatch.value) return 'bg-orange-50';
-    if (ticket.value.status === 'used') return 'bg-red-50';
-    if (ticket.value.status === 'cancelled') return 'bg-gray-100';
-    if (ticket.value.payment_method === 'cash') return 'bg-yellow-50';
-    return 'bg-green-50';
+    if (scheduleMismatch.value) return 'bg-warning-soft ring-2 ring-warning/40';
+    if (ticket.value.status === 'used') return 'bg-danger-soft';
+    if (ticket.value.status === 'cancelled') return 'bg-surface-hover';
+    if (ticket.value.payment_method === 'cash') return 'bg-warning-soft';
+    return 'bg-success-soft';
 });
 
 const headingClasses = computed(() => {
     if (!ticket.value) return '';
-    if (scheduleMismatch.value) return 'text-orange-800';
-    if (ticket.value.status === 'used') return 'text-red-800';
-    if (ticket.value.status === 'cancelled') return 'text-gray-600';
-    if (ticket.value.payment_method === 'cash') return 'text-yellow-900';
-    return 'text-green-800';
+    if (scheduleMismatch.value) return 'text-warning';
+    if (ticket.value.status === 'used') return 'text-danger';
+    if (ticket.value.status === 'cancelled') return 'text-foreground-secondary';
+    if (ticket.value.payment_method === 'cash') return 'text-warning';
+    return 'text-success';
 });
 
 const seatRows = computed(() => (seatMap.value ? computeSeatRows(seatMap.value.capacity) : []));
@@ -267,9 +270,9 @@ const seatState = (seat) => {
 };
 
 const ticketSeatClass = (seat) => ({
-    taken: 'bg-gray-300 text-gray-500',
-    ticket: 'bg-indigo-600 text-white',
-    available: 'bg-white border border-gray-300 text-gray-500',
+    taken: 'bg-foreground-muted text-surface',
+    ticket: 'bg-primary text-white',
+    available: 'bg-surface border border-strong text-foreground-muted',
 }[seatState(seat)]);
 
 // Booking party walk-up sale - picking seats to fill the gap between
@@ -296,11 +299,11 @@ const partySeatState = (seat) => {
 };
 
 const partySeatClass = (seat) => ({
-    'party-issued': 'bg-indigo-400 text-white cursor-default',
-    'party-used': 'bg-green-500 text-white cursor-default',
-    taken: 'bg-gray-300 text-gray-500 cursor-not-allowed',
-    selected: 'bg-indigo-600 text-white',
-    available: 'bg-white border border-gray-300 text-gray-500 hover:border-indigo-400',
+    'party-issued': 'bg-primary/60 text-white cursor-default',
+    'party-used': 'bg-success text-white cursor-default',
+    taken: 'bg-foreground-muted text-surface cursor-not-allowed',
+    selected: 'bg-primary text-white',
+    available: 'bg-surface border border-strong text-foreground-muted hover:border-primary',
 }[partySeatState(seat)]);
 
 const toggleNewSeat = (seat) => {
@@ -331,6 +334,12 @@ const noFallbackAvailable = computed(() => !!party.value && !partyLegDirection.v
 // check-in day's boat) was found to fit it instead - anything else means
 // there's no legitimate schedule to book this party's tickets against.
 const canBookNewSeats = computed(() => !!partyLegDirection.value || showingFallback.value);
+
+const bookingStatusVariant = (status) => ({
+    confirmed: 'success',
+    pending: 'warning',
+    cancelled: 'danger',
+}[status] ?? 'neutral');
 
 const issueNewTickets = async () => {
     if (!canBookNewSeats.value) return;
@@ -378,262 +387,251 @@ const markTicketUsed = async (t) => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <StaffLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Ticket Validation
-            </h2>
+            <TPageHeader compact title="Ticket Validation" icon="scan" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-lg space-y-6 sm:px-6 lg:px-8">
-                <div v-if="!selectedSchedule" class="rounded-lg bg-white p-4 shadow-sm">
-                    <label class="block text-sm font-medium text-gray-700">Date</label>
-                    <input type="date" v-model="scheduleDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+        <div class="mx-auto max-w-lg space-y-6">
+            <div v-if="!selectedSchedule" class="elevated rounded-xl border bg-surface p-4">
+                <label class="block text-sm font-medium text-foreground-secondary">Date</label>
+                <input
+                    type="date"
+                    v-model="scheduleDate"
+                    class="mt-1 block w-full rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
 
-                    <label class="mt-3 block text-sm font-medium text-gray-700">Departure</label>
-                    <div v-if="loadingSchedules" class="mt-1 text-sm text-gray-500">Loading departures...</div>
-                    <div v-else-if="dateSchedules.length === 0" class="mt-1 text-sm text-gray-500">
-                        No departures scheduled for this date.
-                    </div>
-                    <div v-else class="mt-2 space-y-2">
-                        <label
-                            v-for="schedule in dateSchedules"
-                            :key="schedule.id"
-                            class="flex items-center gap-2 rounded-md border p-3 text-sm"
-                            :class="Number(selectedScheduleId) === schedule.id ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200'"
-                        >
-                            <input type="radio" :value="schedule.id" v-model="selectedScheduleId" />
-                            <span class="font-medium text-gray-900">{{ schedule.ferry?.name }}</span>
-                            <span class="text-gray-500">- {{ schedule.departure_time }}</span>
-                        </label>
+                <label class="mt-3 block text-sm font-medium text-foreground-secondary">Departure</label>
+                <div v-if="loadingSchedules" class="mt-1 text-sm text-foreground-muted">Loading departures...</div>
+                <div v-else-if="dateSchedules.length === 0" class="mt-1 text-sm text-foreground-muted">
+                    No departures scheduled for this date.
+                </div>
+                <div v-else class="mt-2 space-y-2">
+                    <label
+                        v-for="schedule in dateSchedules"
+                        :key="schedule.id"
+                        class="flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-colors"
+                        :class="Number(selectedScheduleId) === schedule.id ? 'border-primary bg-primary-soft' : 'hover:bg-surface-hover'"
+                    >
+                        <input type="radio" :value="schedule.id" v-model="selectedScheduleId" class="text-primary focus:ring-primary/30" />
+                        <span class="font-medium text-foreground">{{ schedule.ferry?.name }}</span>
+                        <span class="text-foreground-muted">- {{ schedule.departure_time }}</span>
+                    </label>
+                </div>
+            </div>
+
+            <template v-else>
+                <div class="flex items-center justify-between rounded-xl bg-primary-soft p-3 text-sm">
+                    <span class="font-medium text-primary">
+                        Checking in: {{ selectedSchedule.ferry?.name }} - {{ scheduleDate }} at {{ selectedSchedule.departure_time }}
+                    </span>
+                    <button type="button" @click="changeDeparture" class="font-medium text-primary underline hover:no-underline">
+                        Change
+                    </button>
+                </div>
+
+                <div v-show="!ticket && !party" class="elevated rounded-xl border bg-surface p-4">
+                    <QrCameraScanner ref="scanner" @decode="onDecode" />
+                    <form @submit.prevent="lookupManually" class="mt-3 flex items-start gap-2">
+                        <TInput
+                            v-model="ticketIdInput"
+                            placeholder="Scan a ticket (LSJ-T0012) or a hotel booking (LSJ-B0007)"
+                            class="flex-1"
+                        />
+                        <TButton type="submit">
+                            <TIcon name="search" :size="16" />
+                            Look Up
+                        </TButton>
+                    </form>
+
+                    <div class="mt-4 border-t pt-4">
+                        <p class="text-sm font-medium text-foreground-secondary">Seat Map - {{ selectedSchedule.ferry?.name }}</p>
+                        <div v-if="loadingBoatSeatMap" class="mt-2 text-sm text-foreground-muted">Loading seat map...</div>
+                        <div v-else-if="boatSeatMap" class="mt-2 rounded-xl bg-surface-hover p-3">
+                            <FerrySeatGrid :rows="boatSeatRows" :seat-class="boatSeatClass" />
+                            <div class="mt-2 flex justify-center gap-3 text-[11px] text-foreground-muted">
+                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-foreground"></span> Boarded</span>
+                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-foreground-muted"></span> Taken</span>
+                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-strong bg-surface"></span> Available</span>
+                            </div>
+                            <p class="mt-2 text-center text-xs text-foreground-muted">
+                                {{ boatSeatMap.taken_seats.length }} of {{ boatSeatMap.capacity }} seats taken
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <template v-else>
-                    <div class="flex items-center justify-between rounded-lg bg-indigo-50 p-3 text-sm">
-                        <span class="font-medium text-indigo-900">
-                            Checking in: {{ selectedSchedule.ferry?.name }} - {{ scheduleDate }} at {{ selectedSchedule.departure_time }}
-                        </span>
-                        <button type="button" @click="changeDeparture" class="font-medium text-indigo-600 underline hover:text-indigo-800">
-                            Change
-                        </button>
-                    </div>
+                <div v-if="lookupError" class="rounded-xl bg-danger-soft p-4 text-sm text-danger">
+                    {{ lookupError }}
+                </div>
 
-                    <div v-show="!ticket && !party" class="rounded-lg bg-white p-4 shadow-sm">
-                        <QrCameraScanner ref="scanner" @decode="onDecode" />
-                        <form @submit.prevent="lookupManually" class="mt-3 flex gap-2">
-                            <input
-                                v-model="ticketIdInput"
-                                placeholder="Scan a ticket (LSJ-T0012) or a hotel booking (LSJ-B0007)"
-                                class="flex-1 rounded-md border-gray-300 text-sm shadow-sm"
-                            />
-                            <PrimaryButton type="submit">Look Up</PrimaryButton>
-                        </form>
+                <div v-if="ticket" class="rounded-xl border p-6" :class="panelClasses">
+                    <p class="font-semibold" :class="headingClasses">
+                        {{ statusLabel }} - {{ ticket.reference_code }}
+                    </p>
+                    <p v-if="scheduleMismatch" class="mt-1 text-sm text-warning">
+                        This ticket is for {{ ticket.schedule?.ferry?.name }} on
+                        {{ ticket.schedule?.departure_date?.slice(0, 10) }} at {{ ticket.schedule?.departure_time }},
+                        not the selected departure.
+                    </p>
 
-                        <div class="mt-4 border-t border-gray-100 pt-4">
-                            <p class="text-sm font-medium text-gray-700">Seat Map - {{ selectedSchedule.ferry?.name }}</p>
-                            <div v-if="loadingBoatSeatMap" class="mt-2 text-sm text-gray-500">Loading seat map...</div>
-                            <div v-else-if="boatSeatMap" class="mt-2 rounded-lg bg-gray-50 p-3">
-                                <FerrySeatGrid :rows="boatSeatRows" :seat-class="boatSeatClass" />
-                                <div class="mt-2 flex justify-center gap-3 text-[11px] text-gray-500">
-                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-black"></span> Boarded</span>
-                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-gray-300"></span> Taken</span>
-                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-gray-300 bg-white"></span> Available</span>
-                                </div>
-                                <p class="mt-2 text-center text-xs text-gray-500">
-                                    {{ boatSeatMap.taken_seats.length }} of {{ boatSeatMap.capacity }} seats taken
-                                </p>
-                            </div>
+                    <p v-if="ticket.payment_method === 'cash' && isActionable" class="mt-2 text-4xl font-bold text-warning">
+                        ${{ ticket.price }}
+                    </p>
+
+                    <dl class="mt-3 space-y-1 text-sm text-foreground">
+                        <div class="flex justify-between">
+                            <dt class="text-foreground-muted">Passenger</dt>
+                            <dd>{{ ticket.user?.name }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-foreground-muted">Hotel booking ref</dt>
+                            <dd>{{ ticket.booking?.reference_code }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-foreground-muted">Departure</dt>
+                            <dd>{{ ticket.schedule?.departure_date?.slice(0, 10) }} {{ ticket.schedule?.departure_time }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-foreground-muted">Seat</dt>
+                            <dd>{{ ticket.seat_number }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-foreground-muted">Payment</dt>
+                            <dd>{{ ticket.payment_method === 'cash' ? 'Cash on board' : `Paid online ($${ticket.price})` }}</dd>
+                        </div>
+                    </dl>
+
+                    <div v-if="loadingSeatMap" class="mt-4 text-sm text-foreground-muted">Loading seat map...</div>
+                    <div v-else-if="seatMap" class="mt-4 rounded-xl bg-surface/60 p-3">
+                        <FerrySeatGrid :rows="seatRows" :seat-class="ticketSeatClass" />
+                        <div class="mt-2 flex justify-center gap-3 text-[11px] text-foreground-muted">
+                            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-primary"></span> This ticket</span>
+                            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-foreground-muted"></span> Taken</span>
+                            <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-strong bg-surface"></span> Available</span>
                         </div>
                     </div>
 
-                    <div v-if="lookupError" class="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                        {{ lookupError }}
+                    <div class="mt-4 flex flex-wrap items-center gap-3">
+                        <TButton v-if="isActionable" @click="confirmUsed">Confirm Used</TButton>
+                        <TButton v-if="isActionable" variant="danger" @click="cancelTicket">Cancel Ticket</TButton>
+                        <TButton variant="secondary" type="button" @click="backToScanning">Scan Next</TButton>
+                    </div>
+                </div>
+
+                <div
+                    v-if="party"
+                    class="rounded-xl border p-6"
+                    :class="showingFallback ? 'bg-danger-soft ring-2 ring-danger/40' : 'bg-surface'"
+                >
+                    <p class="font-semibold text-foreground">Party of {{ party.party_guests_count }}</p>
+
+                    <div class="mt-3 rounded-lg border p-3 text-sm" :class="showingFallback ? 'bg-surface' : ''">
+                        <p class="font-medium text-foreground">{{ party.booking.room?.hotel?.name }}</p>
+                        <p class="text-foreground-muted">
+                            {{ party.booking.room?.type }} room -
+                            {{ party.booking.check_in_date?.slice(0, 10) }} to {{ party.booking.check_out_date?.slice(0, 10) }}
+                        </p>
+                        <p class="text-foreground-muted">
+                            {{ party.booking.reference_code }}
+                            <TBadge :variant="bookingStatusVariant(party.booking.status)" class="ml-1 capitalize">
+                                {{ party.booking.status }}
+                            </TBadge>
+                        </p>
                     </div>
 
-                    <div v-if="ticket" class="rounded-lg p-6" :class="panelClasses">
-                        <p class="font-semibold" :class="headingClasses">
-                            {{ statusLabel }} - {{ ticket.reference_code }}
-                        </p>
-                        <p v-if="scheduleMismatch" class="mt-1 text-sm text-orange-700">
-                            This ticket is for {{ ticket.schedule?.ferry?.name }} on
-                            {{ ticket.schedule?.departure_date?.slice(0, 10) }} at {{ ticket.schedule?.departure_time }},
-                            not the selected departure.
-                        </p>
-
-                        <p v-if="ticket.payment_method === 'cash' && isActionable" class="mt-2 text-4xl font-bold text-yellow-900">
-                            ${{ ticket.price }}
-                        </p>
-
-                        <dl class="mt-3 space-y-1 text-sm">
-                            <div class="flex justify-between">
-                                <dt class="text-gray-500">Passenger</dt>
-                                <dd>{{ ticket.user?.name }}</dd>
-                            </div>
-                            <div class="flex justify-between">
-                                <dt class="text-gray-500">Hotel booking ref</dt>
-                                <dd>{{ ticket.booking?.reference_code }}</dd>
-                            </div>
-                            <div class="flex justify-between">
-                                <dt class="text-gray-500">Departure</dt>
-                                <dd>{{ ticket.schedule?.departure_date?.slice(0, 10) }} {{ ticket.schedule?.departure_time }}</dd>
-                            </div>
-                            <div class="flex justify-between">
-                                <dt class="text-gray-500">Seat</dt>
-                                <dd>{{ ticket.seat_number }}</dd>
-                            </div>
-                            <div class="flex justify-between">
-                                <dt class="text-gray-500">Payment</dt>
-                                <dd>{{ ticket.payment_method === 'cash' ? 'Cash on board' : `Paid online ($${ticket.price})` }}</dd>
-                            </div>
-                        </dl>
-
-                        <div v-if="loadingSeatMap" class="mt-4 text-sm text-gray-500">Loading seat map...</div>
-                        <div v-else-if="seatMap" class="mt-4 rounded-lg bg-white/60 p-3">
-                            <FerrySeatGrid :rows="seatRows" :seat-class="ticketSeatClass" />
-                            <div class="mt-2 flex justify-center gap-3 text-[11px] text-gray-500">
-                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-indigo-600"></span> This ticket</span>
-                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-gray-300"></span> Taken</span>
-                                <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-gray-300 bg-white"></span> Available</span>
-                            </div>
-                        </div>
-
-                        <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <PrimaryButton v-if="isActionable" @click="confirmUsed">Confirm Used</PrimaryButton>
-                            <DangerButton v-if="isActionable" @click="cancelTicket">Cancel Ticket</DangerButton>
-                            <button
-                                type="button"
-                                @click="backToScanning"
-                                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                            >
-                                Scan Next
-                            </button>
-                        </div>
+                    <div v-if="party.booking.status !== 'confirmed'" class="mt-3 rounded-lg bg-warning-soft p-3 text-sm text-warning">
+                        This booking is {{ party.booking.status }}, not confirmed - walk-up ticket purchases will be
+                        rejected until the hotel booking itself is confirmed.
                     </div>
 
-                    <div
-                        v-if="party"
-                        class="rounded-lg p-6 shadow-sm"
-                        :class="showingFallback ? 'bg-red-50 ring-2 ring-red-400' : 'bg-white'"
-                    >
-                        <p class="font-semibold text-gray-900">Party of {{ party.party_guests_count }}</p>
+                    <div v-if="showingFallback" class="mt-3 rounded-lg bg-danger-soft p-3 text-sm font-medium text-danger">
+                        Hotel check-in is on {{ fallbackSchedule.departure_date?.slice(0, 10) }}, showing seat map for
+                        {{ fallbackSchedule.ferry?.name }} on that day.
+                    </div>
 
-                        <div class="mt-3 rounded-md border p-3 text-sm" :class="showingFallback ? 'border-red-200 bg-white' : 'border-gray-200'">
-                            <p class="font-medium text-gray-900">{{ party.booking.room?.hotel?.name }}</p>
-                            <p class="text-gray-500">
-                                {{ party.booking.room?.type }} room -
-                                {{ party.booking.check_in_date?.slice(0, 10) }} to {{ party.booking.check_out_date?.slice(0, 10) }}
+                    <div v-else-if="noFallbackAvailable" class="mt-3 rounded-lg bg-warning-soft p-3 text-sm text-warning">
+                        This departure ({{ selectedSchedule.departure_date?.slice(0, 10) }}) doesn't match this booking's
+                        stay - check-in is {{ party.booking.check_in_date?.slice(0, 10) }}, check-out is
+                        {{ party.booking.check_out_date?.slice(0, 10) }} - and no departure is scheduled for the check-in
+                        date either. Select the departure for one of those dates instead.
+                    </div>
+
+                    <template v-if="partyLegDirection || showingFallback">
+                        <div class="mt-3 rounded-lg p-3" :class="party.remaining_seats > 0 ? 'bg-warning-soft' : 'bg-success-soft'">
+                            <p class="font-semibold" :class="party.remaining_seats > 0 ? 'text-warning' : 'text-success'">
+                                {{
+                                    party.remaining_seats > 0
+                                        ? `${party.remaining_seats} seat(s) not yet booked for this date`
+                                        : 'Fully booked for this date'
+                                }}
                             </p>
-                            <p class="text-gray-500">
-                                {{ party.booking.reference_code }}
-                                <span
-                                    class="ml-1 rounded px-1.5 py-0.5 text-xs font-medium capitalize"
-                                    :class="{
-                                        'bg-emerald-100 text-emerald-800': party.booking.status === 'confirmed',
-                                        'bg-amber-100 text-amber-800': party.booking.status === 'pending',
-                                        'bg-red-100 text-red-700': party.booking.status === 'cancelled',
-                                    }"
+                        </div>
+
+                        <div class="mt-4">
+                            <p class="text-sm font-medium text-foreground-secondary">Seat Map</p>
+                            <div v-if="loadingSeatMap" class="mt-2 text-sm text-foreground-muted">Loading seat map...</div>
+                            <div v-else-if="seatMap" class="mt-2 rounded-xl bg-surface-hover p-3">
+                                <FerrySeatGrid :rows="seatRows" :seat-class="partySeatClass" :on-seat-click="toggleNewSeat" />
+                                <div class="mt-2 flex flex-wrap justify-center gap-3 text-[11px] text-foreground-muted">
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-primary/60"></span> This party (issued)</span>
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-success"></span> This party (boarded)</span>
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-foreground-muted"></span> Other passenger</span>
+                                    <span v-if="party.remaining_seats > 0" class="flex items-center gap-1">
+                                        <span class="h-2.5 w-2.5 rounded bg-primary"></span> Selected
+                                    </span>
+                                    <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-strong bg-surface"></span> Available</span>
+                                </div>
+                            </div>
+
+                            <p v-if="ticketActionError" class="mt-2 text-sm text-danger">{{ ticketActionError }}</p>
+                            <div v-if="pendingBoardingTickets.length" class="mt-3 space-y-1">
+                                <div
+                                    v-for="t in pendingBoardingTickets"
+                                    :key="t.id"
+                                    class="flex items-center justify-between rounded-lg bg-surface-hover px-3 py-1.5 text-sm text-foreground"
                                 >
-                                    {{ party.booking.status }}
-                                </span>
-                            </p>
-                        </div>
-
-                        <div v-if="party.booking.status !== 'confirmed'" class="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                            This booking is {{ party.booking.status }}, not confirmed - walk-up ticket purchases will be
-                            rejected until the hotel booking itself is confirmed.
-                        </div>
-
-                        <div v-if="showingFallback" class="mt-3 rounded-md bg-red-100 p-3 text-sm font-medium text-red-800">
-                            Hotel check-in is on {{ fallbackSchedule.departure_date?.slice(0, 10) }}, showing seat map for
-                            {{ fallbackSchedule.ferry?.name }} on that day.
-                        </div>
-
-                        <div v-else-if="noFallbackAvailable" class="mt-3 rounded-md bg-orange-50 p-3 text-sm text-orange-800">
-                            This departure ({{ selectedSchedule.departure_date?.slice(0, 10) }}) doesn't match this booking's
-                            stay - check-in is {{ party.booking.check_in_date?.slice(0, 10) }}, check-out is
-                            {{ party.booking.check_out_date?.slice(0, 10) }} - and no departure is scheduled for the check-in
-                            date either. Select the departure for one of those dates instead.
-                        </div>
-
-                        <template v-if="partyLegDirection || showingFallback">
-                            <div class="mt-3 rounded-md p-3" :class="party.remaining_seats > 0 ? 'bg-yellow-50' : 'bg-green-50'">
-                                <p class="font-semibold" :class="party.remaining_seats > 0 ? 'text-yellow-800' : 'text-green-800'">
-                                    {{
-                                        party.remaining_seats > 0
-                                            ? `${party.remaining_seats} seat(s) not yet booked for this date`
-                                            : 'Fully booked for this date'
-                                    }}
-                                </p>
-                            </div>
-
-                            <div class="mt-4">
-                                <p class="text-sm font-medium text-gray-700">Seat Map</p>
-                                <div v-if="loadingSeatMap" class="mt-2 text-sm text-gray-500">Loading seat map...</div>
-                                <div v-else-if="seatMap" class="mt-2 rounded-lg bg-gray-50 p-3">
-                                    <FerrySeatGrid :rows="seatRows" :seat-class="partySeatClass" :on-seat-click="toggleNewSeat" />
-                                    <div class="mt-2 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
-                                        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-indigo-400"></span> This party (issued)</span>
-                                        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-green-500"></span> This party (boarded)</span>
-                                        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded bg-gray-300"></span> Other passenger</span>
-                                        <span v-if="party.remaining_seats > 0" class="flex items-center gap-1">
-                                            <span class="h-2.5 w-2.5 rounded bg-indigo-600"></span> Selected
-                                        </span>
-                                        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded border border-gray-300 bg-white"></span> Available</span>
-                                    </div>
-                                </div>
-
-                                <p v-if="ticketActionError" class="mt-2 text-sm text-red-600">{{ ticketActionError }}</p>
-                                <div v-if="pendingBoardingTickets.length" class="mt-3 space-y-1">
-                                    <div
-                                        v-for="t in pendingBoardingTickets"
-                                        :key="t.id"
-                                        class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-1.5 text-sm"
+                                    <span>{{ t.user?.name }} - seat {{ t.seat_number }}</span>
+                                    <TButton
+                                        size="xs"
+                                        type="button"
+                                        :loading="markingUsedId === t.id"
+                                        @click="markTicketUsed(t)"
                                     >
-                                        <span>{{ t.user?.name }} - seat {{ t.seat_number }}</span>
-                                        <button
-                                            type="button"
-                                            :disabled="markingUsedId === t.id"
-                                            @click="markTicketUsed(t)"
-                                            class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-                                        >
-                                            Mark Used
-                                        </button>
-                                    </div>
+                                        Mark Used
+                                    </TButton>
                                 </div>
                             </div>
+                        </div>
 
-                            <div v-if="party.remaining_seats > 0" class="mt-4 border-t border-gray-200 pt-4">
-                                <p class="text-sm font-medium text-gray-900">Book remaining seat(s) - walk-up / cash sale</p>
+                        <div v-if="party.remaining_seats > 0" class="mt-4 border-t pt-4">
+                            <p class="text-sm font-medium text-foreground">Book remaining seat(s) - walk-up / cash sale</p>
 
-                                <div class="mt-3 flex items-center gap-4">
-                                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" v-model="newPaymentMethod" value="cash" /> Cash
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                                        <input type="radio" v-model="newPaymentMethod" value="online" /> Card
-                                    </label>
-                                </div>
-
-                                <p v-if="issueError" class="mt-2 text-sm text-red-600">{{ issueError }}</p>
-
-                                <PrimaryButton class="mt-3" :disabled="selectedNewSeats.length === 0 || issuing" @click="issueNewTickets">
-                                    Issue {{ selectedNewSeats.length }} Ticket{{ selectedNewSeats.length === 1 ? '' : 's' }}
-                                </PrimaryButton>
+                            <div class="mt-3 flex items-center gap-4">
+                                <label class="flex items-center gap-2 text-sm text-foreground-secondary">
+                                    <input type="radio" v-model="newPaymentMethod" value="cash" class="text-primary focus:ring-primary/30" /> Cash
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-foreground-secondary">
+                                    <input type="radio" v-model="newPaymentMethod" value="online" class="text-primary focus:ring-primary/30" /> Card
+                                </label>
                             </div>
-                        </template>
 
-                        <button
-                            type="button"
-                            @click="backToScanning"
-                            class="mt-4 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                            Scan Next
-                        </button>
-                    </div>
-                </template>
-            </div>
+                            <p v-if="issueError" class="mt-2 text-sm text-danger">{{ issueError }}</p>
+
+                            <TButton
+                                class="mt-3"
+                                :disabled="selectedNewSeats.length === 0"
+                                :loading="issuing"
+                                @click="issueNewTickets"
+                            >
+                                Issue {{ selectedNewSeats.length }} Ticket{{ selectedNewSeats.length === 1 ? '' : 's' }}
+                            </TButton>
+                        </div>
+                    </template>
+
+                    <TButton variant="secondary" type="button" class="mt-4" @click="backToScanning">Scan Next</TButton>
+                </div>
+            </template>
         </div>
-    </AuthenticatedLayout>
+    </StaffLayout>
 </template>

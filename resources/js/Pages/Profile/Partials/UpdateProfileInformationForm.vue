@@ -1,8 +1,6 @@
 <script setup>
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TInput from '@/Components/ui/TInput.vue';
 import { useForm } from '@/composables/useForm';
 import { useAuthStore } from '@/stores/auth';
 
@@ -25,49 +23,39 @@ const submit = () => {
 <template>
     <section>
         <header>
-            <h2 class="text-lg font-medium text-gray-900">
+            <h2 class="text-lg font-medium text-foreground">
                 Profile Information
             </h2>
 
-            <p class="mt-1 text-sm text-gray-600">
+            <p class="mt-1 text-sm text-foreground-secondary">
                 Update your account's profile information and email address.
             </p>
         </header>
 
-        <form @submit.prevent="submit" class="mt-6 space-y-6">
-            <div>
-                <InputLabel for="name" value="Name" />
+        <form @submit.prevent="submit" class="mt-6 space-y-4">
+            <TInput
+                id="name"
+                v-model="form.name"
+                label="Name"
+                :error="form.errors.name"
+                type="text"
+                required
+                autofocus
+                autocomplete="name"
+            />
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
-
-                <InputError class="mt-2" :message="form.errors.name" />
-            </div>
-
-            <div>
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
+            <TInput
+                id="email"
+                v-model="form.email"
+                label="Email"
+                :error="form.errors.email"
+                type="email"
+                required
+                autocomplete="username"
+            />
 
             <div class="flex items-center gap-4">
-                <PrimaryButton :disabled="form.processing">Save</PrimaryButton>
+                <TButton :loading="form.processing">Save</TButton>
 
                 <Transition
                     enter-active-class="transition ease-in-out"
@@ -77,7 +65,7 @@ const submit = () => {
                 >
                     <p
                         v-if="form.recentlySuccessful"
-                        class="text-sm text-gray-600"
+                        class="text-sm text-foreground-secondary"
                     >
                         Saved.
                     </p>

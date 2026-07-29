@@ -2,7 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import TButton from '@/Components/ui/TButton.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 import { useCartStore } from '@/stores/cart';
 import { useAuthStore } from '@/stores/auth';
@@ -141,29 +144,27 @@ const addToCart = (event) => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Theme Park
-            </h2>
+            <TPageHeader title="Theme Park" />
         </template>
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="auth.isAuthenticated" class="rounded-lg bg-white p-4 shadow-sm">
+                <div v-if="auth.isAuthenticated" class="elevated rounded-xl border bg-surface p-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="font-semibold text-gray-900">My Bookings</h3>
-                        <router-link :to="{ name: 'themepark.my-bookings' }" class="text-sm text-indigo-600 hover:underline">
+                        <h3 class="font-semibold text-foreground">My Bookings</h3>
+                        <router-link :to="{ name: 'themepark.my-bookings' }" class="text-sm text-primary hover:underline">
                             View all
                         </router-link>
                     </div>
 
-                    <p v-if="upcomingBookings.length === 0" class="mt-2 text-sm text-gray-500">
+                    <p v-if="upcomingBookings.length === 0" class="mt-2 text-sm text-foreground-muted">
                         No upcoming bookings.
                     </p>
                     <div v-else class="mt-3 space-y-2">
                         <div
                             v-for="booking in upcomingBookings"
                             :key="booking.id"
-                            class="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm"
+                            class="flex items-center justify-between rounded-lg bg-surface-hover px-3 py-2 text-sm text-foreground-secondary"
                         >
                             <span>
                                 {{ booking.slot?.event?.name }} -
@@ -174,24 +175,24 @@ const addToCart = (event) => {
                     </div>
                 </div>
 
-                <div class="sticky top-0 z-10 flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-sm">
+                <div class="elevated sticky top-[4.25rem] z-10 flex flex-wrap gap-4 rounded-xl border bg-surface p-4">
                     <div>
                         <div class="flex items-center justify-between gap-2">
-                            <label class="block text-sm font-medium text-gray-700">Events</label>
+                            <label class="block text-sm font-medium text-foreground-secondary">Events</label>
                             <button
                                 v-if="selectedEventIds.length"
                                 type="button"
                                 @click="selectedEventIds = []"
-                                class="text-xs text-indigo-600 hover:underline"
+                                class="text-xs text-primary hover:underline"
                             >
                                 Clear
                             </button>
                         </div>
-                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-md border border-gray-300 p-2">
+                        <div class="mt-1 flex max-h-20 w-48 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
                             <label
                                 v-for="event in themeParkStore.events"
                                 :key="event.id"
-                                class="flex items-center gap-2 text-sm text-gray-700"
+                                class="flex items-center gap-2 text-sm text-foreground-secondary"
                             >
                                 <input type="checkbox" :value="event.id" v-model="selectedEventIds" />
                                 {{ event.name }}
@@ -200,70 +201,89 @@ const addToCart = (event) => {
                     </div>
                     <div>
                         <div class="flex items-center justify-between gap-2">
-                            <label class="block text-sm font-medium text-gray-700">Type</label>
+                            <label class="block text-sm font-medium text-foreground-secondary">Type</label>
                             <button
                                 v-if="selectedTypes.length"
                                 type="button"
                                 @click="selectedTypes = []"
-                                class="text-xs text-indigo-600 hover:underline"
+                                class="text-xs text-primary hover:underline"
                             >
                                 Clear
                             </button>
                         </div>
-                        <div class="mt-1 flex flex-col gap-1 rounded-md border border-gray-300 p-2">
-                            <label v-for="t in TYPES" :key="t.key" class="flex items-center gap-2 text-sm text-gray-700">
+                        <div class="mt-1 flex flex-col gap-1 rounded-lg border p-2">
+                            <label v-for="t in TYPES" :key="t.key" class="flex items-center gap-2 text-sm text-foreground-secondary">
                                 <input type="checkbox" :value="t.key" v-model="selectedTypes" />
                                 {{ t.label }}
                             </label>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Date</label>
-                        <input type="date" v-model="date" class="mt-1 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Date</label>
+                        <input
+                            type="date"
+                            v-model="date"
+                            class="mt-1 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Tickets</label>
-                        <input type="number" min="1" v-model.number="tickets" class="mt-1 w-20 rounded-md border-gray-300 shadow-sm" />
+                        <label class="block text-sm font-medium text-foreground-secondary">Tickets</label>
+                        <input
+                            type="number"
+                            min="1"
+                            v-model.number="tickets"
+                            class="mt-1 w-20 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
                     </div>
                 </div>
 
-                <div v-if="themeParkStore.loading.events" class="text-gray-500">Loading events...</div>
-                <div v-else-if="themeParkStore.events.length === 0" class="text-gray-500">No events available yet.</div>
-                <div v-else-if="visibleEvents.length === 0" class="text-gray-500">No events match the selected filter.</div>
+                <div v-if="themeParkStore.loading.events" class="text-foreground-muted">Loading events...</div>
+                <TEmptyState
+                    v-else-if="themeParkStore.events.length === 0"
+                    title="No events available yet"
+                    description="Rides, shows and beach events will be listed here once scheduled."
+                    icon="calendar"
+                />
+                <TEmptyState
+                    v-else-if="visibleEvents.length === 0"
+                    title="No events match the selected filter"
+                    description="Try clearing the event or type filters to see everything on offer."
+                    icon="search"
+                />
 
                 <div v-else class="space-y-8">
-                    <div v-for="event in visibleEvents" :key="event.id" class="rounded-lg bg-white p-6 shadow-sm">
+                    <div v-for="event in visibleEvents" :key="event.id" class="elevated rounded-xl border bg-surface p-6">
                         <div class="flex items-start gap-4">
-                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100 text-xs text-gray-400">
+                            <div class="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-hover text-xs text-foreground-muted">
                                 <img v-if="event.image_url" :src="event.image_url" :alt="event.name" class="h-full w-full object-cover" />
                                 <span v-else>No image</span>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="font-semibold text-gray-900">{{ event.name }}</h3>
-                                        <span class="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-800">
+                                        <h3 class="font-semibold text-foreground">{{ event.name }}</h3>
+                                        <TBadge variant="primary" class="shrink-0 capitalize">
                                             {{ event.type.replace('_', ' ') }}
-                                        </span>
+                                        </TBadge>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                                        <label class="flex items-center gap-2 text-sm text-foreground-secondary">
                                             Tickets
                                             <input
                                                 type="number"
                                                 min="1"
                                                 :value="ticketCountFor(event)"
                                                 @input="setTicketCount(event, Number($event.target.value))"
-                                                class="w-16 rounded-md border-gray-300 shadow-sm"
+                                                class="w-16 rounded-lg border bg-surface text-sm text-foreground shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                             />
                                         </label>
-                                        <PrimaryButton :disabled="!canBook(event)" @click="addToCart(event)">
+                                        <TButton :disabled="!canBook(event)" @click="addToCart(event)">
                                             Add to Cart
-                                        </PrimaryButton>
+                                        </TButton>
                                     </div>
                                 </div>
-                                <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ event.description }}</p>
-                                <p class="mt-1 text-xs text-gray-500">
+                                <p class="mt-1 line-clamp-2 text-sm text-foreground-secondary">{{ event.description }}</p>
+                                <p class="mt-1 text-xs text-foreground-muted">
                                     {{ event.location }} - {{ event.duration_minutes }} min - ${{ event.price_per_ticket }} / ticket
                                 </p>
                             </div>
@@ -272,7 +292,7 @@ const addToCart = (event) => {
                         <p
                             v-if="eventMessages[event.id]"
                             class="mt-4 text-sm"
-                            :class="eventMessages[event.id].type === 'error' ? 'text-red-600' : 'text-green-600'"
+                            :class="eventMessages[event.id].type === 'error' ? 'text-danger' : 'text-success'"
                         >
                             {{ eventMessages[event.id].text }}
                             <router-link
@@ -285,10 +305,10 @@ const addToCart = (event) => {
                         </p>
 
                         <div class="mt-4">
-                            <div v-if="loadingSlots[event.id]" class="text-sm text-gray-500">Loading time slots...</div>
+                            <div v-if="loadingSlots[event.id]" class="text-sm text-foreground-muted">Loading time slots...</div>
                             <div
                                 v-else-if="(slotsByEvent[event.id]?.length ?? 0) === 0"
-                                class="rounded-md bg-gray-50 p-4 text-sm text-gray-500"
+                                class="rounded-lg bg-surface-hover p-4 text-sm text-foreground-muted"
                             >
                                 No time slots available for this date.
                             </div>
@@ -299,10 +319,10 @@ const addToCart = (event) => {
                                     type="button"
                                     :disabled="slot.available_capacity < 1"
                                     @click="selectSlot(event, slot)"
-                                    class="rounded-full border px-4 py-2 text-sm"
+                                    class="rounded border px-4 py-2 text-sm transition-colors"
                                     :class="[
-                                        selectedSlotIds[event.id] === slot.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-300 text-gray-700',
-                                        slot.available_capacity < 1 ? 'cursor-not-allowed opacity-50' : 'hover:bg-gray-50',
+                                        selectedSlotIds[event.id] === slot.id ? 'border-primary bg-primary-soft text-primary' : 'border-strong text-foreground-secondary',
+                                        slot.available_capacity < 1 ? 'cursor-not-allowed opacity-50' : 'hover:bg-surface-hover',
                                     ]"
                                 >
                                     {{ slot.slot_time }} ({{ slot.available_capacity }} left)
