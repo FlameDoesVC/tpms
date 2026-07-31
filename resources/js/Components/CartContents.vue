@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/stores/cart';
 import TButton from '@/Components/ui/TButton.vue';
@@ -13,6 +14,27 @@ const checkout = () => {
     router.push({ name: 'cart.checkout' });
 };
 
+// Points at whatever booking step would naturally come next, based on what's
+// already in the cart. Ferry stays optional - a hotel item with no ferry
+// still nudges toward booking one, but never blocks checkout.
+const nextStep = computed(() => {
+    if (cart.items.length === 0) {
+        return { prefix: 'Your cart is empty.', linkText: 'Book a theme park?', to: { name: 'themepark.home' } };
+    }
+
+    const hasThemepark = cart.items.some((item) => item.type === 'themepark');
+    const hasHotel = cart.items.some((item) => item.type === 'hotel');
+    const hasFerry = cart.items.some((item) => item.type === 'ferry');
+
+    if (hasHotel && !hasFerry) {
+        return { prefix: '', linkText: 'Book ferry seats for the trip', to: { name: 'ferry.book' } };
+    }
+    if (hasThemepark && !hasHotel) {
+        return { prefix: '', linkText: 'Book a hotel for the stay?', to: { name: 'hotels.index' } };
+    }
+    return null;
+});
+
 const updateTicketCount = (item, value) => {
     const ticketCount = Math.max(1, Math.round(value));
     cart.updateItem(item.id, { ticketCount, subtotal: ticketCount * item.pricePerTicket });
@@ -21,7 +43,10 @@ const updateTicketCount = (item, value) => {
 
 <template>
     <div class="flex-1 space-y-3 overflow-y-auto p-4">
-        <p v-if="cart.items.length === 0" class="text-sm text-foreground-muted">Your cart is empty.</p>
+        <p v-if="cart.items.length === 0" class="text-sm text-foreground-muted">
+            {{ nextStep.prefix }}
+            <router-link :to="nextStep.to" class="font-medium text-primary hover:underline">{{ nextStep.linkText }}</router-link>
+        </p>
 
         <div
             v-for="item in cart.items"
@@ -60,6 +85,10 @@ const updateTicketCount = (item, value) => {
                 Remove
             </button>
         </div>
+
+        <p v-if="nextStep" class="text-sm text-foreground-muted">
+            <router-link :to="nextStep.to" class="font-medium text-primary hover:underline">{{ nextStep.linkText }}</router-link>
+        </p>
     </div>
 
     <div v-if="cart.items.length" class="space-y-2 border-t p-4">

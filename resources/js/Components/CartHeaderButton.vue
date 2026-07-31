@@ -46,7 +46,7 @@ onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
                 class="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l bg-surface shadow-xl"
             >
                 <div class="flex items-center justify-between border-b p-4">
-                    <h3 class="font-semibold text-foreground">Your Cart</h3>
+                    <h3 class="font-semibold text-foreground">Your Itinerary</h3>
                     <button type="button" @click="open = false" class="rounded-lg p-1 text-foreground-muted transition-colors hover:bg-surface-hover hover:text-foreground">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6" />
