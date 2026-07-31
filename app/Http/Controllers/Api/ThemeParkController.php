@@ -212,7 +212,7 @@ class ThemeParkController extends Controller
     public function cancelBooking(Request $request, EventBooking $booking): JsonResponse
     {
         $user = $request->user();
-        if ($booking->user_id !== $user->id && ! $user->hasRole('themepark_staff')) {
+        if ($booking->user_id !== $user->id && ! $user->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 

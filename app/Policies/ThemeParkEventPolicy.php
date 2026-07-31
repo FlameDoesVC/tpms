@@ -12,7 +12,7 @@ class ThemeParkEventPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('themepark_staff');
+        return $user->hasAnyRole(['themepark_staff', 'admin']);
     }
 
     /**
@@ -20,7 +20,7 @@ class ThemeParkEventPolicy
      */
     public function update(User $user, ThemeParkEvent $themeParkEvent): bool
     {
-        return $user->hasRole('themepark_staff');
+        return $user->hasAnyRole(['themepark_staff', 'admin']);
     }
 
     /**
@@ -28,6 +28,6 @@ class ThemeParkEventPolicy
      */
     public function delete(User $user, ThemeParkEvent $themeParkEvent): bool
     {
-        return $user->hasRole('themepark_staff');
+        return $user->hasAnyRole(['themepark_staff', 'admin']);
     }
 }

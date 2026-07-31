@@ -14,7 +14,7 @@ class ThemeParkTicketController extends Controller
 {
     public function sellTicket(Request $request): JsonResponse
     {
-        if (! $request->user()->hasRole('themepark_staff')) {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 
@@ -49,7 +49,7 @@ class ThemeParkTicketController extends Controller
 
     public function showTicket(Request $request, EventBooking $booking): JsonResponse
     {
-        if (! $request->user()->hasRole('themepark_staff')) {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 
@@ -58,7 +58,7 @@ class ThemeParkTicketController extends Controller
 
     public function validateTicket(Request $request, EventBooking $booking): JsonResponse
     {
-        if (! $request->user()->hasRole('themepark_staff')) {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 
@@ -75,7 +75,7 @@ class ThemeParkTicketController extends Controller
 
     public function dailySales(Request $request): JsonResponse
     {
-        if (! $request->user()->hasRole('themepark_staff')) {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 
@@ -102,7 +102,7 @@ class ThemeParkTicketController extends Controller
 
     public function capacityStatus(Request $request): JsonResponse
     {
-        if (! $request->user()->hasRole('themepark_staff')) {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 

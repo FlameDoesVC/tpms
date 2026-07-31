@@ -33,7 +33,8 @@ router.beforeEach(async (to, from, next) => {
     }
     // Role checks only apply once a real session exists — anonymous visitors
     // may reach guestCheckout-allowed pages and become a visitor mid-flow.
-    if (to.meta.roles && auth.isAuthenticated && !to.meta.roles.includes(auth.userRole)) {
+    // Admin bypasses all role restrictions and can access every page.
+    if (to.meta.roles && auth.isAuthenticated && auth.userRole !== 'admin' && !to.meta.roles.includes(auth.userRole)) {
         return next({ name: 'dashboard' });
     }
     next();

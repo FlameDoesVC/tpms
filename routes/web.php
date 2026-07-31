@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\MapLocationController;
+use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\EventSlotTemplateController;
 use App\Http\Controllers\Api\FerryController;
@@ -14,6 +17,10 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Middleware\AutoLoginGuest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Public: active promotions and map locations for the homepage.
+Route::get('api/promotions', [PromotionController::class, 'index']);
+Route::get('api/map/locations', [MapLocationController::class, 'index']);
 
 // Browsable without any session: hotels/rooms, ferries/schedules, theme park
 // events. Anonymous visitors can shop before an account exists.
@@ -109,6 +116,22 @@ Route::middleware('auth')->group(function () {
         Route::post('themepark/tickets/{booking}/validate', [ThemeParkTicketController::class, 'validateTicket']);
         Route::get('themepark/reports/sales', [ThemeParkTicketController::class, 'dailySales']);
         Route::get('themepark/capacity', [ThemeParkTicketController::class, 'capacityStatus']);
+
+        Route::get('map/locations/manage', [MapLocationController::class, 'manage']);
+        Route::post('map/locations', [MapLocationController::class, 'store']);
+        Route::patch('map/locations/{mapLocation}', [MapLocationController::class, 'update']);
+        Route::delete('map/locations/{mapLocation}', [MapLocationController::class, 'destroy']);
+
+        Route::get('promotions/manage', [PromotionController::class, 'manage']);
+        Route::post('promotions', [PromotionController::class, 'store']);
+        Route::patch('promotions/{promotion}', [PromotionController::class, 'update']);
+        Route::delete('promotions/{promotion}', [PromotionController::class, 'destroy']);
+
+        Route::get('admin/stats', [AdminController::class, 'stats']);
+        Route::get('admin/users', [AdminController::class, 'index']);
+        Route::post('admin/users', [AdminController::class, 'store']);
+        Route::patch('admin/users/{user}', [AdminController::class, 'update']);
+        Route::delete('admin/users/{user}', [AdminController::class, 'destroy']);
     });
 });
 
