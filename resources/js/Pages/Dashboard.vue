@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive } from 'vue';
+import { useRouter } from 'vue-router';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
@@ -12,6 +13,10 @@ import { useFerryStore } from '@/stores/ferry';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const auth = useAuthStore();
+const router = useRouter();
+if (auth.userRole === 'admin') {
+    router.replace({ name: 'admin.dashboard' });
+}
 
 const STAFF_ROLES = ['hotel_manager', 'ferry_operator', 'themepark_staff', 'admin'];
 const layout = computed(() => (STAFF_ROLES.includes(auth.userRole) ? StaffLayout : AuthenticatedLayout));

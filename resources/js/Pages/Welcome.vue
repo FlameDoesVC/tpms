@@ -1,17 +1,36 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
+import axios from 'axios';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import IslandMap from '@/Components/IslandMap.vue';
 import TButton from '@/Components/ui/TButton.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useHotelStore } from '@/stores/hotel';
 import { useThemeParkStore } from '@/stores/themepark';
+import { usePromotionsStore } from '@/stores/promotions';
 import { useTheme } from '@/composables/useTheme';
 
 const auth = useAuthStore();
 const hotelStore = useHotelStore();
 const themeParkStore = useThemeParkStore();
+const promotionsStore = usePromotionsStore();
+const mapLocations = ref([]);
 const { isDark, toggle: toggleTheme } = useTheme();
+
+const CATEGORY_ROUTES = {
+    hotel: { name: 'hotels.index' },
+    themepark: { name: 'themepark.home' },
+    ferry: { name: 'ferry.book' },
+    general: { name: 'welcome' },
+};
+
+const CATEGORY_VARIANT = {
+    hotel: 'success',
+    themepark: 'info',
+    ferry: 'warning',
+    general: 'neutral',
+};
 
 const slides = [
     {
@@ -48,6 +67,8 @@ onMounted(() => {
     hotelStore.fetchPopularHotels();
     themeParkStore.fetchPopularEvents();
     themeParkStore.fetchEvents();
+    promotionsStore.fetchActive();
+    axios.get('/api/map/locations').then(({ data }) => { mapLocations.value = data; });
 });
 onUnmounted(() => clearInterval(interval));
 </script>
@@ -131,6 +152,35 @@ onUnmounted(() => clearInterval(interval));
             </div>
         </div>
 
+        <!-- Promotional banners -->
+        <div v-if="promotionsStore.active.length > 0" class="border-b bg-surface">
+            <div class="mx-auto max-w-5xl px-6 py-10">
+                <h2 class="mb-6 text-xl font-semibold text-foreground">Special Offers</h2>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <router-link
+                        v-for="promo in promotionsStore.active"
+                        :key="promo.id"
+                        :to="CATEGORY_ROUTES[promo.category] ?? { name: 'welcome' }"
+                        class="group flex flex-col overflow-hidden rounded-xl border bg-page transition-all hover:shadow-md"
+                    >
+                        <div v-if="promo.image_url" class="h-36 w-full overflow-hidden">
+                            <img :src="promo.image_url" :alt="promo.title" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        </div>
+                        <div v-else class="flex h-36 items-center justify-center bg-primary-soft">
+                            <span class="text-3xl">🎉</span>
+                        </div>
+                        <div class="flex flex-1 flex-col gap-2 p-4">
+                            <div class="flex items-center gap-2">
+                                <TBadge :variant="CATEGORY_VARIANT[promo.category]">{{ promo.category }}</TBadge>
+                            </div>
+                            <h3 class="font-semibold text-foreground group-hover:text-primary">{{ promo.title }}</h3>
+                            <p v-if="promo.description" class="text-sm text-foreground-muted">{{ promo.description }}</p>
+                        </div>
+                    </router-link>
+                </div>
+            </div>
+        </div>
+
         <!-- Popular theme park events -->
         <div class="mx-auto max-w-5xl px-6 py-12">
             <div class="mb-6 flex items-center justify-between">
@@ -197,7 +247,7 @@ onUnmounted(() => clearInterval(interval));
 
         <!-- Island map -->
         <div class="mx-auto max-w-5xl border-t px-6 py-12">
-            <IslandMap :events="themeParkStore.events" />
+            <IslandMap :events="themeParkStore.events" :locations="mapLocations" />
         </div>
     </div>
 </template>

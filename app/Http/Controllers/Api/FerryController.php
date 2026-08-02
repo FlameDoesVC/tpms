@@ -137,7 +137,7 @@ class FerryController extends Controller
      */
     public function issueWalkupTicket(Request $request): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 
@@ -167,7 +167,7 @@ class FerryController extends Controller
 
     public function showTicket(Request $request, FerryTicket $ticket): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 
@@ -176,7 +176,7 @@ class FerryController extends Controller
 
     public function validateTicket(Request $request, FerryTicket $ticket): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 
@@ -199,7 +199,7 @@ class FerryController extends Controller
 
     public function cancelTicket(Request $request, FerryTicket $ticket): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 
@@ -233,7 +233,7 @@ class FerryController extends Controller
      */
     public function partyStatus(Request $request, Booking $booking): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 
@@ -261,7 +261,7 @@ class FerryController extends Controller
 
     public function passengers(Request $request, FerrySchedule $schedule): JsonResponse
     {
-        if (! $request->user()->hasRole('ferry_operator')) {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
         }
 

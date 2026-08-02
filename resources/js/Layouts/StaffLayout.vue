@@ -29,6 +29,9 @@ const navByRole = {
             { label: 'Bookings', name: 'manager.hotel-dashboard', icon: 'calendar' },
             { label: 'Rooms', name: 'manager.rooms', icon: 'bed' },
         ] },
+        { section: 'Marketing', items: [
+            { label: 'Promotions', name: 'promotions', icon: 'sparkle' },
+        ] },
     ],
     ferry_operator: [
         { section: 'Operations', items: [
@@ -38,6 +41,9 @@ const navByRole = {
         ] },
         { section: 'At the dock', items: [
             { label: 'Validate', name: 'ferry.validate', icon: 'scan' },
+        ] },
+        { section: 'Marketing', items: [
+            { label: 'Promotions', name: 'promotions', icon: 'sparkle' },
         ] },
     ],
     themepark_staff: [
@@ -54,8 +60,35 @@ const navByRole = {
         { section: 'Insight', items: [
             { label: 'Sales report', name: 'themepark.sales-report', icon: 'report' },
         ] },
+        { section: 'Marketing', items: [
+            { label: 'Promotions', name: 'promotions', icon: 'sparkle' },
+        ] },
     ],
-    admin: [{ section: 'Admin', items: [{ label: 'Overview', name: 'dashboard', icon: 'dashboard' }] }],
+    admin: [
+        { section: 'Admin', items: [
+            { label: 'Overview', name: 'admin.dashboard', icon: 'dashboard' },
+            { label: 'Users', name: 'admin.users', icon: 'users' },
+            { label: 'Promotions', name: 'promotions', icon: 'sparkle' },
+            { label: 'Island Map', name: 'admin.map', icon: 'map' },
+        ] },
+        { section: 'Hotel', items: [
+            { label: 'Bookings', name: 'manager.hotel-dashboard', icon: 'calendar' },
+            { label: 'Rooms', name: 'manager.rooms', icon: 'bed' },
+        ] },
+        { section: 'Ferry', items: [
+            { label: 'Schedules', name: 'ferry.schedule-management', icon: 'calendar' },
+            { label: 'Passengers', name: 'ferry.passengers', icon: 'users' },
+            { label: 'Validate', name: 'ferry.validate', icon: 'scan' },
+        ] },
+        { section: 'Theme Park', items: [
+            { label: 'Events', name: 'themepark.event-management', icon: 'sparkle' },
+            { label: 'Slots', name: 'themepark.slot-scheduling', icon: 'calendar' },
+            { label: 'Capacity', name: 'themepark.capacity', icon: 'capacity' },
+            { label: 'Validate', name: 'themepark.validate', icon: 'scan' },
+            { label: 'Walk-in sales', name: 'themepark.walkin-sales', icon: 'ticket' },
+            { label: 'Sales report', name: 'themepark.sales-report', icon: 'report' },
+        ] },
+    ],
 };
 
 const groups = computed(() => navByRole[auth.userRole] ?? navByRole.admin);

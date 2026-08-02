@@ -184,6 +184,30 @@ const routes = [
         component: () => import('@/Pages/ThemePark/SalesReportView.vue'),
         meta: { auth: true, roles: ['themepark_staff'] },
     },
+    {
+        path: '/promotions',
+        name: 'promotions',
+        component: () => import('@/Pages/Shared/PromotionsView.vue'),
+        meta: { auth: true, roles: ['hotel_manager', 'themepark_staff', 'ferry_operator', 'admin'] },
+    },
+    {
+        path: '/admin/map',
+        name: 'admin.map',
+        component: () => import('@/Pages/Admin/MapManagementView.vue'),
+        meta: { auth: true, roles: ['admin'] },
+    },
+    {
+        path: '/admin',
+        name: 'admin.dashboard',
+        component: () => import('@/Pages/Admin/DashboardView.vue'),
+        meta: { auth: true, roles: ['admin'] },
+    },
+    {
+        path: '/admin/users',
+        name: 'admin.users',
+        component: () => import('@/Pages/Admin/UserManagementView.vue'),
+        meta: { auth: true, roles: ['admin'] },
+    },
 ];
 
 export default routes;

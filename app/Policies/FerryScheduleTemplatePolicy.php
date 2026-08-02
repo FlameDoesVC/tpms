@@ -12,7 +12,7 @@ class FerryScheduleTemplatePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole('ferry_operator');
+        return $user->hasAnyRole(['ferry_operator', 'admin']);
     }
 
     /**
@@ -20,7 +20,7 @@ class FerryScheduleTemplatePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('ferry_operator');
+        return $user->hasAnyRole(['ferry_operator', 'admin']);
     }
 
     /**
@@ -28,7 +28,7 @@ class FerryScheduleTemplatePolicy
      */
     public function update(User $user, FerryScheduleTemplate $ferryScheduleTemplate): bool
     {
-        return $user->hasRole('ferry_operator');
+        return $user->hasAnyRole(['ferry_operator', 'admin']);
     }
 
     /**
@@ -36,6 +36,6 @@ class FerryScheduleTemplatePolicy
      */
     public function delete(User $user, FerryScheduleTemplate $ferryScheduleTemplate): bool
     {
-        return $user->hasRole('ferry_operator');
+        return $user->hasAnyRole(['ferry_operator', 'admin']);
     }
 }
