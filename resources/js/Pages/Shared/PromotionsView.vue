@@ -6,6 +6,7 @@ import TCard from '@/Components/ui/TCard.vue';
 import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
+import TImageUpload from '@/Components/ui/TImageUpload.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
@@ -85,19 +86,24 @@ const summary = computed(() => {
 const emptyForm = () => ({
     title: '',
     description: '',
-    image_url: '',
     category: 'general',
     starts_at: '',
     ends_at: '',
     is_active: true,
 });
 const form = ref(emptyForm());
+const imageFile = ref(null);
+const imageRemoved = ref(false);
+const currentImageUrl = ref(null);
 
 onMounted(() => store.fetchManaged());
 
 const openAdd = () => {
     editing.value = null;
     form.value = emptyForm();
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = null;
     errors.value = {};
     showModal.value = true;
 };
@@ -107,24 +113,49 @@ const openEdit = (promo) => {
     form.value = {
         title: promo.title,
         description: promo.description ?? '',
-        image_url: promo.image_url ?? '',
         category: promo.category,
         starts_at: promo.starts_at ?? '',
         ends_at: promo.ends_at ?? '',
         is_active: promo.is_active,
     };
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = promo.image_url ?? null;
     errors.value = {};
     showModal.value = true;
+};
+
+// Only reaches for FormData when there's actually a file to send or an
+// existing image to clear - plain JSON keeps working for every other edit
+// (including the is_active toggle, which calls store.update separately).
+const buildPayload = () => {
+    const base = { ...form.value };
+    if (!base.starts_at) delete base.starts_at;
+    if (!base.ends_at) delete base.ends_at;
+    if (!base.description) delete base.description;
+
+    if (!imageFile.value && !imageRemoved.value) {
+        return base;
+    }
+    const payload = new FormData();
+    Object.entries(base).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        // Laravel's `boolean` rule doesn't accept the strings "true"/"false"
+        // that FormData.append would otherwise coerce a JS boolean into.
+        payload.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : value);
+    });
+    if (imageFile.value) {
+        payload.append('image', imageFile.value);
+    } else if (imageRemoved.value) {
+        payload.append('remove_image', '1');
+    }
+    return payload;
 };
 
 const save = async () => {
     errors.value = {};
     saving.value = true;
-    const payload = { ...form.value };
-    if (!payload.starts_at) delete payload.starts_at;
-    if (!payload.ends_at) delete payload.ends_at;
-    if (!payload.image_url) delete payload.image_url;
-    if (!payload.description) delete payload.description;
+    const payload = buildPayload();
 
     try {
         if (editing.value) {
@@ -313,7 +344,13 @@ const remove = async (promo) => {
                     <p v-if="errors.description?.[0]" class="mt-1 text-xs text-danger">{{ errors.description[0] }}</p>
                 </div>
 
-                <TInput id="image_url" v-model="form.image_url" label="Image URL (optional)" :error="errors.image_url?.[0]" />
+                <TImageUpload
+                    v-model:file="imageFile"
+                    v-model:removed="imageRemoved"
+                    :current-url="currentImageUrl"
+                    label="Image (optional)"
+                    :error="errors.image?.[0]"
+                />
 
                 <TSelect v-model="form.category" label="Category" :options="CATEGORY_OPTIONS" :error="errors.category?.[0]" />
 

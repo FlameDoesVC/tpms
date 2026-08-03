@@ -111,8 +111,15 @@ export const useThemeParkStore = defineStore('themepark', {
             return data;
         },
 
+        // PHP never populates $_FILES for PATCH multipart bodies, so a file
+        // upload has to travel as a spoofed POST (`_method=PATCH`) instead.
         async updateEvent(id, payload) {
-            const { data } = await axios.patch(`/api/themepark/events/${id}`, payload);
+            const isUpload = payload instanceof FormData;
+            if (isUpload) payload.append('_method', 'PATCH');
+
+            const { data } = isUpload
+                ? await axios.post(`/api/themepark/events/${id}`, payload)
+                : await axios.patch(`/api/themepark/events/${id}`, payload);
             const index = this.events.findIndex((e) => e.id === id);
             if (index !== -1) this.events[index] = data;
             return data;

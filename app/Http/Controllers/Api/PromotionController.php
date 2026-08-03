@@ -51,7 +51,7 @@ class PromotionController extends Controller
         $validated = $request->validate([
             'title'       => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image_url'   => ['nullable', 'string', 'max:500'],
+            'image'       => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
             'category'    => ['required', 'in:hotel,themepark,ferry,general'],
             'starts_at'   => ['nullable', 'date'],
             'ends_at'     => ['nullable', 'date', 'after_or_equal:starts_at'],
@@ -59,9 +59,13 @@ class PromotionController extends Controller
         ]);
 
         $promotion = Promotion::create([
-            ...$validated,
+            ...collect($validated)->except('image')->all(),
             'created_by' => $request->user()->id,
         ]);
+
+        if ($request->hasFile('image')) {
+            $promotion->addMediaFromRequest('image')->toMediaCollection('image');
+        }
 
         return response()->json($promotion->load('creator:id,name'), 201);
     }
@@ -77,14 +81,21 @@ class PromotionController extends Controller
         $validated = $request->validate([
             'title'       => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image_url'   => ['nullable', 'string', 'max:500'],
+            'image'       => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            'remove_image' => ['sometimes', 'boolean'],
             'category'    => ['sometimes', 'in:hotel,themepark,ferry,general'],
             'starts_at'   => ['nullable', 'date'],
             'ends_at'     => ['nullable', 'date'],
             'is_active'   => ['sometimes', 'boolean'],
         ]);
 
-        $promotion->update($validated);
+        $promotion->update(collect($validated)->except(['image', 'remove_image'])->all());
+
+        if ($request->hasFile('image')) {
+            $promotion->addMediaFromRequest('image')->toMediaCollection('image');
+        } elseif ($request->boolean('remove_image')) {
+            $promotion->clearMediaCollection('image');
+        }
 
         return response()->json($promotion->load('creator:id,name'));
     }

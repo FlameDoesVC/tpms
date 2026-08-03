@@ -34,8 +34,15 @@ export const usePromotionsStore = defineStore('promotions', {
             return data;
         },
 
+        // PHP never populates $_FILES for PATCH multipart bodies, so a file
+        // upload has to travel as a spoofed POST (`_method=PATCH`) instead.
         async update(id, payload) {
-            const { data } = await axios.patch(`/api/promotions/${id}`, payload);
+            const isUpload = payload instanceof FormData;
+            if (isUpload) payload.append('_method', 'PATCH');
+
+            const { data } = isUpload
+                ? await axios.post(`/api/promotions/${id}`, payload)
+                : await axios.patch(`/api/promotions/${id}`, payload);
             const i = this.managed.findIndex((p) => p.id === id);
             if (i !== -1) this.managed[i] = data;
             return data;

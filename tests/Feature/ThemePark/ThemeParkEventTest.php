@@ -6,6 +6,8 @@ use App\Models\EventSlot;
 use App\Models\ThemeParkEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ThemeParkEventTest extends TestCase
@@ -75,6 +77,65 @@ class ThemeParkEventTest extends TestCase
         ]);
 
         $response->assertOk()->assertJsonPath('is_active', false);
+    }
+
+    public function test_staff_can_upload_an_event_image(): void
+    {
+        Storage::fake('public');
+        $staff = User::factory()->create()->assignRole('themepark_staff');
+        $event = ThemeParkEvent::factory()->create();
+
+        $response = $this->actingAs($staff)->post("/api/themepark/events/{$event->id}", [
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->image('ride.jpg'),
+        ]);
+
+        $response->assertOk();
+        $this->assertNotNull($response->json('image_url'));
+        $this->assertCount(1, $event->fresh()->getMedia('image'));
+    }
+
+    public function test_visitor_cannot_upload_an_event_image(): void
+    {
+        Storage::fake('public');
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $event = ThemeParkEvent::factory()->create();
+
+        $this->actingAs($visitor)->post("/api/themepark/events/{$event->id}", [
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->image('ride.jpg'),
+        ])->assertForbidden();
+
+        $this->assertCount(0, $event->fresh()->getMedia('image'));
+    }
+
+    public function test_a_non_image_file_is_rejected(): void
+    {
+        Storage::fake('public');
+        $staff = User::factory()->create()->assignRole('themepark_staff');
+        $event = ThemeParkEvent::factory()->create();
+
+        $this->actingAs($staff)->post("/api/themepark/events/{$event->id}", [
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->create('shell.php', 10, 'application/x-php'),
+        ])->assertInvalid(['image']);
+
+        $this->assertCount(0, $event->fresh()->getMedia('image'));
+    }
+
+    public function test_staff_can_remove_an_event_image(): void
+    {
+        Storage::fake('public');
+        $staff = User::factory()->create()->assignRole('themepark_staff');
+        $event = ThemeParkEvent::factory()->create();
+        $event->addMedia(UploadedFile::fake()->image('ride.jpg'))->toMediaCollection('image');
+
+        $response = $this->actingAs($staff)->patchJson("/api/themepark/events/{$event->id}", [
+            'remove_image' => true,
+        ]);
+
+        $response->assertOk()->assertJsonPath('image_url', null);
+        $this->assertCount(0, $event->fresh()->getMedia('image'));
     }
 
     public function test_staff_can_delete_event(): void

@@ -5,6 +5,7 @@ import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
+import TImageUpload from '@/Components/ui/TImageUpload.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
 import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TSwitch from '@/Components/ui/TSwitch.vue';
@@ -34,9 +35,12 @@ const TYPE_LABELS = Object.fromEntries(typeOptions.map((o) => [o.value, o.label]
 
 const emptyForm = () => ({
     name: '', description: '', type: 'ride', location: '',
-    duration_minutes: 30, capacity_per_slot: 20, price_per_ticket: null, image_url: '',
+    duration_minutes: 30, capacity_per_slot: 20, price_per_ticket: null,
 });
 const form = ref(emptyForm());
+const imageFile = ref(null);
+const imageRemoved = ref(false);
+const currentImageUrl = ref(null);
 
 const search = ref('');
 const typeFilter = ref('');
@@ -73,6 +77,9 @@ onMounted(() => themeParkStore.fetchEvents());
 const openAddModal = () => {
     editingEvent.value = null;
     form.value = emptyForm();
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = null;
     errors.value = {};
     showModal.value = true;
 };
@@ -89,22 +96,44 @@ const openEditModal = (event) => {
         duration_minutes: event.duration_minutes,
         capacity_per_slot: event.capacity_per_slot,
         price_per_ticket: Number(event.price_per_ticket),
-        image_url: event.image_url ?? '',
     };
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = event.image_url ?? null;
     errors.value = {};
     showModal.value = true;
 };
 
 const closeModal = () => (showModal.value = false);
 
+// Only reaches for FormData when there's actually a file to send or an
+// existing image to clear - plain JSON keeps working for every other edit
+// (including the is_active toggle, which calls updateEvent separately).
+const buildPayload = () => {
+    if (!imageFile.value && !imageRemoved.value) {
+        return { ...form.value };
+    }
+    const payload = new FormData();
+    Object.entries(form.value).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) payload.append(key, value);
+    });
+    if (imageFile.value) {
+        payload.append('image', imageFile.value);
+    } else if (imageRemoved.value) {
+        payload.append('remove_image', '1');
+    }
+    return payload;
+};
+
 const save = async () => {
     errors.value = {};
     saving.value = true;
     try {
+        const payload = buildPayload();
         if (editingEvent.value) {
-            await themeParkStore.updateEvent(editingEvent.value.id, form.value);
+            await themeParkStore.updateEvent(editingEvent.value.id, payload);
         } else {
-            await themeParkStore.createEvent(form.value);
+            await themeParkStore.createEvent(payload);
         }
         showToast(editingEvent.value ? 'Event updated.' : 'Event created.', 'success');
         closeModal();
@@ -306,7 +335,13 @@ const remove = async (event) => {
                     />
                 </div>
 
-                <TInput v-model="form.image_url" label="Image URL" placeholder="https://…" :error="errors.image_url?.[0]" />
+                <TImageUpload
+                    v-model:file="imageFile"
+                    v-model:removed="imageRemoved"
+                    :current-url="currentImageUrl"
+                    label="Image"
+                    :error="errors.image?.[0]"
+                />
             </form>
 
             <template #footer>

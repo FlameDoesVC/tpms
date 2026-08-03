@@ -65,10 +65,14 @@ class ThemeParkController extends Controller
             'duration_minutes' => ['required', 'integer', 'min:1'],
             'capacity_per_slot' => ['required', 'integer', 'min:1'],
             'price_per_ticket' => ['required', 'numeric', 'min:0'],
-            'image_url' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
         ]);
 
-        $event = ThemeParkEvent::create($validated)->refresh();
+        $event = ThemeParkEvent::create(collect($validated)->except('image')->all())->refresh();
+
+        if ($request->hasFile('image')) {
+            $event->addMediaFromRequest('image')->toMediaCollection('image');
+        }
 
         return response()->json($event, 201);
     }
@@ -85,11 +89,18 @@ class ThemeParkController extends Controller
             'duration_minutes' => ['sometimes', 'integer', 'min:1'],
             'capacity_per_slot' => ['sometimes', 'integer', 'min:1'],
             'price_per_ticket' => ['sometimes', 'numeric', 'min:0'],
-            'image_url' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            'remove_image' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
-        $event->update($validated);
+        $event->update(collect($validated)->except(['image', 'remove_image'])->all());
+
+        if ($request->hasFile('image')) {
+            $event->addMediaFromRequest('image')->toMediaCollection('image');
+        } elseif ($request->boolean('remove_image')) {
+            $event->clearMediaCollection('image');
+        }
 
         return response()->json($event);
     }
