@@ -133,7 +133,52 @@ class AdminController extends Controller
             ->selectRaw('SUM(event_bookings.ticket_count * theme_park_events.price_per_ticket) as total')
             ->value('total') ?? 0;
 
+        // Thirty days of daily activity. The rest of this payload is all
+        // point-in-time totals, which can say how much there is but never
+        // whether it is growing - the overview had no way to plot a trend.
+        $since = now()->subDays(29)->startOfDay();
+        $days = collect(range(29, 0))->map(fn (int $back) => now()->subDays($back)->toDateString());
+
+        $countByDay = fn (string $table) => DB::table($table)
+            ->where('created_at', '>=', $since)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as aggregate')
+            ->groupBy('day')
+            ->pluck('aggregate', 'day');
+
+        $hotelDaily = $countByDay('bookings');
+        $ferryDaily = $countByDay('ferry_tickets');
+        $parkDaily = $countByDay('event_bookings');
+
+        $hotelRevenueDaily = DB::table('bookings')
+            ->join('rooms', 'rooms.id', '=', 'bookings.room_id')
+            ->where('bookings.status', 'confirmed')
+            ->where('bookings.created_at', '>=', $since)
+            ->selectRaw('DATE(bookings.created_at) as day, SUM(rooms.price_per_night * DATEDIFF(bookings.check_out_date, bookings.check_in_date)) as aggregate')
+            ->groupBy('day')
+            ->pluck('aggregate', 'day');
+
+        $parkRevenueDaily = DB::table('event_bookings')
+            ->join('event_slots', 'event_slots.id', '=', 'event_bookings.event_slot_id')
+            ->join('theme_park_events', 'theme_park_events.id', '=', 'event_slots.event_id')
+            ->where('event_bookings.status', '!=', 'cancelled')
+            ->where('event_bookings.created_at', '>=', $since)
+            ->selectRaw('DATE(event_bookings.created_at) as day, SUM(event_bookings.ticket_count * theme_park_events.price_per_ticket) as aggregate')
+            ->groupBy('day')
+            ->pluck('aggregate', 'day');
+
+        // Every day in the window is emitted, including the empty ones - a
+        // series built only from days that have rows draws a flat line through
+        // the gaps and overstates a quiet week.
+        $daily = $days->map(fn (string $day) => [
+            'date'    => $day,
+            'hotel'   => (int) ($hotelDaily[$day] ?? 0),
+            'ferry'   => (int) ($ferryDaily[$day] ?? 0),
+            'park'    => (int) ($parkDaily[$day] ?? 0),
+            'revenue' => round((float) ($hotelRevenueDaily[$day] ?? 0) + (float) ($parkRevenueDaily[$day] ?? 0), 2),
+        ]);
+
         return response()->json([
+            'daily' => $daily,
             'users' => [
                 'total'    => User::count(),
                 'by_role'  => $usersByRole,

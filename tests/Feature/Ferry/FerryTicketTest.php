@@ -51,6 +51,42 @@ class FerryTicketTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    // Seat availability alone isn't enough of a gate - a cancelled or already
+    // sailed departure keeps its seat count, so it stays purchasable without
+    // an explicit status check.
+    public function test_purchase_fails_for_a_cancelled_departure(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 10, 'status' => 'cancelled']);
+
+        $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [1],
+            'payment_method' => 'online',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('ferry_tickets', 0);
+        $this->assertEquals(10, $schedule->fresh()->available_seats);
+    }
+
+    public function test_purchase_fails_for_an_already_departed_ferry(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = Booking::factory()->create(['user_id' => $visitor->id, 'status' => 'confirmed', 'guests_count' => 2]);
+        $schedule = FerrySchedule::factory()->create(['available_seats' => 10, 'status' => 'departed']);
+
+        $this->actingAs($visitor)->postJson('/api/ferry/tickets', [
+            'schedule_id' => $schedule->id,
+            'booking_id' => $booking->id,
+            'seat_numbers' => [1],
+            'payment_method' => 'online',
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('ferry_tickets', 0);
+    }
+
     public function test_purchase_fails_using_someone_elses_booking(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');

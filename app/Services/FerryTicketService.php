@@ -32,6 +32,18 @@ class FerryTicketService
         }
 
         $schedule = FerrySchedule::lockForUpdate()->findOrFail($data['schedule_id']);
+
+        // Guarded here rather than in the callers so both the direct endpoint
+        // and cart checkout are covered - a cart can also be submitted long
+        // after the departure it references was cancelled or sailed.
+        if ($schedule->status !== 'scheduled') {
+            throw ValidationException::withMessages([
+                'schedule_id' => $schedule->status === 'cancelled'
+                    ? 'This departure has been cancelled.'
+                    : 'This departure has already sailed.',
+            ]);
+        }
+
         $seatCount = count($data['seat_numbers']);
 
         // A party only makes one trip per leg, but can top up across more

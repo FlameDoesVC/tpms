@@ -79,11 +79,15 @@ const routes = [
         meta: { roles: ['visitor'] },
     },
     {
-        path: '/bookings',
-        name: 'bookings.my',
-        component: () => import('@/Pages/Visitor/MyHotelBookingsView.vue'),
+        // Stays, ferry crossings and park tickets share one hub - they were
+        // three separate pages, two of which had no navigation entry at all.
+        path: '/trips',
+        name: 'trips',
+        component: () => import('@/Pages/Visitor/MyTripsView.vue'),
         meta: { auth: true, roles: ['visitor'] },
     },
+    // Old bookmarks and any missed in-app link land on the matching tab.
+    { path: '/bookings', redirect: () => ({ name: 'trips', query: { tab: 'hotel' } }) },
     {
         // No auth required: the cart itself is client-side, so an anonymous
         // guest-checkout visitor can review and pay for it same as any booking.
@@ -110,12 +114,7 @@ const routes = [
         component: () => import('@/Pages/Visitor/FerryBookingView.vue'),
         meta: { roles: ['visitor'] },
     },
-    {
-        path: '/ferry/my-tickets',
-        name: 'ferry.my-tickets',
-        component: () => import('@/Pages/Visitor/MyFerryTicketsView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
-    },
+    { path: '/ferry/my-tickets', redirect: () => ({ name: 'trips', query: { tab: 'ferry' } }) },
     {
         path: '/ferry/schedules',
         name: 'ferry.schedule-management',
@@ -142,12 +141,7 @@ const routes = [
         component: () => import('@/Pages/Visitor/ThemeParkHomeView.vue'),
         meta: { roles: ['visitor'] },
     },
-    {
-        path: '/themepark/my-bookings',
-        name: 'themepark.my-bookings',
-        component: () => import('@/Pages/Visitor/MyThemeParkBookingsView.vue'),
-        meta: { auth: true, roles: ['visitor'] },
-    },
+    { path: '/themepark/my-bookings', redirect: () => ({ name: 'trips', query: { tab: 'park' } }) },
     {
         path: '/themepark/staff/events',
         name: 'themepark.event-management',

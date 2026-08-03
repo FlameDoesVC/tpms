@@ -12,9 +12,15 @@ use Illuminate\Support\Facades\Gate;
 
 class HotelController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $hotels = Hotel::query()->paginate(12);
+        // Capped rather than unbounded so a hostile per_page can't ask for the
+        // whole table; the visitor browse page asks for 100 to get every hotel
+        // in one pass, since its ?hotel=<id> deep links scroll to a section
+        // that has to already be on the page.
+        $perPage = min((int) $request->integer('per_page', 12) ?: 12, 100);
+
+        $hotels = Hotel::query()->paginate($perPage);
 
         return HotelResource::collection($hotels)->response();
     }

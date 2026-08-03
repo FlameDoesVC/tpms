@@ -38,6 +38,12 @@ export const useCartStore = defineStore('cart', {
             state.items
                 .filter((item) => item.paymentMethod === 'cash')
                 .reduce((sum, item) => sum + Number(item.subtotal), 0),
+
+        // Ferry tickets added against a hotel room that is still in the cart
+        // can't outlive it (see removeItem). Exposed so the UI can warn before
+        // a removal quietly takes a second item with it.
+        dependentsOf: (state) => (id) =>
+            state.items.filter((item) => item.type === 'ferry' && item.hotelCartItemId === id),
     },
 
     actions: {

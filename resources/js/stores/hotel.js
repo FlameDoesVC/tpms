@@ -34,12 +34,27 @@ export const useHotelStore = defineStore('hotel', {
             this.popularHotels = data;
         },
 
+        // Every hotel, not just the first page. The browse page's ?hotel=<id>
+        // deep link scrolls to a hotel's section, which only works if that
+        // hotel is already rendered - so a "load more" control would leave
+        // links to page-2 hotels silently broken. An island resort has tens of
+        // hotels at most, so the page cap plus a follow-up loop is enough.
         async fetchHotels() {
             this.loading.hotels = true;
             this.error.hotels = null;
             try {
-                const { data } = await axios.get('/api/hotels');
-                this.hotels = data.data;
+                const { data } = await axios.get('/api/hotels', { params: { per_page: 100 } });
+                let hotels = data.data;
+
+                const lastPage = data.meta?.last_page ?? 1;
+                for (let page = 2; page <= lastPage; page++) {
+                    const { data: next } = await axios.get('/api/hotels', {
+                        params: { per_page: 100, page },
+                    });
+                    hotels = [...hotels, ...next.data];
+                }
+
+                this.hotels = hotels;
             } catch (e) {
                 this.error.hotels = e.response?.data?.message ?? 'Failed to load hotels.';
             } finally {

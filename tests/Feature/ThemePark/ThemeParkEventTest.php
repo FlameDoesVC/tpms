@@ -137,6 +137,41 @@ class ThemeParkEventTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    // Capacity alone isn't enough of a gate - a cancelled slot keeps whatever
+    // capacity it had, so it would otherwise stay purchasable.
+    public function test_booking_fails_for_a_cancelled_slot(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $slot = EventSlot::factory()->create([
+            'available_capacity' => 10,
+            'status' => 'cancelled',
+        ]);
+
+        $this->actingAs($visitor)->postJson('/api/themepark/bookings', [
+            'event_slot_id' => $slot->id,
+            'ticket_count' => 1,
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('event_bookings', 0);
+        $this->assertEquals(10, $slot->fresh()->available_capacity);
+    }
+
+    // Visitors have to present something at the gate; the staff scanner reads
+    // the trailing digits of this code as the booking id.
+    public function test_park_bookings_expose_a_reference_code(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $booking = \App\Models\EventBooking::factory()->create(['user_id' => $visitor->id]);
+
+        $response = $this->actingAs($visitor)->getJson('/api/themepark/bookings');
+
+        $response->assertOk();
+        $this->assertSame(
+            sprintf('VFN-E%04d', $booking->id),
+            $response->json('0.reference_code')
+        );
+    }
+
     public function test_visitor_sees_only_their_own_bookings(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');

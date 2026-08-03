@@ -5,6 +5,7 @@ import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import { formatDateTime } from '@/utils/format';
 import QrCameraScanner from '@/Components/QrCameraScanner.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 
@@ -106,7 +107,9 @@ const headingClasses = computed(() => {
             <TPageHeader compact title="Ticket Validation" icon="scan" />
         </template>
 
-        <div class="mx-auto max-w-lg space-y-6">
+        <!-- Deliberately a narrow, centred column: this is a one-thing-at-a-time
+             screen used at the gate, not a management table. -->
+        <div class="mx-auto max-w-xl space-y-5">
             <div v-show="!booking" class="elevated rounded-xl border bg-surface p-4">
                 <QrCameraScanner ref="scanner" @decode="onDecode" />
                 <form @submit.prevent="lookupManually" class="mt-3 flex items-start gap-2">
@@ -139,7 +142,7 @@ const headingClasses = computed(() => {
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-foreground-muted">Slot Time</dt>
-                        <dd>{{ booking.slot?.slot_date?.slice(0, 10) }} {{ booking.slot?.slot_time }}</dd>
+                        <dd>{{ formatDateTime(booking.slot?.slot_date, booking.slot?.slot_time) }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-foreground-muted">Tickets</dt>

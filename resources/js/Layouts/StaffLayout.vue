@@ -105,7 +105,7 @@ const logout = async () => {
         <!-- Mobile scrim -->
         <div
             v-if="mobileOpen"
-            class="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+            class="scrim fixed inset-0 z-30 backdrop-blur-sm lg:hidden"
             @click="mobileOpen = false"
         />
 
@@ -172,7 +172,9 @@ const logout = async () => {
 
         <div :class="collapsed ? 'lg:pl-[4.25rem]' : 'lg:pl-60'" class="transition-[padding] duration-200">
             <header class="sticky top-0 z-20 border-b bg-surface/85 backdrop-blur-md">
-                <div class="flex h-16 items-center gap-3 px-4 sm:px-6">
+                <!-- Same container as <main>, so the page title sits on the
+                     same left edge as the content it belongs to. -->
+                <div class="shell flex h-16 items-center gap-3">
                     <button
                         type="button"
                         class="rounded p-2 text-foreground-muted hover:bg-surface-hover hover:text-foreground lg:hidden"
@@ -221,7 +223,14 @@ const logout = async () => {
                 </div>
             </header>
 
-            <main class="px-4 py-6 sm:px-6 lg:px-8">
+            <!-- Same container as the visitor side. Staff screens were each
+                 capping themselves at max-w-5xl inside an already sidebar-inset
+                 area, so a 1600px monitor showed a 1024px column with wide
+                 gutters on both sides — the exact complaint the visitor pages
+                 had. Screens that genuinely want a narrow measure (a scanner, a
+                 single form) now say so themselves rather than every screen
+                 being narrow by default. -->
+            <main class="shell py-6">
                 <slot />
             </main>
         </div>

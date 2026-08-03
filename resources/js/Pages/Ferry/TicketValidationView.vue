@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import { formatDate, formatDateTime, formatTime } from '@/utils/format';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
@@ -393,7 +394,10 @@ const markTicketUsed = async (t) => {
             <TPageHeader compact title="Ticket Validation" icon="scan" />
         </template>
 
-        <div class="mx-auto max-w-lg space-y-6">
+        <!-- Deliberately a narrow, centred column: this is a one-thing-at-a-time
+             screen used at the gangway, not a management table. The wider page
+             shell behind it is what makes that read as a choice. -->
+        <div class="mx-auto max-w-xl space-y-5">
             <div v-if="!selectedSchedule" class="elevated rounded-xl border bg-surface p-4">
                 <TDatePicker v-model="scheduleDate" label="Date" />
 
@@ -411,7 +415,7 @@ const markTicketUsed = async (t) => {
                     >
                         <input type="radio" :value="schedule.id" v-model="selectedScheduleId" class="text-primary focus:ring-primary/30" />
                         <span class="font-medium text-foreground">{{ schedule.ferry?.name }}</span>
-                        <span class="text-foreground-muted">- {{ schedule.departure_time }}</span>
+                        <span class="text-foreground-muted">· {{ formatTime(schedule.departure_time) }}</span>
                     </label>
                 </div>
             </div>
@@ -419,7 +423,7 @@ const markTicketUsed = async (t) => {
             <template v-else>
                 <div class="flex items-center justify-between rounded-xl bg-primary-soft p-3 text-sm">
                     <span class="font-medium text-primary">
-                        Checking in: {{ selectedSchedule.ferry?.name }} - {{ scheduleDate }} at {{ selectedSchedule.departure_time }}
+                        Checking in: {{ selectedSchedule.ferry?.name }} · {{ formatDateTime(scheduleDate, selectedSchedule.departure_time) }}
                     </span>
                     <button type="button" @click="changeDeparture" class="font-medium text-primary underline hover:no-underline">
                         Change
@@ -467,7 +471,7 @@ const markTicketUsed = async (t) => {
                     </p>
                     <p v-if="scheduleMismatch" class="mt-1 text-sm text-warning">
                         This ticket is for {{ ticket.schedule?.ferry?.name }} on
-                        {{ ticket.schedule?.departure_date?.slice(0, 10) }} at {{ ticket.schedule?.departure_time }},
+                        {{ formatDateTime(ticket.schedule?.departure_date, ticket.schedule?.departure_time) }},
                         not the selected departure.
                     </p>
 
@@ -486,7 +490,7 @@ const markTicketUsed = async (t) => {
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-foreground-muted">Departure</dt>
-                            <dd>{{ ticket.schedule?.departure_date?.slice(0, 10) }} {{ ticket.schedule?.departure_time }}</dd>
+                            <dd>{{ formatDateTime(ticket.schedule?.departure_date, ticket.schedule?.departure_time) }}</dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-foreground-muted">Seat</dt>
@@ -542,14 +546,14 @@ const markTicketUsed = async (t) => {
                     </div>
 
                     <div v-if="showingFallback" class="mt-3 rounded-lg bg-danger-soft p-3 text-sm font-medium text-danger">
-                        Hotel check-in is on {{ fallbackSchedule.departure_date?.slice(0, 10) }}, showing seat map for
+                        Hotel check-in is on {{ formatDate(fallbackSchedule.departure_date) }}, showing seat map for
                         {{ fallbackSchedule.ferry?.name }} on that day.
                     </div>
 
                     <div v-else-if="noFallbackAvailable" class="mt-3 rounded-lg bg-warning-soft p-3 text-sm text-warning">
-                        This departure ({{ selectedSchedule.departure_date?.slice(0, 10) }}) doesn't match this booking's
-                        stay - check-in is {{ party.booking.check_in_date?.slice(0, 10) }}, check-out is
-                        {{ party.booking.check_out_date?.slice(0, 10) }} - and no departure is scheduled for the check-in
+                        This departure ({{ formatDate(selectedSchedule.departure_date) }}) doesn't match this booking's
+                        stay — check-in is {{ formatDate(party.booking.check_in_date) }}, check-out is
+                        {{ formatDate(party.booking.check_out_date) }} — and no departure is scheduled for the check-in
                         date either. Select the departure for one of those dates instead.
                     </div>
 

@@ -11,29 +11,37 @@ import TTimePicker from '@/Components/ui/TTimePicker.vue';
 import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
 import { useThemeParkStore } from '@/stores/themepark';
+import { useConfirm } from '@/composables/useConfirm';
+import { showToast } from '@/composables/useToast';
+import { formatDate, formatTime } from '@/utils/format';
 
 const themeParkStore = useThemeParkStore();
+const confirm = useConfirm();
 const showModal = ref(false);
 const errors = ref({});
+const saving = ref(false);
 const scheduleMode = ref('oneoff');
 const calendarMonth = ref(new Date().toISOString().slice(0, 10));
 
 // Fixed hue order, assigned by event id (not list position) so an event's
-// color stays stable as other events are added/removed.
-const EVENT_COLORS = [
-    { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
-    { bg: 'bg-orange-100', text: 'text-orange-800', dot: 'bg-orange-500' },
-    { bg: 'bg-emerald-100', text: 'text-emerald-800', dot: 'bg-emerald-500' },
-    { bg: 'bg-amber-100', text: 'text-amber-800', dot: 'bg-amber-500' },
-    { bg: 'bg-pink-100', text: 'text-pink-800', dot: 'bg-pink-500' },
-    { bg: 'bg-violet-100', text: 'text-violet-800', dot: 'bg-violet-500' },
-    { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
-    { bg: 'bg-teal-100', text: 'text-teal-800', dot: 'bg-teal-500' },
-];
+// colour stays stable as other events are added or removed.
+//
+// Hues rather than Tailwind class pairs: the old `bg-blue-100` / `text-blue-800`
+// chips were fixed light-theme colours, so on the dark theme the calendar filled
+// with pale pastel blocks belonging to no palette in the app. A translucent tint
+// of the hue, labelled in the hue itself, reads correctly on both backgrounds —
+// the same technique the map pins and the ferry calendar use.
+const EVENT_HUES = ['#3b82f6', '#f97316', '#10b981', '#eab308', '#ec4899', '#8b5cf6', '#ef4444', '#14b8a6'];
 
-const eventColor = (eventId) => EVENT_COLORS[eventId % EVENT_COLORS.length];
+const eventHue = (eventId) => EVENT_HUES[(eventId ?? 0) % EVENT_HUES.length];
+const eventChipStyle = (eventId) => {
+    const hue = eventHue(eventId);
+    return { backgroundColor: `${hue}26`, color: hue, borderColor: `${hue}59` };
+};
 
 const WEEKDAY_OPTIONS = [
     { value: 1, label: 'Mon' },
@@ -99,6 +107,7 @@ const closeModal = () => {
 
 const save = async () => {
     errors.value = {};
+    saving.value = true;
     try {
         if (scheduleMode.value === 'oneoff') {
             await themeParkStore.createSlot(form.value.event_id, {
@@ -114,21 +123,59 @@ const save = async () => {
             await themeParkStore.createTemplate(recurringForm.value);
             await themeParkStore.fetchAllSlots();
         }
+        showToast(
+            scheduleMode.value === 'oneoff'
+                ? 'Slot added.'
+                : editingTemplateId.value ? 'Recurring schedule updated.' : 'Recurring schedule created.',
+            'success'
+        );
         closeModal();
     } catch (e) {
         errors.value = e.response?.data?.errors ?? {};
+        if (Object.keys(errors.value).length === 0) {
+            showToast(e.response?.data?.message ?? 'Could not save this schedule.');
+        }
+    } finally {
+        saving.value = false;
     }
 };
 
-const cancelSlot = (slot) => {
-    if (confirm('Cancel this slot?')) {
-        themeParkStore.cancelSlot(slot.id);
+// Names the slot being cancelled: the trigger is a small block in a calendar
+// cell, so "Cancel this slot?" gave no way to tell you had the right one.
+const cancelSlot = async (slot) => {
+    const booked = (slot.event?.capacity_per_slot ?? 0) - (slot.available_capacity ?? 0);
+    const ok = await confirm({
+        title: `Cancel the ${formatTime(slot.slot_time)} slot?`,
+        message: booked > 0
+            ? `${slot.event?.name} on ${formatDate(slot.slot_date)} has ${booked} ticket${booked === 1 ? '' : 's'} sold. Holders keep them, but the slot is marked cancelled.`
+            : `${slot.event?.name} on ${formatDate(slot.slot_date)}. No tickets sold for it yet.`,
+        confirmLabel: 'Cancel slot',
+        cancelLabel: 'Keep it',
+        danger: true,
+    });
+    if (!ok) return;
+
+    try {
+        await themeParkStore.cancelSlot(slot.id);
+        showToast('Slot cancelled.', 'success');
+    } catch (e) {
+        showToast(e.response?.data?.message ?? 'Could not cancel this slot.');
     }
 };
 
-const uncancelSlot = (slot) => {
-    if (confirm('Restore this slot to scheduled?')) {
-        themeParkStore.uncancelSlot(slot.id);
+const uncancelSlot = async (slot) => {
+    const ok = await confirm({
+        title: 'Put this slot back?',
+        message: `${slot.event?.name} at ${formatTime(slot.slot_time)} on ${formatDate(slot.slot_date)} becomes bookable again.`,
+        confirmLabel: 'Restore slot',
+    });
+    if (!ok) return;
+
+    try {
+        await themeParkStore.uncancelSlot(slot.id);
+        showToast('Slot restored.', 'success');
+    } catch (e) {
+        showToast(e.response?.data?.message ?? 'Could not restore this slot.');
     }
 };
 
@@ -137,9 +184,20 @@ const toggleSlot = (slot) => {
     else if (slot.status === 'cancelled') uncancelSlot(slot);
 };
 
-const stopTemplate = (template) => {
-    if (confirm('Stop this recurring schedule? Already-generated slots are kept.')) {
-        themeParkStore.stopTemplate(template.id);
+const stopTemplate = async (template) => {
+    const ok = await confirm({
+        title: 'Stop this recurring schedule?',
+        message: 'No further slots will be generated from it. Slots already on the calendar are kept.',
+        confirmLabel: 'Stop generating',
+        danger: true,
+    });
+    if (!ok) return;
+
+    try {
+        await themeParkStore.stopTemplate(template.id);
+        showToast('Recurring schedule stopped.', 'success');
+    } catch (e) {
+        showToast(e.response?.data?.message ?? 'Could not stop this schedule.');
     }
 };
 
@@ -183,12 +241,12 @@ const frequencyOptions = [
             </TPageHeader>
         </template>
 
-        <div class="max-w-5xl space-y-6">
+        <div class="space-y-5">
             <MonthCalendar v-model="calendarMonth" :items="calendarItems">
                 <template #legend>
                     <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-foreground-secondary">
-                        <span v-for="event in themeParkStore.events" :key="event.id" class="flex items-center gap-1">
-                            <span class="h-2.5 w-2.5 rounded-full" :class="eventColor(event.id).dot" />
+                        <span v-for="event in themeParkStore.events" :key="event.id" class="flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: eventHue(event.id) }" />
                             {{ event.name }}
                         </span>
                     </div>
@@ -199,39 +257,95 @@ const frequencyOptions = [
                             v-for="item in items"
                             :key="item.id"
                             type="button"
-                            class="block w-full rounded px-1.5 py-0.5 text-left text-xs"
-                            :class="[eventColor(item.event_id).bg, eventColor(item.event_id).text, item.status === 'cancelled' && 'opacity-50 line-through']"
-                            :title="item.status === 'cancelled' ? `${item.event?.name} - cancelled (click to restore)` : `${item.event?.name} - ${item.status}`"
+                            class="block w-full rounded border px-1.5 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-80"
+                            :style="eventChipStyle(item.event_id)"
+                            :class="item.status === 'cancelled' && 'opacity-50 line-through'"
+                            :title="item.status === 'cancelled'
+                                ? `${item.event?.name} — cancelled (click to restore)`
+                                : `${item.event?.name} — ${item.status} (click to cancel)`"
                             @click="toggleSlot(item)"
                         >
-                            {{ item.slot_time?.slice(0, 5) }} ({{ item.event?.capacity_per_slot - item.available_capacity }}/{{ item.event?.capacity_per_slot }})
-                            <span v-if="item.is_overridden">⚠</span>
+                            {{ formatTime(item.slot_time) }}
+                            <span class="opacity-80">
+                                {{ item.event?.capacity_per_slot - item.available_capacity }}/{{ item.event?.capacity_per_slot }}
+                            </span>
+                            <span v-if="item.is_overridden" title="Edited away from its recurring pattern">⚠</span>
                         </button>
                     </div>
                 </template>
             </MonthCalendar>
 
-            <TCard icon="clock" title="Recurring Schedules" :padding="false">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-[rgb(var(--color-border))] text-sm">
+            <TCard icon="clock" title="Recurring schedules" :padding="false">
+                <!-- Had no empty state at all: with no templates the card showed a
+                     bare header row over nothing. -->
+                <div v-if="themeParkStore.templates.length === 0" class="p-4">
+                    <TEmptyState
+                        title="No recurring schedules"
+                        description="Add one to generate slots automatically instead of entering each day by hand."
+                        icon="calendar"
+                    />
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="data-table">
                         <thead>
-                            <tr class="text-left text-foreground-muted">
-                                <th class="p-4">Event</th>
-                                <th class="p-4">Pattern</th>
-                                <th class="p-4">Range</th>
-                                <th class="p-4">Active</th>
-                                <th class="p-4">Actions</th>
+                            <tr>
+                                <th>Event</th>
+                                <th>Pattern</th>
+                                <th>Runs</th>
+                                <th class="num">Capacity</th>
+                                <th>Status</th>
+                                <th class="text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-[rgb(var(--color-border))]">
+                        <tbody>
                             <tr v-for="template in themeParkStore.templates" :key="template.id">
-                                <td class="p-4">{{ template.event?.name }}</td>
-                                <td class="p-4">{{ patternSummary(template) }}</td>
-                                <td class="p-4">{{ template.starts_on?.slice(0, 10) }} - {{ template.ends_on?.slice(0, 10) ?? 'ongoing' }}</td>
-                                <td class="p-4">{{ template.is_active ? 'Yes' : 'Stopped' }}</td>
-                                <td class="p-4 space-x-3">
-                                    <button v-if="template.is_active" class="text-sm text-primary hover:underline" @click="openEditTemplateModal(template)">Edit</button>
-                                    <button v-if="template.is_active" class="text-sm text-danger hover:underline" @click="stopTemplate(template)">Stop</button>
+                                <td>
+                                    <span class="flex items-center gap-2 font-medium text-foreground">
+                                        <span
+                                            class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                            :style="{ backgroundColor: eventHue(template.event_id) }"
+                                            aria-hidden="true"
+                                        />
+                                        {{ template.event?.name }}
+                                    </span>
+                                </td>
+                                <td>{{ patternSummary(template) }}</td>
+                                <td class="whitespace-nowrap">
+                                    {{ formatDate(template.starts_on) }}
+                                    <span class="text-foreground-muted">
+                                        → {{ template.ends_on ? formatDate(template.ends_on) : 'ongoing' }}
+                                    </span>
+                                </td>
+                                <td class="num">{{ template.capacity ?? template.event?.capacity_per_slot ?? '—' }}</td>
+                                <td>
+                                    <TBadge :variant="template.is_active ? 'success' : 'neutral'" dot>
+                                        {{ template.is_active ? 'Generating' : 'Stopped' }}
+                                    </TBadge>
+                                </td>
+                                <td>
+                                    <div class="flex items-center justify-end gap-1">
+                                        <template v-if="template.is_active">
+                                            <button
+                                                type="button"
+                                                class="rounded-lg p-1.5 text-foreground-muted transition-colors hover:bg-surface hover:text-primary"
+                                                :aria-label="`Edit the ${template.event?.name} recurring schedule`"
+                                                title="Edit"
+                                                @click="openEditTemplateModal(template)"
+                                            >
+                                                <TIcon name="edit" :size="16" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="rounded-lg p-1.5 text-foreground-muted transition-colors hover:bg-surface hover:text-danger"
+                                                :aria-label="`Stop the ${template.event?.name} recurring schedule`"
+                                                title="Stop generating"
+                                                @click="stopTemplate(template)"
+                                            >
+                                                <TIcon name="x" :size="16" />
+                                            </button>
+                                        </template>
+                                        <span v-else class="text-xs text-foreground-muted">No actions</span>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -302,7 +416,9 @@ const frequencyOptions = [
 
             <template #footer>
                 <TButton variant="secondary" type="button" @click="closeModal">Cancel</TButton>
-                <TButton type="submit" form="slot-form">Save</TButton>
+                <TButton type="submit" form="slot-form" :loading="saving">
+                    {{ editingTemplateId ? 'Save changes' : scheduleMode === 'recurring' ? 'Create schedule' : 'Add slot' }}
+                </TButton>
             </template>
         </TModal>
     </StaffLayout>

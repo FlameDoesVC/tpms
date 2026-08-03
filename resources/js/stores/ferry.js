@@ -83,9 +83,14 @@ export const useFerryStore = defineStore('ferry', {
 
         async fetchMyTickets({ silent = false } = {}) {
             this.loading.tickets = true;
+            this.error.tickets = null;
             try {
                 const { data } = await axios.get('/api/ferry/tickets', { silent401: silent });
                 this.myTickets = data;
+            } catch (e) {
+                // Without this the list page can't tell "request failed" from
+                // "you own no tickets", and tells a paying customer the latter.
+                this.error.tickets = e.response?.data?.message ?? 'Failed to load tickets.';
             } finally {
                 this.loading.tickets = false;
             }

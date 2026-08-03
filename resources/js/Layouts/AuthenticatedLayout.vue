@@ -33,10 +33,11 @@ onMounted(() => {
 
 const linksByRole = {
     visitor: [
-        { label: 'Dashboard', name: 'dashboard', icon: 'dashboard' },
+        { label: 'Dashboard', name: 'dashboard', icon: 'dashboard', authOnly: true },
         { label: 'Theme Park', name: 'themepark.home', icon: 'sparkle' },
         { label: 'Hotels', name: 'hotels.index', icon: 'hotel' },
         { label: 'Ferry', name: 'ferry.book', icon: 'ferry' },
+        { label: 'My Trips', name: 'trips', icon: 'ticket', authOnly: true },
     ],
     hotel_manager: [
         { label: 'Dashboard', name: 'dashboard', icon: 'dashboard' },
@@ -63,7 +64,7 @@ const linksByRole = {
 
 const navLinks = computed(() => {
     const links = linksByRole[auth.userRole] ?? linksByRole.visitor;
-    return auth.isAuthenticated ? links : links.filter((link) => link.name !== 'dashboard');
+    return auth.isAuthenticated ? links : links.filter((link) => !link.authOnly);
 });
 
 const logout = async () => {
@@ -76,7 +77,7 @@ const logout = async () => {
     <div>
         <div class="min-h-screen bg-page">
             <nav class="tide-line sticky top-0 z-30 border-b bg-surface/85 shadow-xs backdrop-blur-md">
-                <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="shell">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
                             <div class="flex shrink-0 items-center">
@@ -132,7 +133,7 @@ const logout = async () => {
 
                                     <template #content>
                                         <TDropdownLink v-if="!auth.isGuest" :to="{ name: 'profile.edit' }">Profile</TDropdownLink>
-                                        <TDropdownLink v-if="auth.userRole === 'visitor'" :to="{ name: 'bookings.my' }">Bookings</TDropdownLink>
+                                        <TDropdownLink v-if="auth.userRole === 'visitor'" :to="{ name: 'trips' }">My Trips</TDropdownLink>
                                         <TDropdownLink v-if="auth.isGuest" :to="{ name: 'login', query: { redirect: route.fullPath } }">Log In</TDropdownLink>
                                         <TDropdownLink v-if="auth.isGuest" :to="{ name: 'register', query: { redirect: route.fullPath } }">Sign Up</TDropdownLink>
                                         <div class="my-1 border-t" />
@@ -211,7 +212,7 @@ const logout = async () => {
 
                         <div class="mt-3 space-y-1">
                             <TResponsiveNavLink v-if="!auth.isGuest" :to="{ name: 'profile.edit' }">Profile</TResponsiveNavLink>
-                            <TResponsiveNavLink v-if="auth.userRole === 'visitor'" :to="{ name: 'bookings.my' }">Bookings</TResponsiveNavLink>
+                            <TResponsiveNavLink v-if="auth.userRole === 'visitor'" :to="{ name: 'trips' }">My Trips</TResponsiveNavLink>
                             <TResponsiveNavLink v-if="auth.userRole === 'visitor'" :to="{ name: 'cart.checkout' }">Cart</TResponsiveNavLink>
                             <TResponsiveNavLink v-if="auth.isGuest" :to="{ name: 'login', query: { redirect: route.fullPath } }">Log In</TResponsiveNavLink>
                             <TResponsiveNavLink v-if="auth.isGuest" :to="{ name: 'register', query: { redirect: route.fullPath } }">Sign Up</TResponsiveNavLink>
@@ -236,7 +237,7 @@ const logout = async () => {
             <div class="lg:flex lg:items-start">
                 <div class="min-w-0 flex-1">
                     <header v-if="$slots.header" class="depth-gradient border-b">
-                        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                        <div class="shell py-6">
                             <slot name="header" />
                         </div>
                     </header>

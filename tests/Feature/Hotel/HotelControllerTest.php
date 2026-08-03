@@ -30,6 +30,39 @@ class HotelControllerTest extends TestCase
         $this->getJson('/api/hotels')->assertOk();
     }
 
+    public function test_hotel_list_defaults_to_twelve_per_page(): void
+    {
+        Hotel::factory()->count(15)->create();
+
+        $response = $this->getJson('/api/hotels');
+
+        $response->assertOk();
+        $this->assertCount(12, $response->json('data'));
+        $this->assertSame(15, $response->json('meta.total'));
+    }
+
+    // The visitor browse page asks for every hotel in one pass, because its
+    // ?hotel=<id> deep links scroll to a section that must already be rendered.
+    public function test_hotel_list_accepts_a_larger_per_page(): void
+    {
+        Hotel::factory()->count(15)->create();
+
+        $response = $this->getJson('/api/hotels?per_page=100');
+
+        $response->assertOk();
+        $this->assertCount(15, $response->json('data'));
+    }
+
+    public function test_hotel_list_caps_per_page_at_one_hundred(): void
+    {
+        Hotel::factory()->count(3)->create();
+
+        $response = $this->getJson('/api/hotels?per_page=5000');
+
+        $response->assertOk();
+        $this->assertSame(100, $response->json('meta.per_page'));
+    }
+
     public function test_show_returns_hotel_with_rooms(): void
     {
         $user = User::factory()->create()->assignRole('visitor');

@@ -85,9 +85,14 @@ export const useThemeParkStore = defineStore('themepark', {
 
         async fetchMyBookings({ silent = false } = {}) {
             this.loading.bookings = true;
+            this.error.bookings = null;
             try {
                 const { data } = await axios.get('/api/themepark/bookings', { silent401: silent });
                 this.myBookings = data;
+            } catch (e) {
+                // Without this the list page can't tell "request failed" from
+                // "you own no bookings", and tells a paying customer the latter.
+                this.error.bookings = e.response?.data?.message ?? 'Failed to load bookings.';
             } finally {
                 this.loading.bookings = false;
             }

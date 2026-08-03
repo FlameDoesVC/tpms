@@ -16,6 +16,15 @@ class ThemeParkBookingService
     {
         $slot = EventSlot::lockForUpdate()->findOrFail($data['event_slot_id']);
 
+        // Guarded here rather than in the callers so both the direct endpoint
+        // and cart checkout are covered - a cart can also be submitted long
+        // after the slot it references was cancelled.
+        if ($slot->status !== 'scheduled') {
+            throw ValidationException::withMessages([
+                'event_slot_id' => 'This time slot has been cancelled.',
+            ]);
+        }
+
         if ($slot->available_capacity < $data['ticket_count']) {
             throw ValidationException::withMessages([
                 'ticket_count' => 'Not enough capacity left for this slot.',

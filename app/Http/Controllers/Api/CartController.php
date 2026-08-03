@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Room;
 use App\Services\FerryTicketService;
 use App\Services\HotelBookingService;
 use App\Services\ThemeParkBookingService;
@@ -51,6 +52,12 @@ class CartController extends Controller
             // since FerryTicketService validates against the whole group's
             // combined guest capacity, not this single row's own count.
             $cartIdToBookingId = [];
+            // One stay (same hotel, same dates) can arrive as several cart
+            // rows when a party is split across room types. They belong to one
+            // party, so the first row's booking anchors the rest - otherwise
+            // partyGuestsCount() would only ever see a fraction of the group
+            // and a ferry ticket for everyone would be refused.
+            $stayAnchors = [];
             $result = ['hotel' => [], 'ferry' => [], 'themepark' => []];
 
             foreach ($items as $item) {
@@ -71,6 +78,22 @@ class CartController extends Controller
                         'quantity' => $data['quantity'] ?? 1,
                     ]);
                     $this->hotelBookings->confirm($bookings);
+
+                    $stayKey = implode('|', [
+                        Room::findOrFail($data['representativeRoomId'])->hotel_id,
+                        $data['checkIn'],
+                        $data['checkOut'],
+                    ]);
+
+                    if (isset($stayAnchors[$stayKey])) {
+                        foreach ($bookings as $booking) {
+                            $booking->update(['group_booking_id' => $stayAnchors[$stayKey]]);
+                        }
+                    } else {
+                        // create() already linked this row's own siblings to
+                        // its first booking, so that same row is the anchor.
+                        $stayAnchors[$stayKey] = $bookings->first()->id;
+                    }
 
                     $cartIdToBookingId[$item['id']] = $bookings->first()->id;
                     $result['hotel'] = [...$result['hotel'], ...$bookings->all()];

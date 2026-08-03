@@ -221,6 +221,209 @@ class CartCheckoutTest extends TestCase
         $this->assertDatabaseHas('ferry_tickets', ['booking_id' => $bookings[0]['id'], 'seat_number' => 3]);
     }
 
+    // The reported case: a party that doesn't fit one room type. Two singles
+    // plus a double for three guests arrives as two cart rows, each carrying
+    // only the guests it holds - and the two rows must end up as ONE party, or
+    // a ferry ticket for all three would be refused later.
+    public function test_checkout_links_a_party_split_across_room_types_into_one_group(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $singles = Room::factory()->count(2)->create([
+            'hotel_id' => $hotel->id, 'type' => 'single', 'max_guests' => 1, 'price_per_night' => 80,
+        ]);
+        $doubles = Room::factory()->count(3)->create([
+            'hotel_id' => $hotel->id, 'type' => 'double', 'max_guests' => 2, 'price_per_night' => 150,
+        ]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/cart/checkout', [
+            'items' => [
+                [
+                    'id' => 'cart-single',
+                    'type' => 'hotel',
+                    'representativeRoomId' => $singles->first()->id,
+                    'checkIn' => '2026-09-01',
+                    'checkOut' => '2026-09-03',
+                    // 2 singles hold 2 of the 3 guests.
+                    'guestsCount' => 2,
+                    'quantity' => 2,
+                ],
+                [
+                    'id' => 'cart-double',
+                    'type' => 'hotel',
+                    'representativeRoomId' => $doubles->first()->id,
+                    'checkIn' => '2026-09-01',
+                    'checkOut' => '2026-09-03',
+                    // the double holds the remaining 1.
+                    'guestsCount' => 1,
+                    'quantity' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertCreated();
+        $created = $response->json('hotel');
+        $this->assertCount(3, $created);
+
+        $party = Booking::find($created[0]['id']);
+        $this->assertCount(3, $party->partyBookingIds(), 'all three rooms belong to one party');
+        $this->assertSame(3, $party->partyGuestsCount(), 'party covers all three guests');
+
+        // Reachable from the last room too, not just the anchor.
+        $last = Booking::find($created[2]['id']);
+        $this->assertSame(3, $last->partyGuestsCount());
+    }
+
+    public function test_ferry_ticket_covers_a_party_split_across_room_types(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        // Price is pinned because create() groups interchangeable rooms by
+        // type + price + capacity; a randomised price would split them.
+        $singles = Room::factory()->count(2)->create([
+            'hotel_id' => $hotel->id, 'type' => 'single', 'max_guests' => 1, 'price_per_night' => 80,
+        ]);
+        $doubles = Room::factory()->count(2)->create([
+            'hotel_id' => $hotel->id, 'type' => 'double', 'max_guests' => 2, 'price_per_night' => 150,
+        ]);
+        $ferry = Ferry::factory()->create(['capacity' => 20, 'price_per_seat' => 20]);
+        $schedule = FerrySchedule::factory()->create([
+            'ferry_id' => $ferry->id, 'available_seats' => 20, 'departure_date' => '2026-09-01',
+        ]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/cart/checkout', [
+            'items' => [
+                [
+                    'id' => 'cart-single', 'type' => 'hotel',
+                    'representativeRoomId' => $singles->first()->id,
+                    'checkIn' => '2026-09-01', 'checkOut' => '2026-09-03',
+                    'guestsCount' => 2, 'quantity' => 2,
+                ],
+                [
+                    'id' => 'cart-double', 'type' => 'hotel',
+                    'representativeRoomId' => $doubles->first()->id,
+                    'checkIn' => '2026-09-01', 'checkOut' => '2026-09-03',
+                    'guestsCount' => 1, 'quantity' => 1,
+                ],
+                [
+                    // Three seats for the whole party, booked against the
+                    // first hotel row - the group link is what makes this fit.
+                    'id' => 'cart-ferry', 'type' => 'ferry',
+                    'scheduleId' => $schedule->id,
+                    'hotelCartItemId' => 'cart-single',
+                    'seatNumbers' => [1, 2, 3],
+                    'paymentMethod' => 'online',
+                ],
+            ],
+        ]);
+
+        $response->assertCreated();
+        $this->assertCount(3, $response->json('ferry'));
+    }
+
+    // A cart is client-side and long-lived, so it can be submitted well after
+    // the inventory it references was pulled. Hiding cancelled rows in the UI
+    // is cosmetic - the sale itself has to be refused here.
+    public function test_checkout_refuses_a_cancelled_event_slot(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $event = ThemeParkEvent::factory()->create();
+        $slot = EventSlot::factory()->create([
+            'event_id' => $event->id,
+            'available_capacity' => 10,
+            'status' => 'cancelled',
+        ]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/cart/checkout', [
+            'items' => [[
+                'id' => 'cart-park-1',
+                'type' => 'themepark',
+                'slotId' => $slot->id,
+                'ticketCount' => 1,
+            ]],
+        ]);
+
+        $response->assertUnprocessable();
+        $this->assertDatabaseCount('event_bookings', 0);
+        $this->assertEquals(10, $slot->fresh()->available_capacity);
+    }
+
+    public function test_checkout_refuses_a_cancelled_ferry_departure(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $room = Room::factory()->create(['max_guests' => 4]);
+        $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
+        $schedule = FerrySchedule::factory()->create([
+            'ferry_id' => $ferry->id,
+            'available_seats' => 10,
+            'status' => 'cancelled',
+        ]);
+
+        $response = $this->actingAs($visitor)->postJson('/api/cart/checkout', [
+            'items' => [
+                [
+                    'id' => 'cart-hotel-1',
+                    'type' => 'hotel',
+                    'representativeRoomId' => $room->id,
+                    'checkIn' => '2026-09-01',
+                    'checkOut' => '2026-09-03',
+                    'guestsCount' => 2,
+                    'quantity' => 1,
+                ],
+                [
+                    'id' => 'cart-ferry-1',
+                    'type' => 'ferry',
+                    'scheduleId' => $schedule->id,
+                    'hotelCartItemId' => 'cart-hotel-1',
+                    'seatNumbers' => [1],
+                    'paymentMethod' => 'online',
+                ],
+            ],
+        ]);
+
+        $response->assertUnprocessable();
+        // Whole transaction rolls back - the hotel room isn't booked either.
+        $this->assertDatabaseCount('bookings', 0);
+        $this->assertDatabaseCount('ferry_tickets', 0);
+        $this->assertEquals(10, $schedule->fresh()->available_seats);
+    }
+
+    public function test_checkout_refuses_an_already_departed_ferry(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        $room = Room::factory()->create(['max_guests' => 4]);
+        $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
+        $schedule = FerrySchedule::factory()->create([
+            'ferry_id' => $ferry->id,
+            'available_seats' => 10,
+            'status' => 'departed',
+        ]);
+
+        $this->actingAs($visitor)->postJson('/api/cart/checkout', [
+            'items' => [
+                [
+                    'id' => 'cart-hotel-1',
+                    'type' => 'hotel',
+                    'representativeRoomId' => $room->id,
+                    'checkIn' => '2026-09-01',
+                    'checkOut' => '2026-09-03',
+                    'guestsCount' => 2,
+                    'quantity' => 1,
+                ],
+                [
+                    'id' => 'cart-ferry-1',
+                    'type' => 'ferry',
+                    'scheduleId' => $schedule->id,
+                    'hotelCartItemId' => 'cart-hotel-1',
+                    'seatNumbers' => [1],
+                    'paymentMethod' => 'online',
+                ],
+            ],
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('ferry_tickets', 0);
+    }
+
     public function test_checkout_fails_when_ferry_item_has_no_resolvable_booking(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');

@@ -2,8 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import TButton from '@/Components/ui/TButton.vue';
+import TBadge from '@/Components/ui/TBadge.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
-import TSelect from '@/Components/ui/TSelect.vue';
+import TIcon from '@/Components/ui/TIcon.vue';
+import TEmptyState from '@/Components/ui/TEmptyState.vue';
+import PromotionsStrip from '@/Components/PromotionsStrip.vue';
+import { formatDate, formatDateRange, formatDateTime, formatMoney, formatTime, nightsBetween } from '@/utils/format';
 import SeatPickerModal from '@/Components/SeatPickerModal.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useHotelStore } from '@/stores/hotel';
@@ -44,35 +48,63 @@ const eligibleBookings = computed(() => {
     const confirmed = Array.from(partiesByAnchor.entries()).map(([anchorId, rooms]) => {
         const anchor = rooms.find((b) => b.id === anchorId) ?? rooms[0];
         const guestsCount = anchor.party_guests_count ?? rooms.reduce((sum, b) => sum + (b.guests_count ?? 0), 0);
+        const checkIn = anchor.check_in_date?.slice(0, 10);
+        const checkOut = anchor.check_out_date?.slice(0, 10);
         return {
             key: `booking-${anchorId}`,
             bookingId: anchorId,
             hotelCartItemId: null,
-            label: `${anchor.reference_code} - ${anchor.room?.hotel?.name} (${anchor.check_in_date?.slice(0, 10)} to ${anchor.check_out_date?.slice(0, 10)})${rooms.length > 1 ? ` · ${rooms.length} rooms, ${guestsCount} guests` : ''}`,
-            checkIn: anchor.check_in_date?.slice(0, 10),
-            checkOut: anchor.check_out_date?.slice(0, 10),
+            confirmed: true,
+            hotelName: anchor.room?.hotel?.name ?? 'Your stay',
+            detail: anchor.reference_code,
+            roomsLabel: rooms.length > 1 ? `${rooms.length} rooms` : (anchor.room?.type ?? '1 room'),
+            label: `${anchor.reference_code} - ${anchor.room?.hotel?.name} (${checkIn} to ${checkOut})`,
+            checkIn,
+            checkOut,
             guestsCount,
         };
     });
 
-    const pending = cart.items
-        .filter((item) => item.type === 'hotel')
-        .map((item) => ({
-            key: `cart-${item.id}`,
+    // Rooms for one stay can be spread over several cart rows (a party split
+    // across room types), each carrying only the guests it holds. Grouped by
+    // hotel and dates so the picker offers one trip needing the party's full
+    // seat count, not one trip per room type each short of it. The server
+    // links these rows into a single booking party at checkout, so any one of
+    // their ids resolves to the whole group.
+    const staysByKey = new Map();
+    for (const item of cart.items) {
+        if (item.type !== 'hotel') continue;
+        const key = `${item.hotelId}|${item.checkIn}|${item.checkOut}`;
+        if (!staysByKey.has(key)) staysByKey.set(key, []);
+        staysByKey.get(key).push(item);
+    }
+
+    const pending = Array.from(staysByKey.values()).map((rows) => {
+        const first = rows[0];
+        const guestsCount = rows.reduce((sum, r) => sum + (r.guestsCount ?? 0), 0);
+        const roomCount = rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+        const roomsLabel = rows.length > 1
+            ? `${roomCount} rooms across ${rows.length} types`
+            : `${roomCount} ${first.roomType}`;
+
+        return {
+            key: `cart-${first.id}`,
             bookingId: null,
-            hotelCartItemId: item.id,
-            label: `${item.hotelName} - ${item.roomType} (${item.guestsCount} guest${item.guestsCount === 1 ? '' : 's'}, in cart, ${item.checkIn} to ${item.checkOut})`,
-            checkIn: item.checkIn,
-            checkOut: item.checkOut,
-            guestsCount: item.guestsCount,
-        }));
+            hotelCartItemId: first.id,
+            confirmed: false,
+            hotelName: first.hotelName,
+            detail: 'In your itinerary',
+            roomsLabel,
+            label: `${first.hotelName} - ${roomsLabel} (${guestsCount} guests, in cart, ${first.checkIn} to ${first.checkOut})`,
+            checkIn: first.checkIn,
+            checkOut: first.checkOut,
+            guestsCount,
+        };
+    });
 
     return [...confirmed, ...pending];
 });
 const hasEligibleBooking = computed(() => eligibleBookings.value.length > 0);
-const bookingOptions = computed(() =>
-    eligibleBookings.value.map((b) => ({ value: b.key, label: b.label }))
-);
 const selectedBooking = computed(() =>
     eligibleBookings.value.find((b) => b.key === selectedBookingKey.value) ?? null
 );
@@ -89,20 +121,23 @@ const partyAnchorId = computed(() => {
     return booking ? (booking.group_booking_id ?? booking.id) : null;
 });
 
+// Dates this party already holds a real, issued ticket for.
+const ticketedDates = computed(() => {
+    const anchorId = partyAnchorId.value;
+    if (!anchorId) return new Set();
+    return new Set(
+        ferryStore.myTickets
+            .filter((t) => (t.booking?.group_booking_id ?? t.booking?.id) === anchorId)
+            .map((t) => (t.schedule?.departure_date ?? '').slice(0, 10))
+    );
+});
+
 // The backend only rejects a second purchase for the same party+date at
 // submit time - this hides "Select Seats" up front so the page doesn't look
 // like you can book a different boat on a date you've already ticketed. Keyed
 // by date (not schedule id): a party only makes one trip per leg, so a
 // second, different ferry on the same day is still a duplicate of that leg.
-const alreadyBookedDates = computed(() => {
-    const anchorId = partyAnchorId.value;
-    const ticketDates = anchorId
-        ? ferryStore.myTickets
-              .filter((t) => (t.booking?.group_booking_id ?? t.booking?.id) === anchorId)
-              .map((t) => (t.schedule?.departure_date ?? '').slice(0, 10))
-        : [];
-    return new Set([...ticketDates, ...cartedDates.value]);
-});
+const alreadyBookedDates = computed(() => new Set([...ticketedDates.value, ...cartedDates.value]));
 
 const today = new Date().toISOString().slice(0, 10);
 const upcomingTickets = computed(() =>
@@ -113,10 +148,43 @@ const upcomingTickets = computed(() =>
 
 // The trip's two legs are fixed by the hotel stay - arrival on check-in day,
 // return on check-out day. Neither date is user-editable.
-const columns = computed(() => [
-    { key: 'arrival', title: 'Getting to the island', date: selectedBooking.value?.checkIn, schedules: arrivalSchedules.value },
-    { key: 'departure', title: 'Coming back', date: selectedBooking.value?.checkOut, schedules: departureSchedules.value },
-]);
+const legs = computed(() => [
+    {
+        key: 'arrival',
+        title: 'Out to the island',
+        caption: 'Arrive on your check-in day',
+        icon: 'arrowRight',
+        date: selectedBooking.value?.checkIn,
+        schedules: arrivalSchedules.value,
+    },
+    {
+        key: 'departure',
+        title: 'Back to the mainland',
+        caption: 'Leave on your check-out day',
+        icon: 'arrowLeft',
+        date: selectedBooking.value?.checkOut,
+        schedules: departureSchedules.value,
+    },
+].map((leg) => ({
+    ...leg,
+    status: !leg.date ? 'none'
+        : ticketedDates.value.has(leg.date) ? 'booked'
+        : cartedDates.value.includes(leg.date) ? 'in-cart'
+        : 'needed',
+})));
+
+const legsSettled = computed(() => legs.value.filter((l) => l.status !== 'needed' && l.status !== 'none').length);
+
+const STATUS_TEXT = {
+    booked: 'Ticket issued',
+    'in-cart': 'In your itinerary',
+    needed: 'Seats not chosen',
+    none: '',
+};
+
+// Older schedules may predate the status column; treat a missing value as
+// bookable so they don't silently vanish from the page.
+const bookableSchedule = (schedule) => (schedule.status ?? 'scheduled') === 'scheduled';
 
 const refreshSchedules = async () => {
     const booking = selectedBooking.value;
@@ -128,10 +196,16 @@ const refreshSchedules = async () => {
 
     loadingSchedules.value = true;
     try {
-        [arrivalSchedules.value, departureSchedules.value] = await Promise.all([
+        const [arrival, departure] = await Promise.all([
             ferryStore.getSchedulesForDate(booking.checkIn),
             ferryStore.getSchedulesForDate(booking.checkOut),
         ]);
+        // Filtered here rather than in the store: staff pages share this
+        // endpoint and need cancelled/departed rows. A cancelled sailing keeps
+        // its seat count, so without this it renders with a live Select Seats
+        // button (the server now refuses the purchase either way).
+        arrivalSchedules.value = arrival.filter(bookableSchedule);
+        departureSchedules.value = departure.filter(bookableSchedule);
     } finally {
         loadingSchedules.value = false;
     }
@@ -145,24 +219,59 @@ watch(selectedBookingKey, () => {
 
 // If the selected hotel item gets removed from the cart (directly, or via
 // the cascade-delete when its dependent ferry ticket is removed), fall back
-// to nothing selected rather than leaving a dangling reference.
+// to nothing selected rather than leaving a dangling reference. A single
+// remaining stay is selected outright: there is nothing to choose between,
+// and making the visitor pick it before any sailing appears is a dead step.
 watch(eligibleBookings, (list) => {
     if (selectedBookingKey.value && !list.some((b) => b.key === selectedBookingKey.value)) {
         selectedBookingKey.value = '';
     }
-});
+    if (!selectedBookingKey.value && list.length === 1) {
+        selectedBookingKey.value = list[0].key;
+    }
+}, { immediate: true });
 
-onMounted(() => {
+onMounted(async () => {
     if (auth.isAuthenticated) {
-        hotelStore.fetchMyBookings({ silent: true });
-        ferryStore.fetchMyTickets({ silent: true });
+        await Promise.allSettled([
+            hotelStore.fetchMyBookings({ silent: true }),
+            ferryStore.fetchMyTickets({ silent: true }),
+        ]);
     }
 });
+
+const seatsNeeded = computed(() => selectedBooking.value?.guestsCount ?? 1);
 
 const fillPercent = (schedule) => {
     const capacity = schedule.ferry?.capacity || 1;
     return Math.round(((capacity - schedule.available_seats) / capacity) * 100);
 };
+
+// One reason per sailing, so a disabled button always says why it is disabled.
+const blockedReason = (schedule, leg) => {
+    if (cartedScheduleIds.value.includes(schedule.id)) return null;
+    if (alreadyBookedDates.value.has(leg.date)) {
+        return ticketedDates.value.has(leg.date)
+            ? 'You already have a ticket for this leg'
+            : 'This leg is already in your itinerary';
+    }
+    if (schedule.available_seats < seatsNeeded.value) {
+        return `Only ${schedule.available_seats} seat${schedule.available_seats === 1 ? '' : 's'} left — your party needs ${seatsNeeded.value}`;
+    }
+    return null;
+};
+
+const ctaLabel = (schedule, leg) => {
+    if (cartedScheduleIds.value.includes(schedule.id)) return 'Added';
+    if (alreadyBookedDates.value.has(leg.date)) return 'Leg covered';
+    if (schedule.available_seats < seatsNeeded.value) return 'Not enough seats';
+    return 'Choose seats';
+};
+
+const isBlocked = (schedule, leg) =>
+    cartedScheduleIds.value.includes(schedule.id) ||
+    alreadyBookedDates.value.has(leg.date) ||
+    schedule.available_seats < seatsNeeded.value;
 
 const openSeatPicker = (schedule) => {
     activeSchedule.value = schedule;
@@ -180,105 +289,214 @@ const onAddedToCart = () => {
 <template>
     <AuthenticatedLayout>
         <template #header>
-            <TPageHeader title="Ferry Schedules" />
+            <TPageHeader
+                title="Ferry"
+                subtitle="Crossings are tied to the stay you are travelling for"
+                icon="ferry"
+            />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-5xl space-y-6 sm:px-6 lg:px-8">
-                <div v-if="auth.isAuthenticated" class="elevated rounded-xl border bg-surface p-4">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-semibold text-foreground">My Tickets</h3>
-                        <router-link :to="{ name: 'ferry.my-tickets' }" class="text-sm text-primary hover:underline">
-                            View all
-                        </router-link>
+        <div class="shell space-y-5 py-6">
+            <PromotionsStrip category="ferry" />
+
+            <div v-if="upcomingTickets.length" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-surface-sunken px-4 py-2.5 text-sm">
+                <span class="inline-flex items-center gap-1.5 font-medium text-foreground">
+                    <TIcon name="ticket" :size="15" class="text-primary" /> Already booked
+                </span>
+                <span v-for="ticket in upcomingTickets" :key="ticket.id" class="text-foreground-secondary">
+                    {{ ticket.schedule?.ferry?.name }} ·
+                    {{ formatDateTime(ticket.schedule?.departure_date, ticket.schedule?.departure_time) }}
+                    (seat {{ ticket.seat_number }})
+                </span>
+                <router-link :to="{ name: 'trips', query: { tab: 'ferry' } }" class="ml-auto font-medium text-primary hover:underline">
+                    View all
+                </router-link>
+            </div>
+
+            <TEmptyState
+                v-if="!hasEligibleBooking"
+                title="Pick where you're staying first"
+                description="A ferry seat is booked against a stay, so the crossing dates match your check-in and check-out. Add a room and this page fills in."
+                icon="hotel"
+            >
+                <template #action>
+                    <router-link :to="{ name: 'hotels.index' }">
+                        <TButton as="span">Browse hotels</TButton>
+                    </router-link>
+                </template>
+            </TEmptyState>
+
+            <template v-else>
+                <!-- Step 1. Cards rather than a dropdown: the thing being chosen
+                     is a whole stay — hotel, dates, party size — and every one of
+                     those is what makes one option right and another wrong. A
+                     dropdown showed them as one long truncated line. -->
+                <section>
+                    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 class="text-sm font-semibold tracking-tight text-foreground">
+                            <span class="text-foreground-muted">1 ·</span> Which stay are you travelling for?
+                        </h2>
+                        <p v-if="eligibleBookings.length === 1" class="text-xs text-foreground-muted">
+                            Selected automatically — it's your only stay
+                        </p>
                     </div>
 
-                    <p v-if="upcomingTickets.length === 0" class="mt-2 text-sm text-foreground-muted">
-                        No upcoming tickets.
-                    </p>
-                    <div v-else class="mt-3 space-y-2">
-                        <div
-                            v-for="ticket in upcomingTickets"
-                            :key="ticket.id"
-                            class="flex items-center justify-between rounded-lg bg-surface-hover px-3 py-2 text-sm text-foreground-secondary"
+                    <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                        <label
+                            v-for="option in eligibleBookings"
+                            :key="option.key"
+                            class="elevated flex cursor-pointer items-start gap-3 rounded-xl border bg-surface p-4 transition-colors"
+                            :class="selectedBookingKey === option.key
+                                ? 'border-primary ring-2 ring-primary/20'
+                                : 'hover:border-strong hover:bg-surface-hover'"
                         >
-                            <span>
-                                {{ ticket.schedule?.ferry?.name }} -
-                                {{ ticket.schedule?.departure_date?.slice(0, 10) }} at {{ ticket.schedule?.departure_time }}
-                                (seat {{ ticket.seat_number }})
-                            </span>
-                        </div>
+                            <input
+                                type="radio"
+                                name="stay"
+                                class="mt-1 h-4 w-4 shrink-0 border-strong bg-surface text-primary focus:ring-2 focus:ring-primary/20"
+                                :value="option.key"
+                                :checked="selectedBookingKey === option.key"
+                                :aria-label="option.label"
+                                @change="selectedBookingKey = option.key"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="truncate font-semibold text-foreground">{{ option.hotelName }}</p>
+                                    <TBadge :variant="option.confirmed ? 'success' : 'warning'" size="sm" dot>
+                                        {{ option.confirmed ? 'Confirmed' : 'In itinerary' }}
+                                    </TBadge>
+                                </div>
+                                <p class="mt-1 text-sm text-foreground-secondary">
+                                    {{ formatDateRange(option.checkIn, option.checkOut) }}
+                                    · {{ nightsBetween(option.checkIn, option.checkOut) }} night{{ nightsBetween(option.checkIn, option.checkOut) === 1 ? '' : 's' }}
+                                </p>
+                                <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-muted">
+                                    <span class="inline-flex items-center gap-1"><TIcon name="users" :size="13" /> {{ option.guestsCount }} guest{{ option.guestsCount === 1 ? '' : 's' }}</span>
+                                    <span class="inline-flex items-center gap-1 capitalize"><TIcon name="bed" :size="13" /> {{ option.roomsLabel }}</span>
+                                    <span v-if="option.confirmed" class="font-mono">{{ option.detail }}</span>
+                                </p>
+                            </div>
+                        </label>
                     </div>
-                </div>
+                </section>
 
-                <div v-if="hasEligibleBooking" class="elevated rounded-xl border bg-surface p-4">
-                    <TSelect
-                        v-model="selectedBookingKey"
-                        label="Hotel booking"
-                        :options="bookingOptions"
-                        placeholder="Select the hotel booking this trip is for"
-                    />
-                    <p class="mt-1 text-xs text-foreground-muted">
-                        Ferry departures are fixed to this booking's check-in and check-out dates. Picking a hotel
-                        room still in your cart also removes this ticket if that room is removed later.
-                    </p>
-                </div>
-                <div v-else class="rounded-xl bg-warning-soft p-4 text-sm text-warning">
-                    You need a confirmed hotel booking, or a hotel room in your cart, to add a ferry ticket.
-                    <router-link :to="{ name: 'hotels.index' }" class="font-medium underline">Browse hotels</router-link>
-                </div>
+                <!-- Step 2. The journey, not a schedule table: both legs are shown
+                     side by side with their own state, so "I booked the way out and
+                     forgot the way back" is visible instead of being something you
+                     find out at checkout. -->
+                <section v-if="selectedBooking">
+                    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <h2 class="text-sm font-semibold tracking-tight text-foreground">
+                            <span class="text-foreground-muted">2 ·</span> Pick a sailing for each leg
+                        </h2>
+                        <p class="text-xs text-foreground-muted">
+                            {{ seatsNeeded }} seat{{ seatsNeeded === 1 ? '' : 's' }} needed · {{ legsSettled }} of 2 legs covered
+                        </p>
+                    </div>
 
-                <div v-if="loadingSchedules" class="text-foreground-muted">Loading schedules...</div>
+                    <div
+                        v-if="legsSettled === 2"
+                        class="mb-4 flex items-center gap-2 rounded-xl border border-success/40 bg-success-soft px-4 py-3 text-sm text-success"
+                    >
+                        <TIcon name="checkCircle" :size="16" />
+                        Both crossings are covered. Nothing else to do here.
+                    </div>
 
-                <div v-else-if="selectedBooking" class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <div v-for="column in columns" :key="column.key">
-                        <div class="mb-3 rounded-xl bg-primary-soft p-3">
-                            <p class="text-sm font-semibold text-primary">{{ column.title }}</p>
-                            <p class="text-xs text-primary">{{ column.date }} (fixed to your booking)</p>
-                        </div>
+                    <div v-if="loadingSchedules" class="grid gap-5 md:grid-cols-2">
+                        <div v-for="n in 2" :key="n" class="h-64 animate-pulse rounded-xl border bg-surface-hover" />
+                    </div>
 
-                        <div v-if="column.schedules.length === 0" class="text-sm text-foreground-muted">
-                            No departures scheduled for this date.
-                        </div>
-
-                        <div v-else class="space-y-4">
+                    <div v-else class="grid gap-5 md:grid-cols-2 xl:gap-7">
+                        <div v-for="leg in legs" :key="leg.key" class="min-w-0">
                             <div
-                                v-for="schedule in column.schedules"
-                                :key="schedule.id"
-                                class="elevated rounded-xl border bg-surface p-4"
+                                class="elevated mb-3 overflow-hidden rounded-xl border bg-surface"
+                                :class="leg.status === 'needed' ? '' : 'border-success/40'"
                             >
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="font-semibold text-foreground">{{ schedule.ferry?.name }}</p>
-                                        <p class="text-sm text-foreground-muted">
-                                            {{ schedule.departure_time }} - {{ schedule.arrival_time }}
+                                <div class="flex items-start gap-3 p-4">
+                                    <span
+                                        class="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                                        :class="leg.status === 'needed' ? 'bg-primary-soft text-primary' : 'bg-success-soft text-success'"
+                                    >
+                                        <TIcon :name="leg.status === 'needed' ? leg.icon : 'check'" :size="17" />
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="font-semibold text-foreground">{{ leg.title }}</p>
+                                        <p class="text-sm text-foreground-secondary">
+                                            {{ formatDate(leg.date) }} · {{ leg.caption }}
                                         </p>
                                     </div>
-                                    <TButton
-                                        :disabled="schedule.available_seats < selectedBooking.guestsCount || cartedScheduleIds.includes(schedule.id) || alreadyBookedDates.has(schedule.departure_date?.slice(0, 10))"
-                                        @click="openSeatPicker(schedule)"
-                                    >
-                                        {{ cartedScheduleIds.includes(schedule.id) ? 'In Cart' : alreadyBookedDates.has(schedule.departure_date?.slice(0, 10)) ? 'Already Booked' : 'Select Seats' }}
-                                    </TButton>
-                                </div>
-
-                                <div class="mt-3">
-                                    <div class="h-2 w-full overflow-hidden rounded-sm bg-surface-hover">
-                                        <div
-                                            class="h-full rounded-sm"
-                                            :class="fillPercent(schedule) > 90 ? 'bg-danger' : 'bg-primary'"
-                                            :style="{ width: fillPercent(schedule) + '%' }"
-                                        />
-                                    </div>
-                                    <p class="mt-1 text-xs text-foreground-muted">
-                                        {{ schedule.available_seats }} of {{ schedule.ferry?.capacity }} seats available
-                                    </p>
+                                    <TBadge :variant="leg.status === 'needed' ? 'neutral' : 'success'" size="sm" dot class="shrink-0">
+                                        {{ STATUS_TEXT[leg.status] }}
+                                    </TBadge>
                                 </div>
                             </div>
+
+                            <p v-if="leg.schedules.length === 0" class="rounded-xl border bg-surface-sunken p-4 text-sm text-foreground-muted">
+                                No departures scheduled for {{ formatDate(leg.date) }}. This date is fixed to your stay, so change
+                                the stay dates if you need a different crossing.
+                            </p>
+
+                            <ul v-else class="space-y-3">
+                                <li
+                                    v-for="schedule in leg.schedules"
+                                    :key="schedule.id"
+                                    class="elevated overflow-hidden rounded-xl border bg-surface"
+                                >
+                                    <div class="flex flex-wrap items-start justify-between gap-3 p-4">
+                                        <div class="min-w-0">
+                                            <!-- Departure → arrival reads as a crossing, which is
+                                                 what's being bought; the boat's name is secondary. -->
+                                            <p class="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+                                                {{ formatTime(schedule.departure_time) }}
+                                                <TIcon name="arrowRight" :size="16" class="text-foreground-muted" />
+                                                {{ formatTime(schedule.arrival_time) }}
+                                            </p>
+                                            <p class="mt-0.5 inline-flex items-center gap-1.5 text-sm text-foreground-muted">
+                                                <TIcon name="ferry" :size="14" /> {{ schedule.ferry?.name }}
+                                            </p>
+                                        </div>
+                                        <!-- The fare lives on the ferry, not the sailing; the
+                                             schedules endpoint eager-loads it, so it can be shown
+                                             here instead of only after opening the seat picker. -->
+                                        <div v-if="schedule.ferry?.price_per_seat" class="text-right">
+                                            <p class="font-semibold text-foreground">
+                                                {{ formatMoney(schedule.ferry.price_per_seat) }}
+                                            </p>
+                                            <p class="text-xs text-foreground-muted">per seat</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="px-4">
+                                        <div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+                                            <div
+                                                class="h-full rounded-full transition-all"
+                                                :class="fillPercent(schedule) > 90 ? 'bg-danger' : 'bg-primary'"
+                                                :style="{ width: fillPercent(schedule) + '%' }"
+                                            />
+                                        </div>
+                                        <p class="mt-1.5 text-xs text-foreground-muted">
+                                            {{ schedule.available_seats }} of {{ schedule.ferry?.capacity }} seats left
+                                        </p>
+                                    </div>
+
+                                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t bg-surface-sunken/50 px-4 py-3">
+                                        <p class="min-w-0 flex-1 text-xs text-foreground-muted">
+                                            {{ blockedReason(schedule, leg) ?? `Seats for ${seatsNeeded} passenger${seatsNeeded === 1 ? '' : 's'}` }}
+                                        </p>
+                                        <TButton
+                                            size="sm"
+                                            :disabled="isBlocked(schedule, leg)"
+                                            @click="openSeatPicker(schedule)"
+                                        >
+                                            {{ ctaLabel(schedule, leg) }}
+                                        </TButton>
+                                    </div>
+                                </li>
+                            </ul>
                         </div>
                     </div>
-                </div>
-            </div>
+                </section>
+            </template>
         </div>
 
         <SeatPickerModal
@@ -286,7 +504,7 @@ const onAddedToCart = () => {
             :schedule="activeSchedule"
             :booking-id="selectedBooking?.bookingId"
             :hotel-cart-item-id="selectedBooking?.hotelCartItemId"
-            :seats-needed="selectedBooking?.guestsCount ?? 1"
+            :seats-needed="seatsNeeded"
             @added="onAddedToCart"
         />
     </AuthenticatedLayout>

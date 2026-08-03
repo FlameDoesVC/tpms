@@ -10,6 +10,7 @@ import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
+import { formatTime } from '@/utils/format';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const themeParkStore = useThemeParkStore();
@@ -56,7 +57,7 @@ const eventOptions = computed(() =>
 const slotOptions = computed(() =>
     themeParkStore.slots.map((slot) => ({
         value: slot.id,
-        label: `${slot.slot_time} (${slot.available_capacity} left)`,
+        label: `${formatTime(slot.slot_time)} · ${slot.available_capacity} left`,
         disabled: slot.available_capacity < 1,
     }))
 );
@@ -75,7 +76,9 @@ const showReceipt = computed({
             <TPageHeader compact title="Walk-in Ticket Sales" icon="ticket" />
         </template>
 
-        <div class="mx-auto max-w-lg">
+        <!-- A single-task counter screen, so it keeps a narrow centred measure
+             rather than stretching across the wider page shell. -->
+        <div class="mx-auto max-w-xl">
             <TCard icon="cart" title="New Sale">
                 <form @submit.prevent="sell" class="space-y-4">
                     <TSelect v-model="eventId" label="Event" :options="eventOptions" />

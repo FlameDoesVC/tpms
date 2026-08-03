@@ -1,9 +1,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 
-defineProps({
+const props = defineProps({
     align: { type: String, default: 'right' },
     width: { type: String, default: '48' },
+    // Menus of links should close the moment one is picked. A panel the user
+    // works inside first - ticking checkboxes, say - must not.
+    closeOnContentClick: { type: Boolean, default: true },
 });
 
 const open = ref(false);
@@ -13,7 +16,20 @@ const widthClass = {
     '32': 'w-32',
     '48': 'w-48',
     '56': 'w-56',
+    '80': 'w-80',
 };
+
+const onContentClick = () => {
+    if (props.closeOnContentClick) open.value = false;
+};
+
+const close = () => { open.value = false; };
+
+const onEscape = (e) => {
+    if (open.value && e.key === 'Escape') open.value = false;
+};
+
+defineExpose({ close });
 
 const onClickOutside = (e) => {
     if (wrapperRef.value && !wrapperRef.value.contains(e.target)) {
@@ -21,8 +37,14 @@ const onClickOutside = (e) => {
     }
 };
 
-onMounted(() => document.addEventListener('mousedown', onClickOutside));
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
+onMounted(() => {
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onEscape);
+});
+onUnmounted(() => {
+    document.removeEventListener('mousedown', onClickOutside);
+    document.removeEventListener('keydown', onEscape);
+});
 </script>
 
 <template>
@@ -46,7 +68,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
                     widthClass[width] ?? 'w-48',
                     align === 'left' ? 'left-0' : 'right-0',
                 ]"
-                @click="open = false"
+                @click="onContentClick"
             >
                 <slot name="content" />
             </div>
