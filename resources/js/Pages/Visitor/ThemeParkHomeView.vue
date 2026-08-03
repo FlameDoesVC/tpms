@@ -13,7 +13,7 @@ import TSwitch from '@/Components/ui/TSwitch.vue';
 import FilterRail from '@/Components/FilterRail.vue';
 import FilterSection from '@/Components/FilterSection.vue';
 import PromotionsStrip from '@/Components/PromotionsStrip.vue';
-import { formatDate, formatDateTime, formatMoney, formatTime } from '@/utils/format';
+import { formatDate, formatDateTime, formatMoney, formatTime, todayIso } from '@/utils/format';
 import TIcon from '@/Components/ui/TIcon.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 import { useCartStore } from '@/stores/cart';
@@ -43,7 +43,7 @@ const SORTS = [
     { key: 'name', label: 'A – Z' },
 ];
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 
 // — Primary search: what the visitor is shopping for.
 const date = ref(today);

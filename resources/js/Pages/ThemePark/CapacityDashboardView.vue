@@ -6,7 +6,7 @@ import TIcon from '@/Components/ui/TIcon.vue';
 import TStat from '@/Components/ui/TStat.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import { useThemeParkStore } from '@/stores/themepark';
-import { formatDate } from '@/utils/format';
+import { formatDate, todayIso } from '@/utils/format';
 
 const themeParkStore = useThemeParkStore();
 // Only the first load shows a skeleton. The minute-by-minute refresh must not
@@ -60,7 +60,7 @@ const totalFill = computed(() =>
     totals.value.capacity > 0 ? Math.round((totals.value.booked / totals.value.capacity) * 100) : 0
 );
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 </script>
 
 <template>

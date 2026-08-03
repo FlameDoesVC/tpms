@@ -122,6 +122,12 @@ const routes = [
         meta: { auth: true, roles: ['ferry_operator'] },
     },
     {
+        path: '/ferry/fleet',
+        name: 'ferry.fleet',
+        component: () => import('@/Pages/Ferry/FleetManagementView.vue'),
+        meta: { auth: true, roles: ['ferry_operator'] },
+    },
+    {
         path: '/ferry/validate',
         name: 'ferry.validate',
         component: () => import('@/Pages/Ferry/TicketValidationView.vue'),

@@ -7,7 +7,7 @@ import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import PromotionsStrip from '@/Components/PromotionsStrip.vue';
-import { formatDate, formatDateRange, formatDateTime, formatMoney, formatTime, nightsBetween } from '@/utils/format';
+import { formatDate, formatDateRange, formatDateTime, formatMoney, formatTime, nightsBetween, todayIso } from '@/utils/format';
 import SeatPickerModal from '@/Components/SeatPickerModal.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useHotelStore } from '@/stores/hotel';
@@ -139,7 +139,7 @@ const ticketedDates = computed(() => {
 // second, different ferry on the same day is still a duplicate of that leg.
 const alreadyBookedDates = computed(() => new Set([...ticketedDates.value, ...cartedDates.value]));
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 const upcomingTickets = computed(() =>
     ferryStore.myTickets
         .filter((t) => t.status === 'issued' && (t.schedule?.departure_date ?? '').slice(0, 10) >= today)

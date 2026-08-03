@@ -14,7 +14,7 @@ import StaffToolbar from '@/Components/StaffToolbar.vue';
 import { useHotelStore } from '@/stores/hotel';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDateRange, nightsBetween } from '@/utils/format';
+import { formatDateRange, nightsBetween, todayIso } from '@/utils/format';
 
 const STATUS_FILTER_OPTIONS = [
     { value: 'all', label: 'All statuses' },
@@ -34,7 +34,7 @@ onMounted(() => {
     hotelStore.fetchMyBookings();
 });
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 const dayOf = (value) => (value ?? '').slice(0, 10);
 
 const filteredBookings = computed(() => {

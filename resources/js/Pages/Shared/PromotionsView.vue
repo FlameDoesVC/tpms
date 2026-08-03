@@ -16,7 +16,7 @@ import { usePromotionsStore } from '@/stores/promotions';
 import { useAuthStore } from '@/stores/auth';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDate } from '@/utils/format';
+import { formatDate, todayIso } from '@/utils/format';
 
 const store = usePromotionsStore();
 const auth = useAuthStore();
@@ -46,7 +46,7 @@ const categoryFilter = ref('');
 
 const CATEGORY_LABELS = Object.fromEntries(CATEGORY_OPTIONS.map((o) => [o.value, o.label]));
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 const dayOf = (value) => (value ?? '').slice(0, 10);
 
 // `is_active` alone doesn't say whether a promotion is actually on the site:

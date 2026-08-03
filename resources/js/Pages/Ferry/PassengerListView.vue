@@ -11,10 +11,10 @@ import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
 import StaffToolbar from '@/Components/StaffToolbar.vue';
 import { useFerryStore } from '@/stores/ferry';
-import { formatDate, formatTime } from '@/utils/format';
+import { formatDate, formatTime, todayIso } from '@/utils/format';
 
 const ferryStore = useFerryStore();
-const date = ref(new Date().toISOString().slice(0, 10));
+const date = ref(todayIso());
 const selectedScheduleId = ref(null);
 
 const scheduleOptions = computed(() =>

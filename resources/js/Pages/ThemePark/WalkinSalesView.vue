@@ -10,12 +10,12 @@ import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TCard from '@/Components/ui/TCard.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
-import { formatTime } from '@/utils/format';
+import { formatTime, todayIso } from '@/utils/format';
 import { useThemeParkStore } from '@/stores/themepark';
 
 const themeParkStore = useThemeParkStore();
 const eventId = ref(null);
-const date = ref(new Date().toISOString().slice(0, 10));
+const date = ref(todayIso());
 const slotId = ref(null);
 const ticketCount = ref(1);
 const visitorName = ref('');

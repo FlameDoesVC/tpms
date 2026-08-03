@@ -78,6 +78,12 @@ Route::middleware('auth')->group(function () {
         Route::get('bookings/{booking}', [BookingController::class, 'show']);
         Route::patch('bookings/{booking}', [BookingController::class, 'update']);
 
+        // The fleet itself. Reading the list stays public (visitors need ferry
+        // names on their tickets); creating and reshaping boats does not.
+        Route::post('ferries', [FerryController::class, 'storeFerry']);
+        Route::patch('ferries/{ferry}', [FerryController::class, 'updateFerry']);
+        Route::delete('ferries/{ferry}', [FerryController::class, 'destroyFerry']);
+
         Route::post('ferry/schedules', [FerryController::class, 'storeSchedule']);
         Route::patch('ferry/schedules/{schedule}', [FerryController::class, 'updateSchedule']);
         Route::delete('ferry/schedules/{schedule}', [FerryController::class, 'destroySchedule']);

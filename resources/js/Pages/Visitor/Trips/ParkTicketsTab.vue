@@ -8,7 +8,7 @@ import TicketQr from '@/Components/Trips/TicketQr.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDate, formatTime } from '@/utils/format';
+import { formatDate, formatTime, todayIso } from '@/utils/format';
 import { statusVariant } from '@/utils/status';
 
 const themeParkStore = useThemeParkStore();
@@ -25,7 +25,7 @@ const sortedBookings = computed(() =>
 // Sliced before comparing: the raw value can be a full datetime, and read per
 // render so a long-open tab doesn't keep yesterday's cutoff.
 const isUpcoming = (booking) =>
-    (booking.slot?.slot_date ?? '').slice(0, 10) >= new Date().toISOString().slice(0, 10);
+    (booking.slot?.slot_date ?? '').slice(0, 10) >= todayIso();
 
 const cancel = async (booking) => {
     const ok = await confirm({

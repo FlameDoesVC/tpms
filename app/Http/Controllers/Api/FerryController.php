@@ -19,9 +19,216 @@ class FerryController extends Controller
 {
     public function __construct(private FerryTicketService $tickets) {}
 
-    public function ferries(): JsonResponse
+    /**
+     * Public list: only bookable boats. `?all=1` is for the management screen
+     * and needs a signed-in operator, since a retired ferry is not something a
+     * visitor should be able to enumerate.
+     */
+    public function ferries(Request $request): JsonResponse
     {
-        return response()->json(Ferry::query()->where('is_active', true)->get());
+        $wantsAll = $request->boolean('all');
+
+        if ($wantsAll) {
+            Gate::authorize('create', Ferry::class);
+        }
+
+        $ferries = Ferry::query()
+            ->when(! $wantsAll, fn ($q) => $q->where('is_active', true))
+            ->withCount('schedules')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($ferries->map(fn (Ferry $ferry) => $this->formatFerry($ferry, $wantsAll)));
+    }
+
+    public function storeFerry(Request $request): JsonResponse
+    {
+        Gate::authorize('create', Ferry::class);
+
+        $validated = $this->validateFerry($request);
+        $grid = Ferry::normaliseGrid($validated['layout']['grid'] ?? null);
+
+        $ferry = Ferry::create([
+            'name' => $validated['name'],
+            'price_per_seat' => $validated['price_per_seat'],
+            'is_active' => $validated['is_active'] ?? true,
+            // Capacity is never taken from the client: it is however many seat
+            // cells the grid holds, so the two can't drift apart.
+            'capacity' => Ferry::seatCount($grid),
+            'layout' => [
+                'grid' => $grid,
+                'entrances' => Ferry::normaliseEntrances(
+                    $validated['layout']['entrances'] ?? [],
+                    count($grid),
+                    strlen($grid[0])
+                ),
+            ],
+        ]);
+
+        return response()->json($this->formatFerry($ferry->refresh(), true), 201);
+    }
+
+    public function updateFerry(Request $request, Ferry $ferry): JsonResponse
+    {
+        Gate::authorize('update', $ferry);
+
+        $validated = $this->validateFerry($request);
+        $grid = Ferry::normaliseGrid($validated['layout']['grid'] ?? null);
+        $capacity = Ferry::seatCount($grid);
+
+        // Shrinking a deck under seats that are already sold would leave live
+        // tickets pointing at a seat that no longer exists on the boat. The
+        // layout editor warns about this too; this is the authority.
+        $highestSold = $this->highestSoldSeat($ferry);
+        if ($capacity < $highestSold) {
+            throw ValidationException::withMessages([
+                'layout' => "Seat {$highestSold} is already sold on this ferry, so the deck can't drop below {$highestSold} seats. Cancel that ticket first, or keep the seat.",
+            ]);
+        }
+
+        $capacityChanged = (int) $ferry->capacity !== $capacity;
+
+        $ferry->update([
+            'name' => $validated['name'],
+            'price_per_seat' => $validated['price_per_seat'],
+            'is_active' => $validated['is_active'] ?? $ferry->is_active,
+            'capacity' => $capacity,
+            'layout' => [
+                'grid' => $grid,
+                'entrances' => Ferry::normaliseEntrances(
+                    $validated['layout']['entrances'] ?? [],
+                    count($grid),
+                    strlen($grid[0])
+                ),
+            ],
+        ]);
+
+        if ($capacityChanged) {
+            $this->reconcileAvailableSeats($ferry);
+        }
+
+        return response()->json($this->formatFerry($ferry->refresh(), true));
+    }
+
+    public function destroyFerry(Ferry $ferry): JsonResponse
+    {
+        Gate::authorize('delete', $ferry);
+
+        // Sailings carry tickets, so deleting the boat under them would orphan
+        // real bookings. Deactivating is the reversible way to retire one.
+        if ($ferry->schedules()->exists()) {
+            throw ValidationException::withMessages([
+                'ferry' => 'This ferry has sailings on the schedule. Switch it inactive instead - that takes it off sale without touching existing tickets.',
+            ]);
+        }
+
+        $ferry->delete();
+
+        return response()->json(['deleted' => true]);
+    }
+
+    /**
+     * Shared rules. The grid is validated as a whole rather than field by field
+     * because "is this a rectangle of legal cells" isn't expressible per-row.
+     */
+    private function validateFerry(Request $request): array
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'price_per_seat' => ['required', 'numeric', 'min:0', 'max:99999.99'],
+            'is_active' => ['sometimes', 'boolean'],
+            'layout' => ['required', 'array'],
+            'layout.grid' => ['required', 'array', 'min:1', 'max:40'],
+            'layout.entrances' => ['sometimes', 'array', 'max:12'],
+        ]);
+
+        $grid = Ferry::normaliseGrid($validated['layout']['grid'] ?? null);
+
+        if ($grid === null) {
+            throw ValidationException::withMessages([
+                'layout' => 'The deck plan must be a rectangle, and every cell either a seat or empty space.',
+            ]);
+        }
+
+        if (strlen($grid[0]) > 20) {
+            throw ValidationException::withMessages([
+                'layout' => 'A deck can be at most 20 cells wide.',
+            ]);
+        }
+
+        if (Ferry::seatCount($grid) < 1) {
+            throw ValidationException::withMessages([
+                'layout' => 'Place at least one seat on the deck.',
+            ]);
+        }
+
+        return $validated;
+    }
+
+    /**
+     * Re-derive `available_seats` on sailings that haven't gone yet.
+     *
+     * That count is stored per sailing and was set from the ferry's capacity at
+     * the time the sailing was created. Reshaping a deck without this left every
+     * existing sailing quoting the old number - a 40-seat boat cut to 24 showed
+     * "39 of 24 seats left" on the booking page.
+     *
+     * Recomputed from the tickets that actually exist rather than by adjusting
+     * the old figure, so a count that had already drifted gets corrected too.
+     * Past sailings are left alone: their seat counts are a record of what ran.
+     */
+    private function reconcileAvailableSeats(Ferry $ferry): void
+    {
+        $capacity = (int) $ferry->capacity;
+
+        $ferry->schedules()
+            ->whereDate('departure_date', '>=', now()->toDateString())
+            ->get()
+            ->each(function (FerrySchedule $schedule) use ($capacity) {
+                $sold = $schedule->tickets()
+                    ->whereIn('status', ['pending', 'issued', 'used'])
+                    ->count();
+
+                $schedule->update(['available_seats' => max(0, $capacity - $sold)]);
+            });
+    }
+
+    /** Highest seat number sold on any of this ferry's sailings. */
+    private function highestSoldSeat(Ferry $ferry): int
+    {
+        return (int) FerryTicket::query()
+            ->whereIn('schedule_id', $ferry->schedules()->select('id'))
+            ->whereIn('status', ['pending', 'issued', 'used'])
+            ->max('seat_number');
+    }
+
+    private function formatFerry(Ferry $ferry, bool $forManagement = false): array
+    {
+        $deck = $ferry->deck();
+
+        $payload = [
+            'id' => $ferry->id,
+            'name' => $ferry->name,
+            'capacity' => $deck['capacity'],
+            'price_per_seat' => $ferry->price_per_seat,
+            'is_active' => $ferry->is_active,
+            'rows' => $deck['rows'],
+            'columns' => $deck['columns'],
+            'layout' => [
+                'grid' => $deck['grid'],
+                'entrances' => $deck['entrances'],
+            ],
+        ];
+
+        if ($forManagement) {
+            // Lets the editor warn before someone shrinks a deck under a sold
+            // seat, rather than only failing on save.
+            $payload['has_custom_layout'] = is_array($ferry->layout) && ! empty($ferry->layout['grid']);
+            $payload['schedules_count'] = $ferry->schedules_count ?? $ferry->schedules()->count();
+            $payload['highest_sold_seat'] = $this->highestSoldSeat($ferry);
+        }
+
+        return $payload;
     }
 
     public function schedules(Request $request): JsonResponse
@@ -106,11 +313,23 @@ class FerryController extends Controller
             ->where('status', 'used')
             ->pluck('seat_number');
 
+        $deck = $schedule->ferry->deck();
+
         return response()->json([
-            'capacity' => $schedule->ferry->capacity,
+            // From the deck rather than the column: the deck is what the picker
+            // draws, so if the two ever disagreed the map would be the thing
+            // that's wrong. Save keeps them equal, and the fallback derives one
+            // from the other.
+            'capacity' => $deck['capacity'],
             'price_per_seat' => $schedule->ferry->price_per_seat,
             'taken_seats' => $takenSeats,
             'boarded_seats' => $boardedSeats,
+            // Lets the seat picker draw this boat's actual deck instead of
+            // assuming four-plus-aisle-plus-four.
+            'layout' => [
+                'grid' => $deck['grid'],
+                'entrances' => $deck['entrances'],
+            ],
         ]);
     }
 

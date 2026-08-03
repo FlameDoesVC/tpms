@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import TIcon from '@/Components/ui/TIcon.vue';
+import TMonthYearPanel from '@/Components/ui/TMonthYearPanel.vue';
 
 const props = defineProps({
     label: { type: String, default: null },
@@ -36,6 +37,16 @@ const parseIso = (iso) => new Date(`${iso || todayIso}T00:00:00`);
 
 const viewDate = ref(parseIso(model.value));
 
+// Swaps the day grid for the month/year jump, rather than opening a second
+// popover inside this one - a 17rem panel nested in a 18rem popover would spill
+// out of it. Same reason a native picker drills in place.
+const jumping = ref(false);
+const viewIso = computed(() => toIso(viewDate.value));
+
+const onJump = (iso) => {
+    viewDate.value = parseIso(iso);
+};
+
 const displayLabel = computed(() => {
     if (!model.value) return props.placeholder;
     return parseIso(model.value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -70,6 +81,9 @@ const weeks = computed(() => {
 
 const openPicker = () => {
     viewDate.value = parseIso(model.value);
+    // Always opens on the day grid; the jump view is somewhere you go, not a
+    // state the field remembers.
+    jumping.value = false;
     open.value = true;
     nextTick(() => {
         const el = gridRef.value?.querySelector('[data-selected="true"]') ?? gridRef.value?.querySelector('[data-today="true"]');
@@ -158,12 +172,31 @@ const onGridKeydown = (e) => {
                     class="elevated-lg absolute z-50 mt-1 w-72 origin-top rounded-lg border bg-surface p-3"
                     @keydown="onGridKeydown"
                 >
+                    <TMonthYearPanel
+                        v-if="jumping"
+                        :model-value="viewIso"
+                        class="!w-full !p-0"
+                        @update:model-value="onJump"
+                        @close="jumping = false"
+                    />
+
+                    <template v-else>
                     <div class="mb-2 flex items-center justify-between">
-                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" @click="changeMonth(-1)">
+                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Previous month" @click="changeMonth(-1)">
                             <TIcon name="chevronLeft" :size="16" />
                         </button>
-                        <span class="text-sm font-semibold text-foreground">{{ monthLabel }}</span>
-                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" @click="changeMonth(1)">
+                        <!-- Clicking the month opens the jump view in place, so a
+                             date two quarters out isn't six presses of Next. -->
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-semibold text-foreground hover:bg-surface-hover"
+                            aria-label="Jump to another month or year"
+                            @click="jumping = true"
+                        >
+                            {{ monthLabel }}
+                            <TIcon name="chevronDown" :size="13" class="text-foreground-muted" />
+                        </button>
+                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Next month" @click="changeMonth(1)">
                             <TIcon name="chevronRight" :size="16" />
                         </button>
                     </div>
@@ -201,6 +234,7 @@ const onGridKeydown = (e) => {
                             Clear
                         </button>
                     </div>
+                    </template>
                 </div>
             </Transition>
         </div>

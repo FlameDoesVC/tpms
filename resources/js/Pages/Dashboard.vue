@@ -9,7 +9,7 @@ import TBadge from '@/Components/ui/TBadge.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TimelineIcon from '@/Components/icons/TimelineIcon.vue';
-import { formatDateRange, formatDateTime } from '@/utils/format';
+import { formatDateRange, formatDateTime, todayIso } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useHotelStore } from '@/stores/hotel';
 import { useFerryStore } from '@/stores/ferry';
@@ -29,7 +29,7 @@ const ferryStore = useFerryStore();
 const themeParkStore = useThemeParkStore();
 
 const isVisitor = computed(() => auth.userRole === 'visitor');
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 
 const loadTrips = () => {
     hotelStore.fetchMyBookings();

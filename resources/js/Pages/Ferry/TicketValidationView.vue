@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
-import { formatDate, formatDateTime, formatTime } from '@/utils/format';
+import { formatDate, formatDateTime, formatTime, todayIso } from '@/utils/format';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
@@ -17,7 +17,7 @@ const ferryStore = useFerryStore();
 // Scanning only starts once a specific departure is chosen - without this, a
 // ticket for yesterday's or next week's crossing would validate just as
 // happily as one for the boat actually boarding right now.
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 const scheduleDate = ref(today);
 const dateSchedules = ref([]);
 const selectedScheduleId = ref('');
@@ -43,12 +43,18 @@ watch(scheduleDate, () => {
 
 onMounted(refreshSchedulesForDate);
 
-const computeSeatRows = (capacity) =>
-    Array.from({ length: Math.ceil(capacity / 8) }, (_, r) => {
-        const left = [1, 2, 3, 4].map((n) => r * 8 + n).filter((n) => n <= capacity);
-        const right = [5, 6, 7, 8].map((n) => r * 8 + n).filter((n) => n <= capacity);
-        return { left, right };
-    });
+// Rows straight from the ferry's own deck plan, which the seat-map endpoint
+// now returns. This used to rebuild a four-plus-aisle-plus-four grid from the
+// capacity number alone - the reason a custom deck could never show up at the
+// gate, and a second copy of an assumption that belonged in the data.
+const computeSeatRows = (map) => {
+    const grid = map?.layout?.grid ?? [];
+    let number = 0;
+    return grid.map((row, rowIndex) => ({
+        number: rowIndex + 1,
+        cells: [...row].map((cell) => (cell === 'S' ? ++number : null)),
+    }));
+};
 
 // A live, whole-boat view shown on the scanning screen itself - not tied to
 // any particular scan, so the operator can see how full the boat is while
@@ -71,7 +77,7 @@ const refreshBoatSeatMap = async () => {
 
 watch(selectedScheduleId, refreshBoatSeatMap);
 
-const boatSeatRows = computed(() => (boatSeatMap.value ? computeSeatRows(boatSeatMap.value.capacity) : []));
+const boatSeatRows = computed(() => computeSeatRows(boatSeatMap.value));
 
 const boatSeatClass = (seat) => {
     if (boatSeatMap.value?.boarded_seats?.includes(seat)) return 'bg-foreground text-surface';
@@ -263,7 +269,7 @@ const headingClasses = computed(() => {
     return 'text-success';
 });
 
-const seatRows = computed(() => (seatMap.value ? computeSeatRows(seatMap.value.capacity) : []));
+const seatRows = computed(() => computeSeatRows(seatMap.value));
 
 const seatState = (seat) => {
     if (seat === ticket.value?.seat_number) return 'ticket';

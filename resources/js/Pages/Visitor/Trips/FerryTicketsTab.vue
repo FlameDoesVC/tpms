@@ -6,7 +6,7 @@ import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TicketQr from '@/Components/Trips/TicketQr.vue';
 import { useFerryStore } from '@/stores/ferry';
-import { formatDate, formatMoney, formatTime } from '@/utils/format';
+import { formatDate, formatMoney, formatTime, todayIso } from '@/utils/format';
 import { statusVariant } from '@/utils/status';
 
 const ferryStore = useFerryStore();
@@ -14,7 +14,6 @@ const qrRefs = ref({});
 
 onMounted(() => ferryStore.fetchMyTickets());
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
 
 // One card per crossing, not per seat. A family of four used to get four
 // full-height boarding passes for the same sailing; the dashboard already

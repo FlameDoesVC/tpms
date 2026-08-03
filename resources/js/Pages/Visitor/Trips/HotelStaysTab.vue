@@ -10,7 +10,7 @@ import TicketQr from '@/Components/Trips/TicketQr.vue';
 import { useHotelStore } from '@/stores/hotel';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDateRange, formatMoney, nightsBetween } from '@/utils/format';
+import { formatDateRange, formatMoney, nightsBetween, todayIso } from '@/utils/format';
 import { statusVariant } from '@/utils/status';
 
 const router = useRouter();
@@ -29,7 +29,6 @@ const sortedBookings = computed(() =>
 
 // Read per render rather than captured once at setup: a tab left open past
 // midnight would otherwise keep yesterday's idea of what's still cancellable.
-const todayIso = () => new Date().toISOString().slice(0, 10);
 const isUpcoming = (booking) => (booking.check_out_date ?? '').slice(0, 10) >= todayIso();
 const isCancellable = (booking) => booking.status !== 'cancelled' && isUpcoming(booking);
 

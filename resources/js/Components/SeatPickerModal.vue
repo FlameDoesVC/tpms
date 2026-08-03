@@ -29,18 +29,32 @@ const pricePerSeat = ref(0);
 const takenSeats = ref([]);
 const selectedSeats = ref([]);
 const paymentMethod = ref('online');
+const layout = ref({ grid: [], entrances: [] });
 
-// Four seats either side of a central aisle, bow to stern. Row 1 is nearest
-// the bow, which is how the deck is drawn below.
-const SEATS_PER_ROW = 8;
-const rows = computed(() => Array.from({ length: Math.ceil(capacity.value / SEATS_PER_ROW) }, (_, r) => {
-    const base = r * SEATS_PER_ROW;
-    return {
-        number: r + 1,
-        left: [1, 2, 3, 4].map((n) => base + n).filter((n) => n <= capacity.value),
-        right: [5, 6, 7, 8].map((n) => base + n).filter((n) => n <= capacity.value),
-    };
-}));
+// The deck comes from the ferry's own layout now. This used to assume four
+// seats either side of one central aisle for every boat, which is exactly why
+// the deck wasn't configurable - the shape lived here rather than in the data.
+const grid = computed(() => layout.value?.grid ?? []);
+const columnCount = computed(() => (grid.value[0] ?? '').length);
+
+// Seats number row by row over seat cells - the same order the server uses, so
+// the number under the cursor is the number that ends up on the ticket.
+const deckRows = computed(() => {
+    let number = 0;
+    return grid.value.map((row, rowIndex) => ({
+        number: rowIndex + 1,
+        cells: [...row].map((cell) => (cell === 'S' ? ++number : null)),
+    }));
+});
+
+const entranceAt = (edge, index) =>
+    (layout.value?.entrances ?? []).find((e) => e.edge === edge && e.index === index) ?? null;
+
+const bowDoors = computed(() => (layout.value?.entrances ?? []).filter((e) => e.edge === 'bow'));
+const sternDoors = computed(() => (layout.value?.entrances ?? []).filter((e) => e.edge === 'stern'));
+
+const doorLabel = (entrance) =>
+    entrance.label ?? `${entrance.edge.charAt(0).toUpperCase()}${entrance.edge.slice(1)} door`;
 
 const totalPrice = computed(() => props.seatsNeeded * pricePerSeat.value);
 const canConfirm = computed(() => selectedSeats.value.length === props.seatsNeeded);
@@ -71,12 +85,29 @@ const toggleSeat = (seat) => {
     selectedSeats.value = [...selectedSeats.value, seat];
 };
 
-// The first run of free seats on one side of one row, so a party is seated
-// together rather than scattered down the deck.
-const runIn = (side, needed) => {
-    for (let i = 0; i + needed <= side.length; i += 1) {
-        const window = side.slice(i, i + needed);
-        if (window.every(isFree)) return window;
+// Unbroken stretches of seating within one row. Splitting on empty cells means
+// a "block together" respects whatever gangways this particular deck has, rather
+// than assuming one aisle down the middle - two seats either side of an aisle
+// were previously treated as adjacent.
+const benchesIn = (cells) => {
+    const benches = [];
+    let current = [];
+    for (const seat of cells) {
+        if (seat === null) {
+            if (current.length) benches.push(current);
+            current = [];
+        } else {
+            current.push(seat);
+        }
+    }
+    if (current.length) benches.push(current);
+    return benches;
+};
+
+const runIn = (bench, needed) => {
+    for (let i = 0; i + needed <= bench.length; i += 1) {
+        const block = bench.slice(i, i + needed);
+        if (block.every(isFree)) return block;
     }
     return null;
 };
@@ -84,11 +115,13 @@ const runIn = (side, needed) => {
 const autoPick = () => {
     const needed = props.seatsNeeded;
 
-    for (const row of rows.value) {
-        const together = runIn(row.left, needed) ?? runIn(row.right, needed);
-        if (together) {
-            selectedSeats.value = together;
-            return;
+    for (const row of deckRows.value) {
+        for (const bench of benchesIn(row.cells)) {
+            const together = runIn(bench, needed);
+            if (together) {
+                selectedSeats.value = together;
+                return;
+            }
         }
     }
 
@@ -115,6 +148,10 @@ watch(show, async (visible) => {
         capacity.value = data.capacity;
         pricePerSeat.value = Number(data.price_per_seat);
         takenSeats.value = data.taken_seats;
+        // Older responses predate layouts; falling back to an empty grid would
+        // draw no deck at all, so treat a missing layout as "no seats known"
+        // only if the server really sent none.
+        layout.value = data.layout ?? { grid: [], entrances: [] };
     } finally {
         loading.value = false;
     }
@@ -168,58 +205,116 @@ const confirm = () => {
                      boat. The min-width keeps a small launch from looking like
                      a canoe. -->
                 <div class="deck-hull relative w-fit min-w-[18rem] border-2 bg-surface-sunken px-3 pb-6 pt-14 sm:px-8">
-                    <p class="mb-4 flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-muted">
+                    <p class="mb-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-muted">
                         <TIcon name="anchor" :size="13" /> Bow
                     </p>
 
+                    <!-- Doors along the bow, sat over the column they serve so
+                         "board at the front" is a place rather than a caption.
+                         Mirrors a seat row's leading spacers exactly - centring
+                         this strip instead left the markers a few pixels off the
+                         column they belong to. -->
+                    <div v-if="bowDoors.length" class="mx-auto mb-2 flex w-fit items-center gap-2 sm:gap-3">
+                        <span class="w-5 shrink-0" aria-hidden="true" />
+                        <span class="w-4 shrink-0" aria-hidden="true" />
+                        <div class="flex gap-2">
+                            <span
+                                v-for="c in columnCount"
+                                :key="`bow-${c}`"
+                                class="grid h-4 w-11 place-items-center sm:h-4 sm:w-12"
+                            >
+                                <TIcon
+                                    v-if="entranceAt('bow', c)"
+                                    name="logout"
+                                    :size="13"
+                                    class="-rotate-90 text-accent"
+                                    :title="doorLabel(entranceAt('bow', c))"
+                                />
+                            </span>
+                        </div>
+                        <span class="w-4 shrink-0" aria-hidden="true" />
+                    </div>
+
                     <div class="mx-auto flex w-fit flex-col gap-2.5">
-                        <div v-for="row in rows" :key="row.number" class="flex items-center gap-2 sm:gap-3">
-                            <!-- Porthole, aligned to the row it lights. -->
-                            <span class="h-2.5 w-2.5 shrink-0 rounded-full border border-strong bg-surface" aria-hidden="true" />
-
-                            <div class="flex gap-2">
-                                <button
-                                    v-for="seat in row.left"
-                                    :key="seat"
-                                    type="button"
-                                    :disabled="seatState(seat) === 'taken'"
-                                    :aria-label="`Seat ${seat}, ${seatState(seat)}`"
-                                    :aria-pressed="seatState(seat) === 'selected'"
-                                    @click="toggleSeat(seat)"
-                                    class="seat relative flex h-11 w-11 items-center justify-center rounded-lg border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-12 sm:w-12 sm:text-sm"
-                                    :class="SEAT_CLASS[seatState(seat)]"
-                                >
-                                    {{ seat }}
-                                </button>
-                            </div>
-
-                            <span class="w-7 text-center text-xs tabular-nums text-foreground-muted sm:w-9">
+                        <div v-for="row in deckRows" :key="row.number" class="flex items-center gap-2 sm:gap-3">
+                            <!-- Row number in a gutter rather than the aisle: with
+                                 a configurable deck there may be no single central
+                                 aisle to sit it in, or several. -->
+                            <span class="w-5 shrink-0 text-right text-xs tabular-nums text-foreground-muted">
                                 {{ row.number }}
                             </span>
 
+                            <!-- Port edge: a door if this row has one, otherwise
+                                 the porthole that marks a window seat. -->
+                            <span class="grid h-4 w-4 shrink-0 place-items-center">
+                                <TIcon
+                                    v-if="entranceAt('port', row.number)"
+                                    name="logout"
+                                    :size="13"
+                                    class="text-accent"
+                                    :title="doorLabel(entranceAt('port', row.number))"
+                                />
+                                <span v-else class="h-2.5 w-2.5 rounded-full border border-strong bg-surface" aria-hidden="true" />
+                            </span>
+
                             <div class="flex gap-2">
-                                <button
-                                    v-for="seat in row.right"
-                                    :key="seat"
-                                    type="button"
-                                    :disabled="seatState(seat) === 'taken'"
-                                    :aria-label="`Seat ${seat}, ${seatState(seat)}`"
-                                    :aria-pressed="seatState(seat) === 'selected'"
-                                    @click="toggleSeat(seat)"
-                                    class="seat relative flex h-11 w-11 items-center justify-center rounded-lg border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-12 sm:w-12 sm:text-sm"
-                                    :class="SEAT_CLASS[seatState(seat)]"
-                                >
-                                    {{ seat }}
-                                </button>
+                                <template v-for="(seat, c) in row.cells" :key="`${row.number}-${c}`">
+                                    <button
+                                        v-if="seat !== null"
+                                        type="button"
+                                        :disabled="seatState(seat) === 'taken'"
+                                        :aria-label="`Seat ${seat}, ${seatState(seat)}`"
+                                        :aria-pressed="seatState(seat) === 'selected'"
+                                        @click="toggleSeat(seat)"
+                                        class="seat relative flex h-11 w-11 items-center justify-center rounded-lg border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-12 sm:w-12 sm:text-sm"
+                                        :class="SEAT_CLASS[seatState(seat)]"
+                                    >
+                                        {{ seat }}
+                                    </button>
+                                    <!-- Empty cell: keeps the column grid aligned so
+                                         gangways and notches read as deck space. -->
+                                    <span v-else class="h-11 w-11 sm:h-12 sm:w-12" aria-hidden="true" />
+                                </template>
                             </div>
 
-                            <span class="h-2.5 w-2.5 shrink-0 rounded-full border border-strong bg-surface" aria-hidden="true" />
+                            <span class="grid h-4 w-4 shrink-0 place-items-center">
+                                <TIcon
+                                    v-if="entranceAt('starboard', row.number)"
+                                    name="logout"
+                                    :size="13"
+                                    class="rotate-180 text-accent"
+                                    :title="doorLabel(entranceAt('starboard', row.number))"
+                                />
+                                <span v-else class="h-2.5 w-2.5 rounded-full border border-strong bg-surface" aria-hidden="true" />
+                            </span>
+
                         </div>
+                    </div>
+
+                    <div v-if="sternDoors.length" class="mx-auto mt-2 flex w-fit items-center gap-2 sm:gap-3">
+                        <span class="w-5 shrink-0" aria-hidden="true" />
+                        <span class="w-4 shrink-0" aria-hidden="true" />
+                        <div class="flex gap-2">
+                            <span
+                                v-for="c in columnCount"
+                                :key="`stern-${c}`"
+                                class="grid h-4 w-11 place-items-center sm:h-4 sm:w-12"
+                            >
+                                <TIcon
+                                    v-if="entranceAt('stern', c)"
+                                    name="logout"
+                                    :size="13"
+                                    class="rotate-90 text-accent"
+                                    :title="doorLabel(entranceAt('stern', c))"
+                                />
+                            </span>
+                        </div>
+                        <span class="w-4 shrink-0" aria-hidden="true" />
                     </div>
 
                     <div class="perforation mt-5 opacity-60" aria-hidden="true" />
                     <p class="mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-muted">
-                        Stern · boarding
+                        Stern
                     </p>
                 </div>
 
@@ -239,6 +334,10 @@ const confirm = () => {
                     <span class="flex items-center gap-1.5">
                         <span class="h-2 w-2 rounded-full border border-strong bg-surface" />
                         Window
+                    </span>
+                    <span v-if="layout.entrances?.length" class="flex items-center gap-1.5">
+                        <TIcon name="logout" :size="13" class="text-accent" />
+                        Boarding door
                     </span>
                 </div>
                 </div>

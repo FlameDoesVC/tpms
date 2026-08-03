@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TCard from '@/Components/ui/TCard.vue';
@@ -13,10 +13,11 @@ import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
+import CalendarDayPanel from '@/Components/CalendarDayPanel.vue';
 import { useFerryStore } from '@/stores/ferry';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDate, formatTime } from '@/utils/format';
+import { formatDate, formatTime, todayIso } from '@/utils/format';
 
 const ferryStore = useFerryStore();
 const confirm = useConfirm();
@@ -24,7 +25,10 @@ const showModal = ref(false);
 const errors = ref({});
 const saving = ref(false);
 const scheduleMode = ref('oneoff');
-const calendarMonth = ref(new Date().toISOString().slice(0, 10));
+const calendarMonth = ref(todayIso());
+// Starts on today, so the page opens already answering "what's running now"
+// instead of showing an empty rail waiting to be clicked.
+const selectedDay = ref(todayIso());
 
 // Fixed hue order, assigned by ferry id (not list position) so a ferry's
 // colour stays stable as other ferries are added or removed.
@@ -85,14 +89,39 @@ onMounted(() => {
     ferryStore.fetchTemplates();
 });
 
-const openAddModal = () => {
+// `date` prefills the form, so adding to a day you clicked doesn't mean typing
+// that date back in by hand.
+const openAddModal = (date = null) => {
     scheduleMode.value = 'oneoff';
-    form.value = emptyOneOffForm();
-    recurringForm.value = emptyRecurringForm();
+    form.value = { ...emptyOneOffForm(), departure_date: date ?? '' };
+    recurringForm.value = { ...emptyRecurringForm(), starts_on: date ?? '' };
     editingTemplateId.value = null;
     errors.value = {};
     showModal.value = true;
 };
+
+// No toggle-off: the rail is permanent, so deselecting would only empty it.
+const selectDay = (iso) => {
+    selectedDay.value = iso;
+};
+
+// The panel details a day you can see in the grid, so paging the month away
+// from it closes it rather than leaving a detail view for a day that is no
+// longer on screen.
+watch(calendarMonth, (month) => {
+    if (selectedDay.value && !selectedDay.value.startsWith(month.slice(0, 7))) {
+        selectedDay.value = null;
+    }
+});
+
+const selectedDaySchedules = computed(() =>
+    selectedDay.value
+        ? calendarItems.value
+            .filter((s) => s.date === selectedDay.value)
+            .slice()
+            .sort((a, b) => (a.departure_time ?? '').localeCompare(b.departure_time ?? ''))
+        : []
+);
 
 const openEditTemplateModal = (template) => {
     scheduleMode.value = 'recurring';
@@ -181,11 +210,6 @@ const uncancelSchedule = async (schedule) => {
     }
 };
 
-const toggleSchedule = (schedule) => {
-    if (schedule.status === 'scheduled') cancelSchedule(schedule);
-    else if (schedule.status === 'cancelled') uncancelSchedule(schedule);
-};
-
 const stopTemplate = async (template) => {
     const ok = await confirm({
         title: 'Stop this recurring schedule?',
@@ -234,7 +258,17 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
         </template>
 
         <div class="space-y-5">
-            <MonthCalendar v-model="calendarMonth" :items="calendarItems">
+            <!-- Calendar and the selected day side by side; the recurring table
+                 spans the full width underneath, where its six columns fit. -->
+            <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <MonthCalendar
+                v-model="calendarMonth"
+                :items="calendarItems"
+                :selected="selectedDay"
+                add-label="Add a sailing"
+                @select="selectDay"
+                @add="openAddModal"
+            >
                 <template #legend>
                     <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-foreground-secondary">
                         <span v-for="ferry in ferryStore.ferries" :key="ferry.id" class="flex items-center gap-1.5">
@@ -246,8 +280,13 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                         </span>
                     </div>
                 </template>
-                <template #day="{ items }">
+                <template #day="{ date, items }">
                     <div class="space-y-1">
+                        <!-- Selects the day rather than cancelling the sailing.
+                             Cancel used to be what a single click on a chip did,
+                             which made the most inviting target on the page a
+                             destructive one; it now lives in the day panel where
+                             it's labelled. -->
                         <button
                             v-for="item in items"
                             :key="item.id"
@@ -258,10 +297,8 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                                 item.status !== 'scheduled' && 'opacity-50',
                                 item.status === 'cancelled' && 'line-through',
                             ]"
-                            :title="item.status === 'cancelled'
-                                ? `${item.ferry?.name} — cancelled (click to restore)`
-                                : `${item.ferry?.name} — ${item.status} (click to cancel)`"
-                            @click="toggleSchedule(item)"
+                            :title="`${item.ferry?.name} — ${item.status}. Click to open this day.`"
+                            @click.stop="selectDay(date)"
                         >
                             {{ formatTime(item.departure_time) }}
                             <span class="opacity-80">
@@ -272,6 +309,91 @@ const calendarItems = computed(() => ferryStore.schedules.map((s) => ({
                     </div>
                 </template>
             </MonthCalendar>
+
+            <div class="xl:sticky xl:top-20 xl:self-start">
+                <CalendarDayPanel
+                    :date="selectedDay"
+                    :count="selectedDaySchedules.length"
+                    add-label="Add a sailing"
+                    empty-text="No sailings on this day yet."
+                    idle-text="Pick a day in the calendar to see its sailings."
+                    @add="openAddModal(selectedDay)"
+                >
+                    <!-- Stacked rather than one wide row: this is a 21rem rail,
+                         so the time leads, then the boat, then how full it is. -->
+                    <div v-for="item in selectedDaySchedules" :key="item.id" class="px-4 py-3">
+                        <div class="flex items-start gap-2">
+                            <span
+                                class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                                :style="{ backgroundColor: ferryHue(item.ferry_id) }"
+                                aria-hidden="true"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <p class="flex items-center gap-1.5 font-medium text-foreground">
+                                    {{ formatTime(item.departure_time) }}
+                                    <TIcon name="arrowRight" :size="13" class="text-foreground-muted" />
+                                    {{ formatTime(item.arrival_time) }}
+                                </p>
+                                <p class="truncate text-xs text-foreground-muted">{{ item.ferry?.name }}</p>
+                            </div>
+                            <TBadge
+                                :variant="item.status === 'scheduled' ? 'success' : item.status === 'cancelled' ? 'neutral' : 'info'"
+                                size="sm"
+                                dot
+                                class="shrink-0 capitalize"
+                            >
+                                {{ item.status }}
+                            </TBadge>
+                        </div>
+
+                        <!-- How full it is, at a glance rather than as a fraction
+                             you have to do arithmetic on. -->
+                        <div class="mt-2">
+                            <div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+                                <div
+                                    class="h-full rounded-full"
+                                    :class="item.available_seats === 0 ? 'bg-danger' : 'bg-primary'"
+                                    :style="{ width: `${item.ferry?.capacity ? ((item.ferry.capacity - item.available_seats) / item.ferry.capacity) * 100 : 0}%` }"
+                                />
+                            </div>
+                            <p class="mt-1 text-xs text-foreground-muted">
+                                {{ item.ferry?.capacity - item.available_seats }} of {{ item.ferry?.capacity }} booked
+                                <span v-if="item.available_seats === 0" class="font-medium text-danger">· full</span>
+                            </p>
+                        </div>
+
+                        <TBadge v-if="item.is_overridden" variant="warning" size="sm" class="mt-2">
+                            Edited off pattern
+                        </TBadge>
+
+                        <div class="mt-2 flex items-center gap-2">
+                            <TButton
+                                v-if="item.status === 'scheduled'"
+                                variant="secondary"
+                                size="xs"
+                                @click="cancelSchedule(item)"
+                            >
+                                Cancel sailing
+                            </TButton>
+                            <TButton
+                                v-else-if="item.status === 'cancelled'"
+                                variant="secondary"
+                                size="xs"
+                                @click="uncancelSchedule(item)"
+                            >
+                                Restore
+                            </TButton>
+                            <router-link
+                                :to="{ name: 'ferry.passengers' }"
+                                class="ml-auto text-xs font-medium text-primary hover:underline"
+                            >
+                                Manifest
+                            </router-link>
+                        </div>
+                    </div>
+                </CalendarDayPanel>
+            </div>
+            </div>
 
             <TCard icon="clock" title="Recurring schedules" :padding="false">
                 <div v-if="ferryStore.templates.length === 0" class="p-4">

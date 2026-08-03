@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
@@ -14,10 +14,11 @@ import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TEmptyState from '@/Components/ui/TEmptyState.vue';
 import MonthCalendar from '@/Components/MonthCalendar.vue';
+import CalendarDayPanel from '@/Components/CalendarDayPanel.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 import { useConfirm } from '@/composables/useConfirm';
 import { showToast } from '@/composables/useToast';
-import { formatDate, formatTime } from '@/utils/format';
+import { formatDate, formatTime, todayIso } from '@/utils/format';
 
 const themeParkStore = useThemeParkStore();
 const confirm = useConfirm();
@@ -25,7 +26,10 @@ const showModal = ref(false);
 const errors = ref({});
 const saving = ref(false);
 const scheduleMode = ref('oneoff');
-const calendarMonth = ref(new Date().toISOString().slice(0, 10));
+const calendarMonth = ref(todayIso());
+// Starts on today, so the page opens already answering "what's running now"
+// instead of showing an empty rail waiting to be clicked.
+const selectedDay = ref(todayIso());
 
 // Fixed hue order, assigned by event id (not list position) so an event's
 // colour stays stable as other events are added or removed.
@@ -75,14 +79,30 @@ onMounted(() => {
     themeParkStore.fetchTemplates();
 });
 
-const openAddModal = () => {
+// `date` prefills the form, so adding to a day you clicked doesn't mean typing
+// that date back in by hand.
+const openAddModal = (date = null) => {
     scheduleMode.value = 'oneoff';
-    form.value = emptyOneOffForm();
-    recurringForm.value = emptyRecurringForm();
+    form.value = { ...emptyOneOffForm(), slot_date: date ?? '' };
+    recurringForm.value = { ...emptyRecurringForm(), starts_on: date ?? '' };
     editingTemplateId.value = null;
     errors.value = {};
     showModal.value = true;
 };
+
+// No toggle-off: the rail is permanent, so deselecting would only empty it.
+const selectDay = (iso) => {
+    selectedDay.value = iso;
+};
+
+// The panel details a day you can see in the grid, so paging the month away
+// from it closes it rather than leaving a detail view for a day that is no
+// longer on screen.
+watch(calendarMonth, (month) => {
+    if (selectedDay.value && !selectedDay.value.startsWith(month.slice(0, 7))) {
+        selectedDay.value = null;
+    }
+});
 
 const openEditTemplateModal = (template) => {
     scheduleMode.value = 'recurring';
@@ -179,11 +199,6 @@ const uncancelSlot = async (slot) => {
     }
 };
 
-const toggleSlot = (slot) => {
-    if (slot.status === 'scheduled') cancelSlot(slot);
-    else if (slot.status === 'cancelled') uncancelSlot(slot);
-};
-
 const stopTemplate = async (template) => {
     const ok = await confirm({
         title: 'Stop this recurring schedule?',
@@ -211,6 +226,15 @@ const patternSummary = (template) => {
     }
     return `Monthly: day ${template.day_of_month}, ${template.slot_time?.slice(0, 5)}`;
 };
+
+const selectedDaySlots = computed(() =>
+    selectedDay.value
+        ? calendarItems.value
+            .filter((slot) => slot.date === selectedDay.value)
+            .slice()
+            .sort((a, b) => (a.slot_time ?? '').localeCompare(b.slot_time ?? ''))
+        : []
+);
 
 const calendarItems = computed(() => themeParkStore.slots.map((s) => ({
     ...s,
@@ -242,7 +266,17 @@ const frequencyOptions = [
         </template>
 
         <div class="space-y-5">
-            <MonthCalendar v-model="calendarMonth" :items="calendarItems">
+            <!-- Calendar and the selected day side by side; the recurring table
+                 spans the full width underneath, where its six columns fit. -->
+            <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <MonthCalendar
+                v-model="calendarMonth"
+                :items="calendarItems"
+                :selected="selectedDay"
+                add-label="Add a slot"
+                @select="selectDay"
+                @add="openAddModal"
+            >
                 <template #legend>
                     <div class="flex flex-wrap justify-end gap-x-3 gap-y-1 text-xs text-foreground-secondary">
                         <span v-for="event in themeParkStore.events" :key="event.id" class="flex items-center gap-1.5">
@@ -251,8 +285,13 @@ const frequencyOptions = [
                         </span>
                     </div>
                 </template>
-                <template #day="{ items }">
+                <template #day="{ date, items }">
                     <div class="space-y-1">
+                        <!-- Selects the day rather than cancelling the slot.
+                             Cancel used to be what a single click on a chip did,
+                             which made the most inviting target on the page a
+                             destructive one; it now lives in the day panel where
+                             it's labelled. -->
                         <button
                             v-for="item in items"
                             :key="item.id"
@@ -260,10 +299,8 @@ const frequencyOptions = [
                             class="block w-full rounded border px-1.5 py-0.5 text-left text-xs font-medium transition-opacity hover:opacity-80"
                             :style="eventChipStyle(item.event_id)"
                             :class="item.status === 'cancelled' && 'opacity-50 line-through'"
-                            :title="item.status === 'cancelled'
-                                ? `${item.event?.name} — cancelled (click to restore)`
-                                : `${item.event?.name} — ${item.status} (click to cancel)`"
-                            @click="toggleSlot(item)"
+                            :title="`${item.event?.name} — ${item.status}. Click to open this day.`"
+                            @click.stop="selectDay(date)"
                         >
                             {{ formatTime(item.slot_time) }}
                             <span class="opacity-80">
@@ -274,6 +311,82 @@ const frequencyOptions = [
                     </div>
                 </template>
             </MonthCalendar>
+
+            <div class="xl:sticky xl:top-20 xl:self-start">
+                <CalendarDayPanel
+                    :date="selectedDay"
+                    :count="selectedDaySlots.length"
+                    add-label="Add a slot"
+                    empty-text="No time slots on this day yet."
+                    idle-text="Pick a day in the calendar to see its slots."
+                    @add="openAddModal(selectedDay)"
+                >
+                    <!-- Stacked rather than one wide row: this is a 21rem rail,
+                         so the time leads, then the event, then how full it is. -->
+                    <div v-for="item in selectedDaySlots" :key="item.id" class="px-4 py-3">
+                        <div class="flex items-start gap-2">
+                            <span
+                                class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                                :style="{ backgroundColor: eventHue(item.event_id) }"
+                                aria-hidden="true"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium text-foreground">{{ formatTime(item.slot_time) }}</p>
+                                <p class="truncate text-xs text-foreground-muted">{{ item.event?.name }}</p>
+                            </div>
+                            <TBadge
+                                :variant="item.status === 'scheduled' ? 'success' : item.status === 'cancelled' ? 'neutral' : 'info'"
+                                size="sm"
+                                dot
+                                class="shrink-0 capitalize"
+                            >
+                                {{ item.status }}
+                            </TBadge>
+                        </div>
+
+                        <!-- How full it is, at a glance rather than as a fraction
+                             you have to do arithmetic on. -->
+                        <div class="mt-2">
+                            <div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+                                <div
+                                    class="h-full rounded-full"
+                                    :class="item.available_capacity === 0 ? 'bg-danger' : 'bg-primary'"
+                                    :style="{ width: `${item.event?.capacity_per_slot ? ((item.event.capacity_per_slot - item.available_capacity) / item.event.capacity_per_slot) * 100 : 0}%` }"
+                                />
+                            </div>
+                            <p class="mt-1 text-xs text-foreground-muted">
+                                {{ item.event?.capacity_per_slot - item.available_capacity }}
+                                of {{ item.event?.capacity_per_slot }} sold
+                                <span v-if="item.available_capacity === 0" class="font-medium text-danger">· full</span>
+                            </p>
+                        </div>
+
+                        <TBadge v-if="item.is_overridden" variant="warning" size="sm" class="mt-2">
+                            Edited off pattern
+                        </TBadge>
+
+                        <div class="mt-2 flex items-center gap-2">
+                            <TButton
+                                v-if="item.status === 'scheduled'"
+                                variant="secondary"
+                                size="xs"
+                                @click="cancelSlot(item)"
+                            >
+                                Cancel slot
+                            </TButton>
+                            <TButton
+                                v-else-if="item.status === 'cancelled'"
+                                variant="secondary"
+                                size="xs"
+                                @click="uncancelSlot(item)"
+                            >
+                                Restore
+                            </TButton>
+                        </div>
+                    </div>
+                </CalendarDayPanel>
+            </div>
+            </div>
 
             <TCard icon="clock" title="Recurring schedules" :padding="false">
                 <!-- Had no empty state at all: with no templates the card showed a

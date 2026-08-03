@@ -11,13 +11,13 @@ import TDatePicker from '@/Components/ui/TDatePicker.vue';
 import StaffToolbar from '@/Components/StaffToolbar.vue';
 import { useThemeParkStore } from '@/stores/themepark';
 import { useChartTheme } from '@/composables/useChartTheme';
-import { formatDate, formatMoney } from '@/utils/format';
+import { formatDate, formatMoney, todayIso } from '@/utils/format';
 
 ChartJS.register(Title, Tooltip, BarElement, CategoryScale, LinearScale);
 
 const themeParkStore = useThemeParkStore();
 const chartTheme = useChartTheme();
-const date = ref(new Date().toISOString().slice(0, 10));
+const date = ref(todayIso());
 
 const load = () => themeParkStore.fetchSalesReport(date.value);
 onMounted(load);

@@ -13,7 +13,7 @@ import TSwitch from '@/Components/ui/TSwitch.vue';
 import FilterRail from '@/Components/FilterRail.vue';
 import FilterSection from '@/Components/FilterSection.vue';
 import PromotionsStrip from '@/Components/PromotionsStrip.vue';
-import { formatDateRange, formatMoney, nightsBetween } from '@/utils/format';
+import { formatDateRange, formatMoney, nightsBetween, todayIso } from '@/utils/format';
 import * as roomSelection from '@/utils/roomSelection';
 import TIcon from '@/Components/ui/TIcon.vue';
 import { useHotelStore } from '@/stores/hotel';
@@ -35,7 +35,7 @@ const addDays = (dateStr, days) => {
     return d.toISOString().slice(0, 10);
 };
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayIso();
 
 const SORTS = [
     { key: 'price', label: 'Cheapest' },

@@ -23,6 +23,27 @@ const toLocalDate = (value) => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+/**
+ * A Date as a LOCAL 'YYYY-MM-DD'.
+ *
+ * The counterpart to toLocalDate above, and the missing half of the same
+ * hazard: `date.toISOString().slice(0, 10)` formats in UTC, so anywhere west of
+ * Greenwich it returns the previous day for as many hours as the offset. At
+ * 02:00 in UTC-8 it reports yesterday.
+ */
+export function toIsoDate(value) {
+    const date = toLocalDate(value) ?? new Date();
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+/** Today, in the viewer's own timezone. */
+export function todayIso() {
+    return toIsoDate(new Date());
+}
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 /**

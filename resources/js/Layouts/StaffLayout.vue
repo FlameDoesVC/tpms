@@ -36,6 +36,7 @@ const navByRole = {
     ferry_operator: [
         { section: 'Operations', items: [
             { label: 'Overview', name: 'dashboard', icon: 'dashboard' },
+            { label: 'Fleet', name: 'ferry.fleet', icon: 'ferry' },
             { label: 'Schedules', name: 'ferry.schedule-management', icon: 'calendar' },
             { label: 'Passengers', name: 'ferry.passengers', icon: 'users' },
         ] },
@@ -76,6 +77,7 @@ const navByRole = {
             { label: 'Rooms', name: 'manager.rooms', icon: 'bed' },
         ] },
         { section: 'Ferry', items: [
+            { label: 'Fleet', name: 'ferry.fleet', icon: 'ferry' },
             { label: 'Schedules', name: 'ferry.schedule-management', icon: 'calendar' },
             { label: 'Passengers', name: 'ferry.passengers', icon: 'users' },
             { label: 'Validate', name: 'ferry.validate', icon: 'scan' },
