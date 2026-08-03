@@ -5,13 +5,17 @@ namespace Database\Seeders;
 use App\Models\Booking;
 use App\Models\EventBooking;
 use App\Models\EventSlot;
+use App\Models\EventSlotTemplate;
 use App\Models\Ferry;
 use App\Models\FerrySchedule;
+use App\Models\FerryScheduleTemplate;
 use App\Models\FerryTicket;
 use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\ThemeParkEvent;
 use App\Models\User;
+use App\Services\EventSlotTemplateGenerator;
+use App\Services\ScheduleTemplateGenerator;
 use Illuminate\Database\Seeder;
 
 class DemoDataSeeder extends Seeder
@@ -103,20 +107,21 @@ class DemoDataSeeder extends Seeder
         $islandHopper = Ferry::factory()->create(['name' => 'Island Hopper', 'capacity' => 40, 'price_per_seat' => 20]);
         $seaBreeze = Ferry::factory()->create(['name' => 'Sea Breeze', 'capacity' => 25, 'price_per_seat' => 15]);
 
-        $schedules = collect();
+        // Daily recurring templates, materialized into FerrySchedule instances by the generator.
         foreach ([$islandHopper, $seaBreeze] as $ferry) {
-            foreach (range(1, 5) as $daysAhead) {
-                $schedules->push(FerrySchedule::factory()->create([
-                    'ferry_id' => $ferry->id,
-                    'departure_date' => now()->addDays($daysAhead)->toDateString(),
-                    'departure_time' => '09:00:00',
-                    'arrival_time' => '10:30:00',
-                    'available_seats' => $ferry->capacity,
-                ]));
-            }
+            FerryScheduleTemplate::factory()->create([
+                'ferry_id' => $ferry->id,
+                'frequency' => 'daily',
+                'departure_time' => '09:00:00',
+                'arrival_time' => '10:30:00',
+                'available_seats' => $ferry->capacity,
+                'starts_on' => now()->addDay()->toDateString(),
+                'ends_on' => now()->addDays(5)->toDateString(),
+            ]);
         }
+        (new ScheduleTemplateGenerator)->generate();
 
-        $ferrySchedule = $schedules->first();
+        $ferrySchedule = FerrySchedule::where('ferry_id', $islandHopper->id)->orderBy('departure_date')->firstOrFail();
         $ferrySchedule->decrement('available_seats');
         FerryTicket::factory()->create([
             'user_id' => $visitor1->id,
@@ -154,21 +159,22 @@ class DemoDataSeeder extends Seeder
             'price_per_ticket' => 5,
         ]);
 
-        $slots = collect();
+        // Daily recurring templates, materialized into EventSlot instances by the generator.
         foreach ([$ride, $show, $beachEvent] as $event) {
             foreach (['10:00:00', '14:00:00'] as $time) {
-                foreach (range(0, 3) as $daysAhead) {
-                    $slots->push(EventSlot::factory()->create([
-                        'event_id' => $event->id,
-                        'slot_date' => now()->addDays($daysAhead)->toDateString(),
-                        'slot_time' => $time,
-                        'available_capacity' => $event->capacity_per_slot,
-                    ]));
-                }
+                EventSlotTemplate::factory()->create([
+                    'event_id' => $event->id,
+                    'frequency' => 'daily',
+                    'slot_time' => $time,
+                    'available_capacity' => $event->capacity_per_slot,
+                    'starts_on' => now()->toDateString(),
+                    'ends_on' => now()->addDays(3)->toDateString(),
+                ]);
             }
         }
+        (new EventSlotTemplateGenerator)->generate();
 
-        $bookedSlot = $slots->first();
+        $bookedSlot = EventSlot::where('event_id', $ride->id)->where('slot_time', '10:00:00')->orderBy('slot_date')->firstOrFail();
         $bookedSlot->decrement('available_capacity', 2);
         EventBooking::factory()->create([
             'user_id' => $visitor1->id,
