@@ -1,6 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import axios from 'axios';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import StaffLayout from '@/Layouts/StaffLayout.vue';
 import TPageHeader from '@/Components/ui/TPageHeader.vue';
 import TCard from '@/Components/ui/TCard.vue';
@@ -22,8 +24,18 @@ const showModal = ref(false);
 const editing = ref(null);
 const errors = ref({});
 const saving = ref(false);
-const mapRef = ref(null);
+const previewMapEl = ref(null);
+const editorMapEl = ref(null);
 const confirm = useConfirm();
+
+// Same real-world center and locked rectangle as the visitor-facing map —
+// pins placed here have to land inside the bounds the API will accept.
+const CENTER = [2.171568, 73.079713];
+const BOUNDS = L.latLngBounds([2.165568, 73.072713], [2.177568, 73.086713]);
+
+// Satellite imagery, no separate dark-mode variant needed.
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, and the GIS User Community';
 
 const TYPE_OPTIONS = [
     { value: 'hotel',     label: 'Hotel' },
@@ -41,7 +53,7 @@ const TYPE_COLOR = {
     ferry:     '#f59e0b',
     themepark: '#3b82f6',
     beach:     '#06b6d4',
-    general:   '#8b5cf6',
+    general:   '#eab308',
 };
 
 const TYPE_LABELS = Object.fromEntries(TYPE_OPTIONS.map((o) => [o.value, o.label]));
@@ -50,8 +62,8 @@ const emptyForm = () => ({
     name: '',
     description: '',
     type: 'general',
-    position_top: 50,
-    position_left: 50,
+    latitude: CENTER[0],
+    longitude: CENTER[1],
     is_active: true,
 });
 const form = ref(emptyForm());
@@ -95,8 +107,8 @@ const openEdit = (loc) => {
         name: loc.name,
         description: loc.description ?? '',
         type: loc.type,
-        position_top: loc.position_top,
-        position_left: loc.position_left,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
         is_active: loc.is_active,
     };
     errors.value = {};
@@ -157,15 +169,122 @@ const remove = async (loc) => {
     }
 };
 
-// Click-to-place: clicking the map image sets position_top/position_left.
-const onMapClick = (e) => {
-    if (!mapRef.value) return;
-    const rect = mapRef.value.getBoundingClientRect();
-    const top = ((e.clientY - rect.top) / rect.height) * 100;
-    const left = ((e.clientX - rect.left) / rect.width) * 100;
-    form.value.position_top = Math.round(top * 10) / 10;
-    form.value.position_left = Math.round(left * 10) / 10;
+const pinIcon = (color) => L.divIcon({
+    className: '',
+    html: `
+        <svg viewBox="0 0 24 24" fill="${color}" width="28" height="28" style="filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.4))">
+            <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
+        </svg>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    tooltipAnchor: [0, -24],
+});
+
+const lockedMapOptions = () => ({
+    center: CENTER,
+    zoom: 15,
+    // Fractional zoom so fitBounds can crop tightly to BOUNDS instead of
+    // snapping down to the nearest whole level and showing extra area.
+    zoomSnap: 0,
+    scrollWheelZoom: false,
+    maxBounds: BOUNDS,
+    maxBoundsViscosity: 1.0,
+});
+
+const applyLockedBounds = (map) => {
+    map.fitBounds(BOUNDS);
+    map.setMinZoom(map.getZoom());
+    map.setMaxZoom(Math.min(map.getZoom() + 5, 19));
+    map.setView(CENTER, map.getZoom());
 };
+
+const addTileLayer = (map) => L.tileLayer(SATELLITE_TILE_URL, {
+    attribution: SATELLITE_ATTRIBUTION,
+    maxZoom: 19,
+    // Esri's imagery for this area tops out around zoom 17 natively; beyond
+    // that, upscale the last tile instead of their "not yet available" tile.
+    maxNativeZoom: 17,
+}).addTo(map);
+
+// Live preview: shows every active pin, click one to edit it.
+let previewMap = null;
+let previewTileLayer = null;
+let previewMarkers = null;
+
+const renderPreviewMarkers = () => {
+    if (!previewMap) return;
+    previewMarkers?.clearLayers();
+    previewMarkers = previewMarkers ?? L.layerGroup().addTo(previewMap);
+    for (const loc of activeLocations.value) {
+        L.marker([loc.latitude, loc.longitude], { icon: pinIcon(TYPE_COLOR[loc.type] ?? TYPE_COLOR.general) })
+            .bindTooltip(loc.name, { direction: 'top', offset: [0, -24] })
+            .on('click', () => openEdit(loc))
+            .addTo(previewMarkers);
+    }
+};
+
+onMounted(async () => {
+    await nextTick();
+    if (!previewMapEl.value) return;
+    previewMap = L.map(previewMapEl.value, lockedMapOptions());
+    applyLockedBounds(previewMap);
+    previewTileLayer = addTileLayer(previewMap);
+    renderPreviewMarkers();
+});
+
+onUnmounted(() => {
+    previewMap?.remove();
+    previewMap = null;
+    editorMap?.remove();
+    editorMap = null;
+});
+
+watch(activeLocations, renderPreviewMarkers);
+
+// Editor: click-to-place inside the add/edit modal. Rebuilt each time the
+// modal opens since Leaflet needs a visible, sized container to initialise.
+let editorMap = null;
+let editorTileLayer = null;
+let editorMarker = null;
+
+const placeEditorMarker = (lat, lng) => {
+    form.value.latitude = Math.round(lat * 1e7) / 1e7;
+    form.value.longitude = Math.round(lng * 1e7) / 1e7;
+    editorMarker?.setLatLng([lat, lng]);
+};
+
+watch(showModal, async (open) => {
+    if (!open) {
+        editorMap?.remove();
+        editorMap = null;
+        return;
+    }
+
+    await nextTick();
+    if (!editorMapEl.value) return;
+
+    editorMap = L.map(editorMapEl.value, lockedMapOptions());
+    applyLockedBounds(editorMap);
+    editorTileLayer = addTileLayer(editorMap);
+
+    editorMarker = L.marker([form.value.latitude, form.value.longitude], {
+        icon: pinIcon(TYPE_COLOR[form.value.type] ?? TYPE_COLOR.general),
+    }).addTo(editorMap);
+
+    editorMap.on('click', (e) => placeEditorMarker(e.latlng.lat, e.latlng.lng));
+});
+
+watch(() => form.value.type, () => {
+    editorMarker?.setIcon(pinIcon(TYPE_COLOR[form.value.type] ?? TYPE_COLOR.general));
+});
+
+// Typing coordinates directly in the number fields moves the pin too.
+watch([() => form.value.latitude, () => form.value.longitude], ([lat, lng]) => {
+    if (editorMarker && typeof lat === 'number' && typeof lng === 'number') {
+        editorMarker.setLatLng([lat, lng]);
+    }
+});
 </script>
 
 <template>
@@ -196,34 +315,7 @@ const onMapClick = (e) => {
                             Visible pins only. Click one to edit it, or drop a new pin from inside the editor.
                         </p>
                         <div class="relative aspect-[900/869] w-full overflow-hidden rounded-lg bg-surface-hover">
-                            <img
-                                src="/images/velaafinolhu.png"
-                                alt="Island map"
-                                class="absolute inset-0 h-full w-full object-cover"
-                            />
-                            <button
-                                v-for="loc in activeLocations"
-                                :key="loc.id"
-                                type="button"
-                                class="group absolute -translate-x-1/2 -translate-y-full focus-visible:outline-none"
-                                :style="{ top: `${loc.position_top}%`, left: `${loc.position_left}%` }"
-                                :aria-label="`Edit ${loc.name}`"
-                                @click="openEdit(loc)"
-                            >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="currentColor"
-                                    class="h-7 w-7 drop-shadow-md transition-transform group-hover:scale-125 group-focus-visible:scale-125"
-                                    :style="{ color: TYPE_COLOR[loc.type] ?? TYPE_COLOR.general }"
-                                >
-                                    <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
-                                </svg>
-                                <span
-                                    class="elevated pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-36 -translate-x-1/2 rounded-lg border bg-surface px-2 py-1 text-center text-xs text-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
-                                >
-                                    {{ loc.name }}
-                                </span>
-                            </button>
+                            <div ref="previewMapEl" class="absolute inset-0 h-full w-full" />
                         </div>
                     </TCard>
                 </div>
@@ -267,7 +359,7 @@ const onMapClick = (e) => {
                                     </td>
                                     <td><TBadge variant="neutral">{{ TYPE_LABELS[loc.type] ?? loc.type }}</TBadge></td>
                                     <td class="whitespace-nowrap font-mono text-xs">
-                                        {{ loc.position_top }}% / {{ loc.position_left }}%
+                                        {{ loc.latitude.toFixed(5) }}, {{ loc.longitude.toFixed(5) }}
                                     </td>
                                     <td>
                                         <!-- A switch, not a badge wrapped in a bare button:
@@ -335,18 +427,18 @@ const onMapClick = (e) => {
 
                     <div class="grid grid-cols-2 gap-3">
                         <TInput
-                            id="position_top"
-                            v-model.number="form.position_top"
-                            label="Top (%)"
-                            type="number" min="0" max="100" step="0.1"
-                            :error="errors.position_top?.[0]"
+                            id="latitude"
+                            v-model.number="form.latitude"
+                            label="Latitude"
+                            type="number" step="0.0000001"
+                            :error="errors.latitude?.[0]"
                         />
                         <TInput
-                            id="position_left"
-                            v-model.number="form.position_left"
-                            label="Left (%)"
-                            type="number" min="0" max="100" step="0.1"
-                            :error="errors.position_left?.[0]"
+                            id="longitude"
+                            v-model.number="form.longitude"
+                            label="Longitude"
+                            type="number" step="0.0000001"
+                            :error="errors.longitude?.[0]"
                         />
                     </div>
 
@@ -356,24 +448,9 @@ const onMapClick = (e) => {
                 <div>
                     <p class="mb-1.5 text-sm font-medium text-foreground">Click the map to place the pin</p>
                     <div
-                        ref="mapRef"
                         class="relative aspect-[900/869] w-full cursor-crosshair overflow-hidden rounded-lg border"
-                        @click="onMapClick"
                     >
-                        <img src="/images/velaafinolhu.png" alt="Island map" class="absolute inset-0 h-full w-full object-cover" />
-                        <div
-                            class="pointer-events-none absolute -translate-x-1/2 -translate-y-full"
-                            :style="{ top: `${form.position_top}%`, left: `${form.position_left}%` }"
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                                class="h-8 w-8 drop-shadow-lg"
-                                :style="{ color: TYPE_COLOR[form.type] ?? TYPE_COLOR.general }"
-                            >
-                                <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
-                            </svg>
-                        </div>
+                        <div ref="editorMapEl" class="absolute inset-0 h-full w-full" />
                     </div>
                 </div>
 

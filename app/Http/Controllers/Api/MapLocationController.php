@@ -35,12 +35,12 @@ class MapLocationController extends Controller
         }
 
         $validated = $request->validate([
-            'name'          => ['required', 'string', 'max:255'],
-            'description'   => ['nullable', 'string'],
-            'type'          => ['required', 'in:hotel,ferry,themepark,beach,general'],
-            'position_top'  => ['required', 'numeric', 'min:0', 'max:100'],
-            'position_left' => ['required', 'numeric', 'min:0', 'max:100'],
-            'is_active'     => ['sometimes', 'boolean'],
+            'name'        => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'type'        => ['required', 'in:hotel,ferry,themepark,beach,general'],
+            'latitude'    => ['required', 'numeric', 'between:2.165568,2.177568'],
+            'longitude'   => ['required', 'numeric', 'between:73.072713,73.086713'],
+            'is_active'   => ['sometimes', 'boolean'],
         ]);
 
         return response()->json(MapLocation::create($validated), 201);
@@ -53,12 +53,12 @@ class MapLocationController extends Controller
         }
 
         $validated = $request->validate([
-            'name'          => ['sometimes', 'string', 'max:255'],
-            'description'   => ['nullable', 'string'],
-            'type'          => ['sometimes', 'in:hotel,ferry,themepark,beach,general'],
-            'position_top'  => ['sometimes', 'numeric', 'min:0', 'max:100'],
-            'position_left' => ['sometimes', 'numeric', 'min:0', 'max:100'],
-            'is_active'     => ['sometimes', 'boolean'],
+            'name'        => ['sometimes', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'type'        => ['sometimes', 'in:hotel,ferry,themepark,beach,general'],
+            'latitude'    => ['sometimes', 'numeric', 'between:2.165568,2.177568'],
+            'longitude'   => ['sometimes', 'numeric', 'between:73.072713,73.086713'],
+            'is_active'   => ['sometimes', 'boolean'],
         ]);
 
         $mapLocation->update($validated);

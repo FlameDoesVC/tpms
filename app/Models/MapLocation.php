@@ -10,17 +10,17 @@ class MapLocation extends Model
         'name',
         'description',
         'type',
-        'position_top',
-        'position_left',
+        'latitude',
+        'longitude',
         'is_active',
     ];
 
     protected function casts(): array
     {
         return [
-            'position_top'  => 'float',
-            'position_left' => 'float',
-            'is_active'     => 'boolean',
+            'latitude'  => 'float',
+            'longitude' => 'float',
+            'is_active' => 'boolean',
         ];
     }
 }

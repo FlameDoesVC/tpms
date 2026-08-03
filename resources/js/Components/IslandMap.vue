@@ -1,5 +1,7 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const props = defineProps({
     events: {
@@ -12,11 +14,22 @@ const props = defineProps({
     },
 });
 
-// Hardcoded fallback zones used when no DB locations are loaded yet.
+// Picnic Island, real world coordinates. Panning/zooming is locked to a
+// rectangle around it so the map can't be dragged off into open ocean.
+const CENTER = [2.171568, 73.079713];
+const BOUNDS = L.latLngBounds([2.165568, 73.072713], [2.177568, 73.086713]);
+
+// Satellite imagery, no separate dark-mode variant needed.
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+
+// Hardcoded fallback zones used when no DB locations are loaded yet, spread
+// around the real center point so the map still shows something meaningful
+// before any admin setup.
 const FALLBACK_ZONES = {
-    'North Shore':    { position_top: 31, position_left: 39 },
-    'Marine Theatre': { position_top: 48, position_left: 70 },
-    'Main Beach':     { position_top: 56, position_left: 45 },
+    'North Shore':    { lat: 2.173848, lng: 73.078173 },
+    'Marine Theatre': { lat: 2.171808, lng: 73.082513 },
+    'Main Beach':     { lat: 2.170848, lng: 73.079013 },
 };
 
 const TYPE_COLOR = {
@@ -24,7 +37,7 @@ const TYPE_COLOR = {
     ferry:     '#f59e0b',
     themepark: '#3b82f6',
     beach:     '#06b6d4',
-    general:   '#8b5cf6',
+    general:   '#eab308',
 };
 
 const TYPE_LABEL = {
@@ -56,8 +69,8 @@ const markers = computed(() => {
             type: loc.type,
             color: TYPE_COLOR[loc.type] ?? TYPE_COLOR.general,
             typeLabel: TYPE_LABEL[loc.type] ?? loc.type,
-            top: `${loc.position_top}%`,
-            left: `${loc.position_left}%`,
+            lat: loc.latitude,
+            lng: loc.longitude,
             events: eventsByLocation.value.get(loc.name) ?? [],
         }));
     }
@@ -76,8 +89,8 @@ const markers = computed(() => {
         type: 'general',
         color: TYPE_COLOR.general,
         typeLabel: 'Location',
-        top: `${FALLBACK_ZONES[name].position_top}%`,
-        left: `${FALLBACK_ZONES[name].position_left}%`,
+        lat: FALLBACK_ZONES[name].lat,
+        lng: FALLBACK_ZONES[name].lng,
         events,
     }));
 });
@@ -90,6 +103,94 @@ const unmappedLocations = computed(() => {
     const knownNames = new Set(props.locations.map((l) => l.name));
     return [...new Set(props.events.map((e) => e.location).filter((l) => !knownNames.has(l)))];
 });
+
+const pinIcon = (color) => L.divIcon({
+    className: '',
+    html: `
+        <svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.4))">
+            <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
+        </svg>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    tooltipAnchor: [0, -28],
+});
+
+const tooltipHtml = (marker) => `
+    <div class="flex items-center gap-1.5 mb-1">
+        <span class="h-2 w-2 rounded-full shrink-0" style="background:${marker.color}"></span>
+        <span class="text-gray-400 uppercase tracking-wide text-[10px]">${marker.typeLabel}</span>
+    </div>
+    <p class="font-semibold text-white">${marker.name}</p>
+    ${marker.description ? `<p class="mt-0.5 text-gray-300">${marker.description}</p>` : ''}
+    ${marker.events.length ? `
+        <p class="mt-2 text-gray-400 text-[10px] uppercase tracking-wide">Events here</p>
+        ${marker.events.map((e) => `<p class="mt-0.5 text-gray-200">${e.name}</p>`).join('')}
+    ` : ''}
+`;
+
+const mapContainer = ref(null);
+let map = null;
+let tileLayer = null;
+let markerLayer = null;
+
+const renderMarkers = () => {
+    if (!map) return;
+    markerLayer?.clearLayers();
+    markerLayer = markerLayer ?? L.layerGroup().addTo(map);
+    for (const marker of markers.value) {
+        L.marker([marker.lat, marker.lng], { icon: pinIcon(marker.color) })
+            .bindTooltip(tooltipHtml(marker), {
+                direction: 'top',
+                offset: [0, -28],
+                className: 'tp-map-tooltip',
+                opacity: 1,
+            })
+            .addTo(markerLayer);
+    }
+};
+
+const applyTileLayer = () => {
+    if (!map) return;
+    tileLayer?.remove();
+    tileLayer = L.tileLayer(SATELLITE_TILE_URL, {
+        attribution: SATELLITE_ATTRIBUTION,
+        maxZoom: 19,
+        // Esri's imagery for this area only has real resolution up to ~17;
+        // past that, upscale the last tile instead of showing their
+        // "Map data not yet available" placeholder.
+        maxNativeZoom: 17,
+    }).addTo(map);
+};
+
+onMounted(async () => {
+    await nextTick();
+    map = L.map(mapContainer.value, {
+        center: CENTER,
+        zoom: 15,
+        // Fractional zoom so fitBounds can crop tightly to BOUNDS instead of
+        // snapping down to the nearest whole level and showing extra area
+        // (which was pulling neighbouring islands into view).
+        zoomSnap: 0,
+        scrollWheelZoom: false,
+        maxBounds: BOUNDS,
+        maxBoundsViscosity: 1.0,
+    });
+    map.fitBounds(BOUNDS);
+    map.setMinZoom(map.getZoom());
+    map.setMaxZoom(Math.min(map.getZoom() + 5, 19));
+    map.setView(CENTER, map.getZoom());
+
+    applyTileLayer();
+    renderMarkers();
+});
+
+onUnmounted(() => {
+    map?.remove();
+    map = null;
+});
+
+watch(markers, renderMarkers);
 </script>
 
 <template>
@@ -97,7 +198,7 @@ const unmappedLocations = computed(() => {
         <div class="mb-4 flex items-start justify-between gap-4">
             <div>
                 <h2 class="text-xl font-semibold text-foreground">Island Map</h2>
-                <p class="mt-1 text-sm text-foreground-muted">Picnic Island — tap a pin to see what's there.</p>
+                <p class="mt-1 text-sm text-foreground-muted">Picnic Island — drag or scroll to explore, tap a pin to see what's there.</p>
             </div>
 
             <!-- Legend -->
@@ -114,49 +215,9 @@ const unmappedLocations = computed(() => {
         </div>
 
         <div class="relative mt-2 aspect-[900/869] w-full overflow-hidden rounded-lg bg-surface-hover">
-            <img
-                src="/images/velaafinolhu.png"
-                alt="Map of Picnic Island"
-                class="absolute inset-0 h-full w-full object-cover"
-            />
+            <div ref="mapContainer" class="absolute inset-0 h-full w-full" />
 
-            <button
-                v-for="marker in markers"
-                :key="marker.id"
-                type="button"
-                class="group absolute -translate-x-1/2 -translate-y-full"
-                :style="{ top: marker.top, left: marker.left }"
-            >
-                <!-- Pin SVG coloured by type -->
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    class="h-8 w-8 drop-shadow-md transition-transform group-hover:scale-125"
-                    :style="{ color: marker.color }"
-                >
-                    <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
-                </svg>
-
-                <!-- Tooltip -->
-                <div
-                    class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-52 -translate-x-1/2 rounded-lg bg-gray-900/95 p-3 text-left text-xs text-white opacity-0 shadow-xl transition-opacity group-hover:opacity-100"
-                >
-                    <div class="flex items-center gap-1.5 mb-1">
-                        <span class="h-2 w-2 rounded-full shrink-0" :style="{ background: marker.color }" />
-                        <span class="text-gray-400 uppercase tracking-wide text-[10px]">{{ marker.typeLabel }}</span>
-                    </div>
-                    <p class="font-semibold text-white">{{ marker.name }}</p>
-                    <p v-if="marker.description" class="mt-0.5 text-gray-300">{{ marker.description }}</p>
-                    <template v-if="marker.events.length">
-                        <p class="mt-2 text-gray-400 text-[10px] uppercase tracking-wide">Events here</p>
-                        <p v-for="event in marker.events" :key="event.id" class="mt-0.5 text-gray-200">
-                            {{ event.name }}
-                        </p>
-                    </template>
-                </div>
-            </button>
-
-            <div v-if="markers.length === 0" class="absolute inset-0 flex items-center justify-center">
+            <div v-if="markers.length === 0" class="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center">
                 <p class="rounded-lg bg-black/40 px-4 py-2 text-sm text-white">
                     No locations added yet — admin can add pins from the Map Management page.
                 </p>
@@ -168,3 +229,19 @@ const unmappedLocations = computed(() => {
         </p>
     </div>
 </template>
+
+<style>
+/* Leaflet's default tooltip chrome (white box + arrow) clashes with our own
+   dark tooltip markup, so strip it down to a bare positioned container. */
+.tp-map-tooltip {
+    background: rgba(17, 24, 39, 0.95);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    width: 13rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+}
+.tp-map-tooltip::before {
+    display: none;
+}
+</style>
