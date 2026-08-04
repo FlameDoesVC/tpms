@@ -78,8 +78,8 @@ class GuestCheckoutTest extends TestCase
         $response = $this->patchJson('/api/guest/claim', [
             'name' => 'Real Name',
             'email' => 'real@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $response->assertOk()->assertJsonPath('user.email', 'real@example.com');
@@ -96,8 +96,8 @@ class GuestCheckoutTest extends TestCase
         $this->actingAs($user)->patchJson('/api/guest/claim', [
             'name' => 'Real Name',
             'email' => 'real@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ])->assertForbidden();
     }
 
@@ -106,8 +106,8 @@ class GuestCheckoutTest extends TestCase
         $this->patchJson('/api/guest/claim', [
             'name' => 'Real Name',
             'email' => 'real@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ])->assertUnauthorized();
     }
 

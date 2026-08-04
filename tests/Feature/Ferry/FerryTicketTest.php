@@ -342,12 +342,23 @@ class FerryTicketTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * Validation is scoped to the departure being boarded, so the caller names
+     * the sailing and it has to be today's.
+     */
     public function test_ferry_operator_can_validate_a_ticket(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');
-        $ticket = FerryTicket::factory()->create(['status' => 'issued']);
+        $schedule = FerrySchedule::factory()->create(['departure_date' => now()->toDateString()]);
+        $ticket = FerryTicket::factory()->create([
+            'schedule_id' => $schedule->id,
+            'status' => 'issued',
+        ]);
 
-        $response = $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/validate");
+        $response = $this->actingAs($operator)->postJson(
+            "/api/ferry/tickets/{$ticket->id}/validate",
+            ['schedule_id' => $schedule->id]
+        );
 
         $response->assertOk()->assertJsonPath('status', 'used');
     }
@@ -355,10 +366,16 @@ class FerryTicketTest extends TestCase
     public function test_validating_an_already_used_ticket_fails(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');
-        $ticket = FerryTicket::factory()->create(['status' => 'used']);
+        $schedule = FerrySchedule::factory()->create(['departure_date' => now()->toDateString()]);
+        $ticket = FerryTicket::factory()->create([
+            'schedule_id' => $schedule->id,
+            'status' => 'used',
+        ]);
 
-        $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/validate")
-            ->assertUnprocessable();
+        $this->actingAs($operator)->postJson(
+            "/api/ferry/tickets/{$ticket->id}/validate",
+            ['schedule_id' => $schedule->id]
+        )->assertUnprocessable();
     }
 
     public function test_visitor_cannot_validate_a_ticket(): void
@@ -403,10 +420,16 @@ class FerryTicketTest extends TestCase
     public function test_validating_a_cancelled_ticket_fails(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');
-        $ticket = FerryTicket::factory()->create(['status' => 'cancelled']);
+        $schedule = FerrySchedule::factory()->create(['departure_date' => now()->toDateString()]);
+        $ticket = FerryTicket::factory()->create([
+            'schedule_id' => $schedule->id,
+            'status' => 'cancelled',
+        ]);
 
-        $this->actingAs($operator)->postJson("/api/ferry/tickets/{$ticket->id}/validate")
-            ->assertUnprocessable();
+        $this->actingAs($operator)->postJson(
+            "/api/ferry/tickets/{$ticket->id}/validate",
+            ['schedule_id' => $schedule->id]
+        )->assertUnprocessable();
     }
 
     public function test_visitor_cannot_cancel_a_ticket(): void

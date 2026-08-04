@@ -28,7 +28,7 @@ class HotelPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['hotel_manager', 'admin']);
+        return $user->can('hotels.manage');
     }
 
     /**
@@ -36,7 +36,7 @@ class HotelPolicy
      */
     public function update(User $user, Hotel $hotel): bool
     {
-        return $user->hasAnyRole(['hotel_manager', 'admin']);
+        return $user->can('hotels.manage');
     }
 
     /**
@@ -44,6 +44,6 @@ class HotelPolicy
      */
     public function delete(User $user, Hotel $hotel): bool
     {
-        return $user->hasAnyRole(['hotel_manager', 'admin']);
+        return $user->can('hotels.manage');
     }
 }

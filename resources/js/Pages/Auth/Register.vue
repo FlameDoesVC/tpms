@@ -1,6 +1,7 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import TInput from '@/Components/ui/TInput.vue';
+import TPasswordInput from '@/Components/ui/TPasswordInput.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import { useForm } from '@/composables/useForm';
 import { useAuthStore } from '@/stores/auth';
@@ -43,8 +44,15 @@ const submit = () => {
         <form @submit.prevent="submit" class="space-y-4">
             <TInput id="name" type="text" label="Name" v-model="form.name" :error="form.errors.name" required autofocus autocomplete="name" />
             <TInput id="email" type="email" label="Email" v-model="form.email" :error="form.errors.email" required autocomplete="username" />
-            <TInput id="password" type="password" label="Password" v-model="form.password" :error="form.errors.password" required autocomplete="new-password" />
-            <TInput id="password_confirmation" type="password" label="Confirm Password" v-model="form.password_confirmation" :error="form.errors.password_confirmation" required autocomplete="new-password" />
+            <TPasswordInput id="password" label="Password" v-model="form.password" :error="form.errors.password" required />
+            <TPasswordInput
+                id="password_confirmation"
+                label="Confirm Password"
+                v-model="form.password_confirmation"
+                :error="form.errors.password_confirmation"
+                :confirms="form.password"
+                required
+            />
 
             <div class="flex items-center justify-end gap-3">
                 <router-link

@@ -12,9 +12,15 @@ class EventSlotListTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * This is the staff scheduling calendar, not a visitor-facing list - it
+     * returns every event's slots including unannounced ones, so it is scoped to
+     * themepark_staff. The visitor-facing equivalent is
+     * /api/themepark/events/{event}/slots.
+     */
     public function test_slots_can_be_listed_across_all_events(): void
     {
-        $user = User::factory()->create()->assignRole('visitor');
+        $user = User::factory()->create()->assignRole('themepark_staff');
         $eventA = ThemeParkEvent::factory()->create();
         $eventB = ThemeParkEvent::factory()->create();
         EventSlot::factory()->create(['event_id' => $eventA->id, 'slot_date' => '2026-08-10']);
@@ -26,9 +32,17 @@ class EventSlotListTest extends TestCase
         $this->assertCount(2, $response->json());
     }
 
+    public function test_visitor_cannot_list_every_events_slots(): void
+    {
+        $visitor = User::factory()->create()->assignRole('visitor');
+        EventSlot::factory()->create();
+
+        $this->actingAs($visitor)->getJson('/api/themepark/slots')->assertForbidden();
+    }
+
     public function test_slots_can_be_filtered_by_date(): void
     {
-        $user = User::factory()->create()->assignRole('visitor');
+        $user = User::factory()->create()->assignRole('themepark_staff');
         $event = ThemeParkEvent::factory()->create();
         EventSlot::factory()->create(['event_id' => $event->id, 'slot_date' => '2026-08-10']);
         EventSlot::factory()->create(['event_id' => $event->id, 'slot_date' => '2026-08-11']);

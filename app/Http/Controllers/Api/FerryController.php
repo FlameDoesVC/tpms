@@ -8,6 +8,7 @@ use App\Models\Ferry;
 use App\Models\FerrySchedule;
 use App\Models\FerryTicket;
 use App\Services\FerryTicketService;
+use App\Support\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -237,7 +238,15 @@ class FerryController extends Controller
             'date' => ['nullable', 'date'],
         ]);
 
-        $query = FerrySchedule::query()->with('ferry');
+        // Sailings on a retired boat are withheld along with the boat. The ferry
+        // list gates its unfiltered view behind an operator role, and this
+        // endpoint used to hand the same records out anonymously.
+        $query = FerrySchedule::query()
+            ->with('ferry')
+            ->whereHas('ferry', fn ($ferryQuery) => $ferryQuery->visibleTo(
+                $request->user(),
+                $request->boolean('all')
+            ));
 
         if (! empty($validated['date'])) {
             $query->whereDate('departure_date', $validated['date']);
@@ -390,13 +399,81 @@ class FerryController extends Controller
             abort(403);
         }
 
-        return response()->json($ticket->load(['user', 'schedule.ferry', 'booking']));
+        return response()->json($ticket->load(['user:id,name', 'schedule.ferry', 'booking']));
+    }
+
+    /**
+     * Resolve a scanned ferry-ticket code.
+     *
+     * The scanner used to strip the digits off the code and treat them as a
+     * primary key, so a sequential guess was as good as a real ticket. Lookup is
+     * by the stored code itself now.
+     */
+    public function lookupTicketByReference(Request $request): JsonResponse
+    {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+
+        $ticket = FerryTicket::findByReferenceCode($validated['code']);
+
+        return response()->json($ticket->load(['user:id,name', 'schedule.ferry', 'booking']));
+    }
+
+    /** Resolve a scanned hotel-booking code to its party, for the gate. */
+    public function lookupBookingByReference(Request $request): JsonResponse
+    {
+        if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+            'schedule_id' => ['required', 'exists:ferry_schedules,id'],
+        ]);
+
+        return $this->partyStatus($request, Booking::findByReferenceCode($validated['code']));
     }
 
     public function validateTicket(Request $request, FerryTicket $ticket): JsonResponse
     {
         if (! $request->user()->hasAnyRole(['ferry_operator', 'admin'])) {
             abort(403);
+        }
+
+        $validated = $request->validate([
+            'schedule_id' => ['required', 'exists:ferry_schedules,id'],
+        ]);
+
+        // The gate screen picks a departure before scanning, but that was only
+        // ever a computed property in the SPA - the server happily marked a
+        // ten-day-old ticket from a different sailing as used. The manifest this
+        // produces is what a headcount and a search-and-rescue list are built
+        // from, so the boat and the date belong here, not in the client.
+        if ((int) $ticket->schedule_id !== (int) $validated['schedule_id']) {
+            throw ValidationException::withMessages([
+                'schedule_id' => 'This ticket is for a different departure.',
+            ]);
+        }
+
+        $schedule = $ticket->schedule;
+
+        if ($schedule->status !== 'scheduled') {
+            throw ValidationException::withMessages([
+                'schedule_id' => $schedule->status === 'cancelled'
+                    ? 'This departure has been cancelled.'
+                    : 'This departure has already sailed.',
+            ]);
+        }
+
+        if (! $schedule->departure_date->isToday()) {
+            throw ValidationException::withMessages([
+                'schedule_id' => 'This ticket is not for a departure boarding today.',
+            ]);
         }
 
         if ($ticket->status === 'used') {
@@ -411,9 +488,19 @@ class FerryController extends Controller
             ]);
         }
 
-        $ticket->update(['status' => 'used']);
+        $ticket->update([
+            'status' => 'used',
+            'validated_by' => $request->user()->id,
+            'validated_at' => now(),
+        ]);
 
-        return response()->json($ticket->load(['user', 'schedule.ferry']));
+        AuditLog::record('ferry.ticket.validated', [
+            'ticket_id' => $ticket->id,
+            'reference_code' => $ticket->reference_code,
+            'schedule_id' => $ticket->schedule_id,
+        ], $request);
+
+        return response()->json($ticket->load(['user:id,name', 'schedule.ferry']));
     }
 
     public function cancelTicket(Request $request, FerryTicket $ticket): JsonResponse
@@ -434,12 +521,22 @@ class FerryController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($ticket) {
+        DB::transaction(function () use ($ticket, $request) {
             FerrySchedule::lockForUpdate()->findOrFail($ticket->schedule_id)->increment('available_seats');
-            $ticket->update(['status' => 'cancelled']);
+            $ticket->update([
+                'status' => 'cancelled',
+                'cancelled_by' => $request->user()->id,
+                'cancelled_at' => now(),
+            ]);
         });
 
-        return response()->json($ticket->load(['user', 'schedule.ferry']));
+        AuditLog::record('ferry.ticket.cancelled', [
+            'ticket_id' => $ticket->id,
+            'reference_code' => $ticket->reference_code,
+            'schedule_id' => $ticket->schedule_id,
+        ], $request);
+
+        return response()->json($ticket->load(['user:id,name', 'schedule.ferry']));
     }
 
     /**
@@ -467,7 +564,7 @@ class FerryController extends Controller
         $tickets = FerryTicket::whereIn('booking_id', $partyBookingIds)
             ->whereHas('schedule', fn ($query) => $query->whereDate('departure_date', $schedule->departure_date))
             ->whereIn('status', ['pending', 'issued', 'used'])
-            ->with(['user', 'schedule.ferry', 'booking'])
+            ->with(['user:id,name', 'schedule.ferry', 'booking'])
             ->get();
 
         return response()->json([
@@ -485,7 +582,7 @@ class FerryController extends Controller
         }
 
         return response()->json(
-            $schedule->tickets()->with(['user', 'booking'])->get()
+            $schedule->tickets()->with(['user:id,name', 'booking'])->get()
         );
     }
 }

@@ -1,6 +1,6 @@
 <script setup>
 import TButton from '@/Components/ui/TButton.vue';
-import TInput from '@/Components/ui/TInput.vue';
+import TPasswordInput from '@/Components/ui/TPasswordInput.vue';
 import { useForm } from '@/composables/useForm';
 import { ref } from 'vue';
 
@@ -44,33 +44,30 @@ const updatePassword = () => {
         </header>
 
         <form @submit.prevent="updatePassword" class="mt-6 space-y-4">
-            <TInput
+            <TPasswordInput
                 id="current_password"
                 ref="currentPasswordInput"
                 v-model="form.current_password"
                 label="Current Password"
                 :error="form.errors.current_password"
-                type="password"
                 autocomplete="current-password"
+                :show-strength="false"
             />
 
-            <TInput
+            <TPasswordInput
                 id="password"
                 ref="passwordInput"
                 v-model="form.password"
                 label="New Password"
                 :error="form.errors.password"
-                type="password"
-                autocomplete="new-password"
             />
 
-            <TInput
+            <TPasswordInput
                 id="password_confirmation"
                 v-model="form.password_confirmation"
                 label="Confirm Password"
                 :error="form.errors.password_confirmation"
-                type="password"
-                autocomplete="new-password"
+                :confirms="form.password"
             />
 
             <div class="flex items-center gap-4">

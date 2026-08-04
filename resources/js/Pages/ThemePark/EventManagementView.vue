@@ -72,7 +72,9 @@ const summary = computed(() => {
         : `${shown} of ${total} events`;
 });
 
-onMounted(() => themeParkStore.fetchEvents());
+// Management scope: inactive events have to appear here, or the is_active
+// toggle below is one-way.
+onMounted(() => themeParkStore.fetchEvents({ all: true }));
 
 const openAddModal = () => {
     editingEvent.value = null;

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Tests and dependency audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, gd
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: php artisan test
+
+      # Both trees carried known-vulnerable packages at the time of the security
+      # audit (24 Composer advisories, 7 npm including 2 critical). These gates
+      # exist so that cannot quietly return.
+      - name: Audit PHP dependencies
+        run: composer audit
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Audit JS dependencies
+        run: npm audit --omit=dev
+
+      - name: Build frontend
+        run: npm run build

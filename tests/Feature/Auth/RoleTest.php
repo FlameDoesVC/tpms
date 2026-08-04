@@ -31,8 +31,8 @@ class RoleTest extends TestCase
         $response = $this->postJson('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $response->assertCreated()

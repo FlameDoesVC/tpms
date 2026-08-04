@@ -36,8 +36,8 @@ class PasswordResetTest extends TestCase
             $response = $this->postJson('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
-                'password' => 'password',
-                'password_confirmation' => 'password',
+                'password' => self::VALID_PASSWORD,
+                'password_confirmation' => self::VALID_PASSWORD,
             ]);
 
             $response->assertOk();

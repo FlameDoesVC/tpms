@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -38,19 +39,25 @@ class AdminController extends Controller
         $this->authorizeAdmin($request);
 
         $validated = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', Password::defaults()],
-            'role'     => ['required', 'string', 'exists:roles,name'],
+            'role' => ['required', 'string', 'exists:roles,name'],
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
+            'name' => $validated['name'],
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
         ]);
 
         $user->syncRoles([$validated['role']]);
+
+        AuditLog::record('admin.user.created', [
+            'subject_id' => $user->id,
+            'subject_email' => $user->email,
+            'role' => $validated['role'],
+        ], $request);
 
         return response()->json($this->format($user->load('roles')), 201);
     }
@@ -60,10 +67,10 @@ class AdminController extends Controller
         $this->authorizeAdmin($request);
 
         $validated = $request->validate([
-            'name'     => ['sometimes', 'string', 'max:255'],
-            'email'    => ['sometimes', 'email', 'max:255', 'unique:users,email,'.$user->id],
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['sometimes', 'nullable', Password::defaults()],
-            'role'     => ['sometimes', 'string', 'exists:roles,name'],
+            'role' => ['sometimes', 'string', 'exists:roles,name'],
         ]);
 
         if (isset($validated['password']) && $validated['password']) {
@@ -73,8 +80,24 @@ class AdminController extends Controller
         }
 
         if (isset($validated['role'])) {
+            // A role change is the single most privilege-relevant write in the
+            // application, so the previous role is recorded too.
+            AuditLog::record('admin.user.role_changed', [
+                'subject_id' => $user->id,
+                'subject_email' => $user->email,
+                'from' => $user->roles->pluck('name')->all(),
+                'to' => $validated['role'],
+            ], $request);
+
             $user->syncRoles([$validated['role']]);
             unset($validated['role']);
+        }
+
+        if (isset($validated['password'])) {
+            AuditLog::record('admin.user.password_reset', [
+                'subject_id' => $user->id,
+                'subject_email' => $user->email,
+            ], $request);
         }
 
         $user->update($validated);
@@ -89,6 +112,12 @@ class AdminController extends Controller
         if ($request->user()->id === $user->id) {
             abort(422, 'You cannot delete your own account.');
         }
+
+        AuditLog::record('admin.user.deleted', [
+            'subject_id' => $user->id,
+            'subject_email' => $user->email,
+            'roles' => $user->roles->pluck('name')->all(),
+        ], $request);
 
         $user->delete();
 
@@ -106,25 +135,28 @@ class AdminController extends Controller
             ->pluck('count', 'role');
 
         $hotelStats = DB::table('bookings')
-            ->selectRaw("status, COUNT(*) as count")
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
 
         $ferryStats = DB::table('ferry_tickets')
-            ->selectRaw("status, COUNT(*) as count")
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
 
         $parkStats = DB::table('event_bookings')
-            ->selectRaw("status, COUNT(*) as count")
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');
 
+        // Summed from the booking's own stored total rather than recomputed from
+        // the dates: `total_price` is already nights x price_per_night (set in
+        // HotelBookingService::create), so this drops a join and the MySQL-only
+        // DATEDIFF that made this endpoint unrunnable - and therefore untestable
+        // - on SQLite.
         $hotelRevenue = DB::table('bookings')
-            ->join('rooms', 'rooms.id', '=', 'bookings.room_id')
-            ->where('bookings.status', 'confirmed')
-            ->selectRaw('SUM(rooms.price_per_night * DATEDIFF(bookings.check_out_date, bookings.check_in_date)) as total')
-            ->value('total') ?? 0;
+            ->where('status', 'confirmed')
+            ->sum('total_price');
 
         $parkRevenue = DB::table('event_bookings')
             ->join('event_slots', 'event_slots.id', '=', 'event_bookings.event_slot_id')
@@ -150,10 +182,9 @@ class AdminController extends Controller
         $parkDaily = $countByDay('event_bookings');
 
         $hotelRevenueDaily = DB::table('bookings')
-            ->join('rooms', 'rooms.id', '=', 'bookings.room_id')
-            ->where('bookings.status', 'confirmed')
-            ->where('bookings.created_at', '>=', $since)
-            ->selectRaw('DATE(bookings.created_at) as day, SUM(rooms.price_per_night * DATEDIFF(bookings.check_out_date, bookings.check_in_date)) as aggregate')
+            ->where('status', 'confirmed')
+            ->where('created_at', '>=', $since)
+            ->selectRaw('DATE(created_at) as day, SUM(total_price) as aggregate')
             ->groupBy('day')
             ->pluck('aggregate', 'day');
 
@@ -170,39 +201,39 @@ class AdminController extends Controller
         // series built only from days that have rows draws a flat line through
         // the gaps and overstates a quiet week.
         $daily = $days->map(fn (string $day) => [
-            'date'    => $day,
-            'hotel'   => (int) ($hotelDaily[$day] ?? 0),
-            'ferry'   => (int) ($ferryDaily[$day] ?? 0),
-            'park'    => (int) ($parkDaily[$day] ?? 0),
+            'date' => $day,
+            'hotel' => (int) ($hotelDaily[$day] ?? 0),
+            'ferry' => (int) ($ferryDaily[$day] ?? 0),
+            'park' => (int) ($parkDaily[$day] ?? 0),
             'revenue' => round((float) ($hotelRevenueDaily[$day] ?? 0) + (float) ($parkRevenueDaily[$day] ?? 0), 2),
         ]);
 
         return response()->json([
             'daily' => $daily,
             'users' => [
-                'total'    => User::count(),
-                'by_role'  => $usersByRole,
-                'guests'   => User::where('is_guest', true)->count(),
+                'total' => User::count(),
+                'by_role' => $usersByRole,
+                'guests' => User::where('is_guest', true)->count(),
             ],
             'hotel_bookings' => [
-                'total'     => array_sum($hotelStats->toArray()),
+                'total' => array_sum($hotelStats->toArray()),
                 'confirmed' => $hotelStats['confirmed'] ?? 0,
-                'pending'   => $hotelStats['pending'] ?? 0,
+                'pending' => $hotelStats['pending'] ?? 0,
                 'cancelled' => $hotelStats['cancelled'] ?? 0,
-                'revenue'   => number_format($hotelRevenue, 2, '.', ''),
+                'revenue' => number_format($hotelRevenue, 2, '.', ''),
             ],
             'ferry_tickets' => [
-                'total'     => array_sum($ferryStats->toArray()),
-                'issued'    => $ferryStats['issued'] ?? 0,
-                'used'      => $ferryStats['used'] ?? 0,
+                'total' => array_sum($ferryStats->toArray()),
+                'issued' => $ferryStats['issued'] ?? 0,
+                'used' => $ferryStats['used'] ?? 0,
                 'cancelled' => $ferryStats['cancelled'] ?? 0,
             ],
             'park_bookings' => [
-                'total'     => array_sum($parkStats->toArray()),
+                'total' => array_sum($parkStats->toArray()),
                 'confirmed' => $parkStats['confirmed'] ?? 0,
-                'used'      => $parkStats['used'] ?? 0,
+                'used' => $parkStats['used'] ?? 0,
                 'cancelled' => $parkStats['cancelled'] ?? 0,
-                'revenue'   => number_format($parkRevenue, 2, '.', ''),
+                'revenue' => number_format($parkRevenue, 2, '.', ''),
             ],
         ]);
     }
@@ -210,11 +241,11 @@ class AdminController extends Controller
     private function format(User $user): array
     {
         return [
-            'id'         => $user->id,
-            'name'       => $user->name,
-            'email'      => $user->email,
-            'is_guest'   => $user->is_guest,
-            'role'       => $user->roles->first()?->name,
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'is_guest' => $user->is_guest,
+            'role' => $user->roles->first()?->name,
             'created_at' => $user->created_at?->toDateString(),
         ];
     }

@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Promotion extends Model implements HasMedia
 {
+    use Concerns\HasSanitisedImage;
     use InteractsWithMedia;
 
     protected $fillable = [
@@ -28,9 +29,14 @@ class Promotion extends Model implements HasMedia
     {
         return [
             'starts_at' => 'date',
-            'ends_at'   => 'date',
+            'ends_at' => 'date',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        $this->registerSanitisedImageConversion();
     }
 
     public function registerMediaCollections(): void
@@ -40,10 +46,7 @@ class Promotion extends Model implements HasMedia
             ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
     }
 
-    protected function imageUrl(): Attribute
-    {
-        return Attribute::make(get: fn () => $this->getFirstMediaUrl('image') ?: null);
-    }
+    // imageUrl() and the sanitising conversion come from HasSanitisedImage.
 
     public function creator(): BelongsTo
     {

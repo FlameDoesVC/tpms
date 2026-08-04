@@ -13,16 +13,16 @@ class FerryPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['ferry_operator', 'admin']);
+        return $user->can('fleet.manage');
     }
 
     public function update(User $user, Ferry $ferry): bool
     {
-        return $user->hasAnyRole(['ferry_operator', 'admin']);
+        return $user->can('fleet.manage');
     }
 
     public function delete(User $user, Ferry $ferry): bool
     {
-        return $user->hasAnyRole(['ferry_operator', 'admin']);
+        return $user->can('fleet.manage');
     }
 }

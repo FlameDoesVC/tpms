@@ -10,14 +10,20 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
+// Every credential-adjacent endpoint is throttled per IP. The limiter inside
+// LoginRequest is keyed on email+IP, so on its own it is defeated by rotating
+// the email; this one is not.
 Route::middleware('guest')->group(function () {
     Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:auth')
         ->name('register');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware('throttle:auth')
         ->name('login');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:auth')
         ->name('password.email');
 
     // Serves the SPA shell; named so the reset email can generate the link.
@@ -25,6 +31,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:auth')
         ->name('password.store');
 });
 
@@ -38,6 +45,7 @@ Route::middleware('auth')->group(function () {
         ->name('verification.send');
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:6,1')
         ->name('password.confirm');
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');

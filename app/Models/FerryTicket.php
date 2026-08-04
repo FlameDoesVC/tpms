@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
+use App\Models\Concerns\HasReferenceCode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FerryTicket extends Model
 {
     use HasFactory;
+    use HasReferenceCode;
 
     protected $fillable = [
         'user_id',
@@ -19,20 +20,25 @@ class FerryTicket extends Model
         'status',
         'price',
         'payment_method',
+        'reference_code',
+        'validated_by',
+        'validated_at',
+        'cancelled_by',
+        'cancelled_at',
     ];
-
-    protected $appends = ['reference_code'];
 
     protected function casts(): array
     {
         return [
             'price' => 'decimal:2',
+            'validated_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 
-    protected function referenceCode(): Attribute
+    public static function referenceCodePrefix(): string
     {
-        return Attribute::get(fn () => sprintf('VFN-T%04d', $this->id));
+        return 'VFN-T';
     }
 
     public function user(): BelongsTo

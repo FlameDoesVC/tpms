@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
+use App\Models\Concerns\HasReferenceCode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Booking extends Model
 {
     use HasFactory;
+    use HasReferenceCode;
 
     protected $fillable = [
         'user_id',
@@ -20,13 +21,14 @@ class Booking extends Model
         'total_price',
         'status',
         'guests_count',
+        'reference_code',
+        'cancelled_by',
+        'cancelled_at',
     ];
 
-    protected $appends = ['reference_code'];
-
-    protected function referenceCode(): Attribute
+    public static function referenceCodePrefix(): string
     {
-        return Attribute::get(fn () => sprintf('VFN-B%04d', $this->id));
+        return 'VFN-B';
     }
 
     protected function casts(): array
@@ -35,6 +37,7 @@ class Booking extends Model
             'check_in_date' => 'date',
             'check_out_date' => 'date',
             'total_price' => 'decimal:2',
+            'cancelled_at' => 'datetime',
         ];
     }
 

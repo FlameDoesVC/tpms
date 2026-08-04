@@ -41,10 +41,11 @@ const pay = async () => {
     payError.value = '';
     paying.value = true;
     try {
-        // Payment gateway integration is out of scope for now - this simply
-        // marks every booking in the group confirmed once the mock card form
-        // is filled in.
-        await hotelStore.confirmBookings(ids.value, { silent: true });
+        // Card capture is still simulated (see PaymentForm), but settlement is
+        // not: the server records a Payment for each booking, takes the amount
+        // from the booking rather than from this page, and owns the transition to
+        // confirmed. Swapping in a real gateway replaces one service method.
+        await hotelStore.payBookings(ids.value, { silent: true });
         showToast('Booking confirmed.', 'success');
     } catch (e) {
         // The server's own message distinguishes an expired session from an

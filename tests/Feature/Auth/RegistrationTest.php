@@ -14,8 +14,8 @@ class RegistrationTest extends TestCase
         $response = $this->postJson('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $this->assertAuthenticated();
@@ -28,8 +28,8 @@ class RegistrationTest extends TestCase
         $this->postJson('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $this->postJson('/logout');
@@ -37,8 +37,8 @@ class RegistrationTest extends TestCase
         $response = $this->postJson('/register', [
             'name' => 'Another User',
             'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $response->assertUnprocessable()

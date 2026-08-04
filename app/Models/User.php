@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,9 +13,14 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'is_guest'])]
+// `is_guest` is deliberately NOT fillable: it decides whether the guest-claim and
+// guest-login endpoints will act on an account, so a mass-assignable copy of it
+// is a privilege boundary one careless ->create($request->all()) away from being
+// writable. It is set explicitly in createGuest() and cleared in
+// GuestController::claim().
+#[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
@@ -40,15 +45,28 @@ class User extends Authenticatable
      */
     public static function createGuest(): self
     {
-        $guest = self::create([
+        $guest = self::make([
             'name' => 'Guest',
             'email' => 'guest-'.Str::uuid().'@guest.tpms.local',
             'password' => Hash::make(Str::random(40)),
-            'is_guest' => true,
         ]);
+
+        // Set outside the fillable set on purpose - see the note on the class.
+        $guest->is_guest = true;
+        $guest->save();
 
         $guest->assignRole('visitor');
 
         return $guest;
+    }
+
+    /**
+     * Guest placeholders own an unreachable @guest.tpms.local address, so there is
+     * nothing to verify and nothing to send. A verification mail is only sent once
+     * the visitor supplies a real address via the guest-claim endpoint.
+     */
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->is_guest || ! is_null($this->email_verified_at);
     }
 }

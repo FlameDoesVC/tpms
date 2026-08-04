@@ -35,10 +35,17 @@ export const useThemeParkStore = defineStore('themepark', {
             this.popularEvents = data;
         },
 
-        async fetchEvents() {
+        // `all` opts into the management view, which includes events that have
+        // been toggled inactive. Without it the management screen shared the
+        // visitor's filtered list, so hiding an event also removed the only
+        // control that could bring it back. The server ignores the flag for
+        // anyone without a staff role.
+        async fetchEvents({ all = false } = {}) {
             this.loading.events = true;
             try {
-                const { data } = await axios.get('/api/themepark/events');
+                const { data } = await axios.get('/api/themepark/events', {
+                    params: all ? { all: 1 } : {},
+                });
                 this.events = data;
             } finally {
                 this.loading.events = false;
@@ -207,6 +214,13 @@ export const useThemeParkStore = defineStore('themepark', {
 
         async lookupTicket(bookingId) {
             const { data } = await axios.get(`/api/themepark/tickets/${bookingId}`);
+            return data;
+        },
+
+        // Scan resolution by reference code. The code no longer encodes the
+        // booking id, so it is resolved server-side rather than parsed here.
+        async lookupTicketByCode(code) {
+            const { data } = await axios.get('/api/themepark/tickets/lookup', { params: { code } });
             return data;
         },
 

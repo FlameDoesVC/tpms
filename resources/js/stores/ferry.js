@@ -122,9 +122,29 @@ export const useFerryStore = defineStore('ferry', {
             return data;
         },
 
-        async validateTicketOnSite(ticketOrId) {
+        // Scan resolution. The code is sent whole rather than having its digits
+        // parsed into an id, because it no longer contains one.
+        async lookupTicketByCode(code) {
+            const { data } = await axios.get('/api/ferry/tickets/lookup', { params: { code } });
+            return data;
+        },
+
+        async getPartyStatusByCode(code, scheduleId) {
+            const { data } = await axios.get('/api/ferry/bookings/lookup', {
+                params: { code, schedule_id: scheduleId },
+            });
+            return data;
+        },
+
+        // The departure is sent to the server, which is now the authority on
+        // whether this ticket belongs to the boat being boarded and whether that
+        // boat sails today. The gate screen still checks too, but only so the
+        // operator sees the mismatch before pressing the button.
+        async validateTicketOnSite(ticketOrId, scheduleId) {
             const id = typeof ticketOrId === 'object' ? ticketOrId.id : ticketOrId;
-            const { data } = await axios.post(`/api/ferry/tickets/${id}/validate`);
+            const { data } = await axios.post(`/api/ferry/tickets/${id}/validate`, {
+                schedule_id: scheduleId,
+            });
             return data;
         },
 

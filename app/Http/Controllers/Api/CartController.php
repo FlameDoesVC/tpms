@@ -7,6 +7,7 @@ use App\Models\Room;
 use App\Services\FerryTicketService;
 use App\Services\HotelBookingService;
 use App\Services\ThemeParkBookingService;
+use App\Support\GuestSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,9 +40,12 @@ class CartController extends Controller
         ]);
 
         $items = $request->input('items');
-        $userId = $request->user()->id;
+        // After the top-level shape has validated, so a malformed cart cannot
+        // provision a permanent guest account.
+        $actor = GuestSession::ensure($request);
+        $userId = $actor->id;
 
-        $created = DB::transaction(function () use ($items, $userId) {
+        $created = DB::transaction(function () use ($items, $userId, $actor) {
             // A ferry item can point at a hotel room still in the cart rather
             // than a real booking id - that hotel item always appears earlier
             // in this same array (it had to already exist in the cart to be
@@ -77,7 +81,9 @@ class CartController extends Controller
                         'guests_count' => $data['guestsCount'],
                         'quantity' => $data['quantity'] ?? 1,
                     ]);
-                    $this->hotelBookings->confirm($bookings);
+                    // Reassigned because settle() returns freshly-read models; the
+                    // rest of this branch reads status and ids off $bookings.
+                    $bookings = $this->hotelBookings->settle($bookings, $actor);
 
                     $stayKey = implode('|', [
                         Room::findOrFail($data['representativeRoomId'])->hotel_id,

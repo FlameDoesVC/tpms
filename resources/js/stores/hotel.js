@@ -39,17 +39,23 @@ export const useHotelStore = defineStore('hotel', {
         // hotel is already rendered - so a "load more" control would leave
         // links to page-2 hotels silently broken. An island resort has tens of
         // hotels at most, so the page cap plus a follow-up loop is enough.
-        async fetchHotels() {
+        // `all` opts into the management view, which includes deactivated hotels.
+        // The server ignores it for anyone without a staff role, so this is a
+        // request for the fuller list rather than a claim to be allowed it.
+        async fetchHotels({ all = false } = {}) {
             this.loading.hotels = true;
             this.error.hotels = null;
             try {
-                const { data } = await axios.get('/api/hotels', { params: { per_page: 100 } });
+                const scope = all ? { all: 1 } : {};
+                const { data } = await axios.get('/api/hotels', {
+                    params: { per_page: 100, ...scope },
+                });
                 let hotels = data.data;
 
                 const lastPage = data.meta?.last_page ?? 1;
                 for (let page = 2; page <= lastPage; page++) {
                     const { data: next } = await axios.get('/api/hotels', {
-                        params: { per_page: 100, page },
+                        params: { per_page: 100, page, ...scope },
                     });
                     hotels = [...hotels, ...next.data];
                 }
@@ -135,11 +141,18 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
-        async confirmBookings(ids, { silent = false } = {}) {
-            this.activeBookings = await Promise.all(
-                ids.map((id) => this.confirmBooking(id, { silent }))
+        // Paying for a group of bookings. One request, not one per booking: the
+        // server settles the whole stay in a single transaction, so a partial
+        // failure can no longer leave half a party paid for.
+        async payBookings(ids, { silent = false } = {}) {
+            const { data } = await axios.post(
+                '/api/bookings/pay',
+                { booking_ids: ids },
+                { silent401: silent }
             );
-            return this.activeBookings;
+            data.forEach((booking) => this._syncBooking(booking));
+            this.activeBookings = data;
+            return data;
         },
 
         async createRoom(hotelId, payload) {
@@ -195,8 +208,11 @@ export const useHotelStore = defineStore('hotel', {
             return data;
         },
 
-        async confirmBooking(id, { silent = false } = {}) {
-            const { data } = await axios.patch(`/api/bookings/${id}`, { status: 'confirmed' }, { silent401: silent });
+        // Front-desk staff marking a booking settled, e.g. cash taken at the
+        // counter. Deliberately separate from payBookings: different actor,
+        // different authorization, and only staff may write this status.
+        async staffConfirmBooking(id) {
+            const { data } = await axios.patch(`/api/bookings/${id}`, { status: 'confirmed' });
             this._syncBooking(data);
             return data;
         },

@@ -108,18 +108,22 @@ const resolveLegDirection = (booking, schedule) => {
     return null;
 };
 
-// A scanned/typed code identifies either a ferry ticket (VFN-T####) or a
-// hotel booking (VFN-B####) - the reference code's own letter says which,
-// so the same camera/input handles both without a separate mode switch.
-// A bare number (no prefix) falls back to the old behavior of being a ticket id.
+// A scanned/typed code identifies either a ferry ticket (VFN-T…) or a hotel
+// booking (VFN-B…) - the reference code's own letter says which, so the same
+// camera/input handles both without a separate mode switch.
+//
+// The code is passed through whole. It used to have its trailing digits parsed
+// into a primary key, which meant a made-up sequential code was worth exactly as
+// much as a real ticket at the gate; codes are now opaque and resolved by the
+// server. A bare number is no longer accepted, because it never identified a
+// ticket so much as guessed at one.
 const parseScan = (raw) => {
-    const text = raw.trim();
-    const prefixed = text.match(/VFN-([A-Z])(\d+)/i);
-    if (prefixed) {
-        return { type: prefixed[1].toUpperCase() === 'B' ? 'booking' : 'ticket', id: parseInt(prefixed[2], 10) };
-    }
-    const digits = text.match(/(\d+)\s*$/);
-    return digits ? { type: 'ticket', id: parseInt(digits[1], 10) } : null;
+    const code = String(raw ?? '').trim().toUpperCase();
+    const match = code.match(/^(VFN-([BTE])[A-Z0-9]+)$/);
+
+    if (! match) return null;
+
+    return { type: match[2] === 'B' ? 'booking' : 'ticket', code: match[1] };
 };
 
 // The camera and the result panel never show at once - a result found by
@@ -137,7 +141,7 @@ const lookupParsed = async (parsed) => {
 
     try {
         if (parsed.type === 'booking') {
-            party.value = await ferryStore.getPartyStatus(parsed.id, selectedSchedule.value.id);
+            party.value = await ferryStore.getPartyStatusByCode(parsed.code, selectedSchedule.value.id);
             scanner.value?.pause();
 
             // The selected departure doesn't fit this stay at all - rather
@@ -150,7 +154,7 @@ const lookupParsed = async (parsed) => {
                 fallbackSchedule.value = schedulesForCheckIn[0] ?? null;
 
                 if (fallbackSchedule.value) {
-                    party.value = await ferryStore.getPartyStatus(parsed.id, fallbackSchedule.value.id);
+                    party.value = await ferryStore.getPartyStatusByCode(parsed.code, fallbackSchedule.value.id);
                 }
             }
 
@@ -164,7 +168,7 @@ const lookupParsed = async (parsed) => {
                 }
             }
         } else {
-            ticket.value = await ferryStore.lookupTicket(parsed.id);
+            ticket.value = await ferryStore.lookupTicketByCode(parsed.code);
             scanner.value?.pause();
             loadingSeatMap.value = true;
             try {
@@ -216,7 +220,10 @@ const changeDeparture = () => {
 
 const confirmUsed = async () => {
     try {
-        ticket.value = await ferryStore.validateTicketOnSite(ticket.value.id);
+        ticket.value = await ferryStore.validateTicketOnSite(
+            ticket.value.id,
+            selectedSchedule.value?.id
+        );
     } catch {
         lookupError.value = 'This ticket has already been used.';
     }
@@ -384,10 +391,14 @@ const markTicketUsed = async (t) => {
     markingUsedId.value = t.id;
     ticketActionError.value = '';
     try {
-        await ferryStore.validateTicketOnSite(t.id);
+        // The departure being boarded, not the ticket's own - a party can hold
+        // tickets for several sailings on one date, and only the ones for this
+        // boat may be boarded here. The server rejects the rest.
+        await ferryStore.validateTicketOnSite(t.id, effectiveSchedule.value?.id);
         party.value = await ferryStore.getPartyStatus(party.value.booking.id, effectiveSchedule.value.id);
-    } catch {
-        ticketActionError.value = 'Could not mark that ticket as used.';
+    } catch (e) {
+        ticketActionError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ')
+            || 'Could not mark that ticket as used.';
     } finally {
         markingUsedId.value = null;
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\EventBooking;
 use App\Models\EventSlot;
+use App\Support\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,13 +48,33 @@ class ThemeParkTicketController extends Controller
         return response()->json($booking, 201);
     }
 
+    /**
+     * Resolve a scanned park-ticket code. Previously the scanner parsed the
+     * trailing digits into a primary key, which made a guessed code equivalent to
+     * a real ticket.
+     */
+    public function lookupByReference(Request $request): JsonResponse
+    {
+        if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+
+        $booking = EventBooking::findByReferenceCode($validated['code']);
+
+        return response()->json($booking->load(['user:id,name', 'slot.event']));
+    }
+
     public function showTicket(Request $request, EventBooking $booking): JsonResponse
     {
         if (! $request->user()->hasAnyRole(['themepark_staff', 'admin'])) {
             abort(403);
         }
 
-        return response()->json($booking->load(['user', 'slot.event']));
+        return response()->json($booking->load(['user:id,name', 'slot.event']));
     }
 
     public function validateTicket(Request $request, EventBooking $booking): JsonResponse
@@ -68,7 +89,32 @@ class ThemeParkTicketController extends Controller
             ]);
         }
 
-        $booking->update(['status' => 'used']);
+        // A refunded ticket still admitted its holder. Because cancelling had
+        // already returned the seat to inventory, every such admission left the
+        // slot oversold by exactly the party that walked in.
+        if ($booking->status === 'cancelled') {
+            throw ValidationException::withMessages([
+                'status' => 'This ticket has been cancelled.',
+            ]);
+        }
+
+        if ($booking->slot->status !== 'scheduled') {
+            throw ValidationException::withMessages([
+                'status' => 'This time slot is not running.',
+            ]);
+        }
+
+        $booking->update([
+            'status' => 'used',
+            'validated_by' => $request->user()->id,
+            'validated_at' => now(),
+        ]);
+
+        AuditLog::record('park.ticket.validated', [
+            'booking_id' => $booking->id,
+            'reference_code' => $booking->reference_code,
+            'event_slot_id' => $booking->event_slot_id,
+        ], $request);
 
         return response()->json($booking->load('slot.event'));
     }

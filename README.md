@@ -41,6 +41,40 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Deployment checklist
+
+Verify every line before serving TPMS to real users. The application refuses to
+boot in production with `APP_DEBUG=true`, but the rest is on you.
+
+- [ ] `APP_ENV=production` and `APP_DEBUG=false`
+- [ ] `APP_KEY` generated fresh for this environment (`php artisan key:generate`) — never reused from another deploy
+- [ ] Served over HTTPS only, with `SESSION_SECURE_COOKIE=true` and `SESSION_ENCRYPT=true`
+- [ ] `Strict-Transport-Security: max-age=31536000; includeSubDomains` set at the TLS terminator
+      (the other security headers are applied by `App\Http\Middleware\SecurityHeaders`)
+- [ ] `APP_URL` set to the real origin — `config/cors.php` pins the allowed origin to it
+- [ ] Database user is a least-privilege account, **not** root, with a strong password
+- [ ] Database port not published to a public interface
+- [ ] `LOG_LEVEL=warning` or stricter
+- [ ] `php artisan config:cache route:cache view:cache`
+- [ ] `npm run build` committed/deployed; `php artisan storage:link` run
+- [ ] Scheduler running (`schedule:run` every minute) — it generates sailings and prunes abandoned guest accounts
+- [ ] `composer audit` and `npm audit --omit=dev` both clean
+- [ ] Demo seeder **not** run in production (`DemoDataSeeder` creates accounts with the password `password`)
+
+## Security
+
+A full audit and its remediation record live in `docs/`:
+
+| Document | Contents |
+|---|---|
+| `docs/SECURITY-AUDIT-2026-08-04.md` | 25 findings, each with a reproduced exploit |
+| `docs/SECURITY-REMEDIATION-PLAN.md` | Root-cause analysis and phased plan |
+| `docs/SECURITY-IMPLEMENTATION-HANDOFF.md` | Task-by-task implementation spec |
+
+Regression tests for every finding live in `tests/Feature/Security/`. The most
+important is `AuthorizationMatrixTest`, which checks every privileged route
+against every role — add a row to it whenever you add a privileged route.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

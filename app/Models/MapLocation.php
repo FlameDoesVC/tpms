@@ -18,7 +18,7 @@ class MapLocation extends Model
     protected function casts(): array
     {
         return [
-            'latitude'  => 'float',
+            'latitude' => 'float',
             'longitude' => 'float',
             'is_active' => 'boolean',
         ];

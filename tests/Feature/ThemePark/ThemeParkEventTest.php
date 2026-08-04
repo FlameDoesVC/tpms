@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ThemePark;
 
+use App\Models\EventBooking;
 use App\Models\EventSlot;
 use App\Models\ThemeParkEvent;
 use App\Models\User;
@@ -219,17 +220,32 @@ class ThemeParkEventTest extends TestCase
 
     // Visitors have to present something at the gate; the staff scanner reads
     // the trailing digits of this code as the booking id.
+    /**
+     * The code is prefixed so a scan can be routed to the right lookup, but the
+     * rest of it must not be derivable from the row. It used to be
+     * sprintf('VFN-E%04d', $id), which made every ticket in the system guessable
+     * from any one of them - and the code is the whole credential at the gate.
+     */
     public function test_park_bookings_expose_a_reference_code(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $booking = \App\Models\EventBooking::factory()->create(['user_id' => $visitor->id]);
+        $booking = EventBooking::factory()->create(['user_id' => $visitor->id]);
 
         $response = $this->actingAs($visitor)->getJson('/api/themepark/bookings');
 
         $response->assertOk();
-        $this->assertSame(
-            sprintf('VFN-E%04d', $booking->id),
-            $response->json('0.reference_code')
+
+        $code = $response->json('0.reference_code');
+        $this->assertSame($booking->reference_code, $code);
+        $this->assertMatchesRegularExpression('/^VFN-E[A-Z0-9]{12}$/', $code);
+
+        // Not derived from the id: the next row's code must not be predictable
+        // from this one.
+        $next = EventBooking::factory()->create(['user_id' => $visitor->id]);
+        $this->assertNotSame(
+            substr($code, 5),
+            substr($next->reference_code, 5),
+            'reference codes must not be sequential'
         );
     }
 
@@ -237,8 +253,8 @@ class ThemeParkEventTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $other = User::factory()->create()->assignRole('visitor');
-        \App\Models\EventBooking::factory()->create(['user_id' => $visitor->id]);
-        \App\Models\EventBooking::factory()->create(['user_id' => $other->id]);
+        EventBooking::factory()->create(['user_id' => $visitor->id]);
+        EventBooking::factory()->create(['user_id' => $other->id]);
 
         $response = $this->actingAs($visitor)->getJson('/api/themepark/bookings');
 
@@ -250,7 +266,7 @@ class ThemeParkEventTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $slot = EventSlot::factory()->create(['available_capacity' => 10]);
-        $booking = \App\Models\EventBooking::factory()->create([
+        $booking = EventBooking::factory()->create([
             'user_id' => $visitor->id,
             'event_slot_id' => $slot->id,
             'ticket_count' => 2,
@@ -268,7 +284,7 @@ class ThemeParkEventTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $other = User::factory()->create()->assignRole('visitor');
-        $booking = \App\Models\EventBooking::factory()->create(['user_id' => $other->id]);
+        $booking = EventBooking::factory()->create(['user_id' => $other->id]);
 
         $this->actingAs($visitor)->deleteJson("/api/themepark/bookings/{$booking->id}")
             ->assertForbidden();

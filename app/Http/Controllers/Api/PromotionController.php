@@ -49,13 +49,13 @@ class PromotionController extends Controller
         }
 
         $validated = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
-            'category'    => ['required', 'in:hotel,themepark,ferry,general'],
-            'starts_at'   => ['nullable', 'date'],
-            'ends_at'     => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'is_active'   => ['sometimes', 'boolean'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            'category' => ['required', 'in:hotel,themepark,ferry,general'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
 
         $promotion = Promotion::create([
@@ -79,14 +79,14 @@ class PromotionController extends Controller
         }
 
         $validated = $request->validate([
-            'title'       => ['sometimes', 'string', 'max:255'],
+            'title' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'image'       => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
             'remove_image' => ['sometimes', 'boolean'],
-            'category'    => ['sometimes', 'in:hotel,themepark,ferry,general'],
-            'starts_at'   => ['nullable', 'date'],
-            'ends_at'     => ['nullable', 'date'],
-            'is_active'   => ['sometimes', 'boolean'],
+            'category' => ['sometimes', 'in:hotel,themepark,ferry,general'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
 
         $promotion->update(collect($validated)->except(['image', 'remove_image'])->all());

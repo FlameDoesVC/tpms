@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasVisibilityScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Ferry extends Model
 {
     use HasFactory;
+    use HasVisibilityScope;
 
     /** Grid cell codes. A deck row is a string of these. */
     public const CELL_SEAT = 'S';
+
     public const CELL_EMPTY = '.';
 
     /** Where people board. Bow/stern index a column; port/starboard a row. */
@@ -19,6 +22,7 @@ class Ferry extends Model
 
     /** Columns in the generated fallback deck: four, an aisle, four. */
     private const FALLBACK_ROW = 'SSSS.SSSS';
+
     private const FALLBACK_SEATS_PER_ROW = 8;
 
     protected $fillable = [

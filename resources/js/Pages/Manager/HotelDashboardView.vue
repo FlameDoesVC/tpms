@@ -30,7 +30,7 @@ const search = ref('');
 const busyId = ref(null);
 
 onMounted(() => {
-    hotelStore.fetchHotels();
+    hotelStore.fetchHotels({ all: true });
     hotelStore.fetchMyBookings();
 });
 
@@ -95,7 +95,7 @@ const statusVariant = (status) => ({
 const confirmBooking = async (booking) => {
     busyId.value = booking.id;
     try {
-        await hotelStore.confirmBooking(booking.id);
+        await hotelStore.staffConfirmBooking(booking.id);
         showToast(`${booking.reference_code ?? 'Booking'} confirmed.`, 'success');
     } catch (e) {
         showToast(e.response?.data?.message ?? 'Could not confirm this booking.');

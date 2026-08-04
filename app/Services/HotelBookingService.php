@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Room;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class HotelBookingService
@@ -71,10 +74,33 @@ class HotelBookingService
         return $created;
     }
 
-    public function confirm(Collection $bookings): void
+    /**
+     * The single owner of the pending -> confirmed transition.
+     *
+     * Every path that settles a booking goes through here - the visitor paying on
+     * the confirmation screen, and cart checkout - so a confirmed booking always
+     * has a payment behind it. The amount is read from the booking, never from
+     * the request: the client computes a total for display only.
+     *
+     * Callers must run this inside a DB transaction.
+     */
+    public function settle(Collection $bookings, User $actor, string $method = 'card'): Collection
     {
-        foreach ($bookings as $booking) {
+        return $bookings->map(function (Booking $booking) use ($actor, $method) {
+            Payment::create([
+                'user_id' => $booking->user_id,
+                'payable_type' => $booking->getMorphClass(),
+                'payable_id' => $booking->id,
+                'amount' => $booking->total_price,
+                'method' => $method,
+                'status' => 'captured',
+                'reference' => 'PAY-'.Str::upper(Str::random(12)),
+                'recorded_by' => $actor->id,
+            ]);
+
             $booking->update(['status' => 'confirmed']);
-        }
+
+            return $booking->fresh();
+        })->values();
     }
 }

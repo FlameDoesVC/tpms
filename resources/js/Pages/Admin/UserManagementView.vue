@@ -6,6 +6,7 @@ import TCard from '@/Components/ui/TCard.vue';
 import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
+import TPasswordInput from '@/Components/ui/TPasswordInput.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
@@ -258,11 +259,10 @@ const remove = async (user) => {
             <form @submit.prevent="save" class="space-y-4">
                 <TInput id="name" v-model="form.name" label="Name" :error="errors.name?.[0]" />
                 <TInput id="email" v-model="form.email" label="Email" type="email" :error="errors.email?.[0]" />
-                <TInput
+                <TPasswordInput
                     id="password"
                     v-model="form.password"
                     label="Password"
-                    type="password"
                     :placeholder="editingUser ? 'Leave blank to keep the current one' : ''"
                     :helper="editingUser ? 'Only set this if you are resetting their password.' : null"
                     :error="errors.password?.[0]"

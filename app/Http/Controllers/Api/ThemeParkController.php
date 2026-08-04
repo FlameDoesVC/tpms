@@ -7,6 +7,8 @@ use App\Models\EventBooking;
 use App\Models\EventSlot;
 use App\Models\ThemeParkEvent;
 use App\Services\ThemeParkBookingService;
+use App\Support\AuditLog;
+use App\Support\GuestSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -18,9 +20,16 @@ class ThemeParkController extends Controller
 {
     public function __construct(private ThemeParkBookingService $bookings) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(ThemeParkEvent::query()->where('is_active', true)->get());
+        // `?all=1` is the staff management view. Without it the event management
+        // screen shared the visitor's filtered list, so toggling an event inactive
+        // removed it from the only screen that could turn it back on.
+        return response()->json(
+            ThemeParkEvent::query()
+                ->visibleTo($request->user(), $request->boolean('all'))
+                ->get()
+        );
     }
 
     /**
@@ -40,6 +49,10 @@ class ThemeParkController extends Controller
 
     public function show(Request $request, ThemeParkEvent $event): JsonResponse
     {
+        // An unannounced event and its schedule are commercially confidential;
+        // this endpoint returned both by id regardless of is_active.
+        abort_unless($event->visibleTo($request->user()), 404);
+
         $validated = $request->validate(['date' => ['nullable', 'date']]);
 
         $slots = $event->slots();
@@ -205,7 +218,10 @@ class ThemeParkController extends Controller
             'ticket_count' => ['required', 'integer', 'min:1'],
         ]);
 
-        $booking = DB::transaction(fn () => $this->bookings->book($request->user()->id, $validated));
+        // After validation, so a malformed request cannot provision an account.
+        $userId = GuestSession::ensure($request)->id;
+
+        $booking = DB::transaction(fn () => $this->bookings->book($userId, $validated));
 
         return response()->json($booking, 201);
     }
@@ -227,11 +243,44 @@ class ThemeParkController extends Controller
             abort(403);
         }
 
-        DB::transaction(function () use ($booking) {
-            EventSlot::lockForUpdate()->findOrFail($booking->event_slot_id)
-                ->increment('available_capacity', $booking->ticket_count);
-            $booking->update(['status' => 'cancelled']);
+        // Idempotent. Without this guard each repeated DELETE returned the seats
+        // again, and five identical calls took a 10-seat slot to 18 available -
+        // unbounded overselling from any visitor with one booking.
+        if ($booking->status === 'cancelled') {
+            return response()->json($booking);
+        }
+
+        if ($booking->status === 'used') {
+            throw ValidationException::withMessages([
+                'status' => 'This ticket has already been used and cannot be cancelled.',
+            ]);
+        }
+
+        DB::transaction(function () use ($booking, $request) {
+            $slot = EventSlot::with('event')->lockForUpdate()->findOrFail($booking->event_slot_id);
+
+            // Clamped to the physical limit so a future accounting slip can never
+            // oversell the slot either.
+            $slot->update([
+                'available_capacity' => min(
+                    $slot->event->capacity_per_slot,
+                    $slot->available_capacity + $booking->ticket_count
+                ),
+            ]);
+
+            $booking->update([
+                'status' => 'cancelled',
+                'cancelled_by' => $request->user()->id,
+                'cancelled_at' => now(),
+            ]);
         });
+
+        AuditLog::record('park.booking.cancelled', [
+            'booking_id' => $booking->id,
+            'reference_code' => $booking->reference_code,
+            'event_slot_id' => $booking->event_slot_id,
+            'ticket_count' => $booking->ticket_count,
+        ], $request);
 
         return response()->json($booking->fresh());
     }

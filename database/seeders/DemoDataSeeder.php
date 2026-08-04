@@ -17,44 +17,47 @@ use App\Models\User;
 use App\Services\EventSlotTemplateGenerator;
 use App\Services\ScheduleTemplateGenerator;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DemoDataSeeder extends Seeder
 {
     /**
-     * Seed realistic sample data across every implemented module, for local dev/demo use.
-     * All accounts use password "password".
+     * Shared password for the demo accounts.
+     *
+     * Deliberately satisfies the policy in config/security.php. It used to be
+     * "password", which the application now refuses to accept when a user sets
+     * one - so the seeder was handing out a credential its own registration form
+     * would reject, and seeding a public environment meant every role was one
+     * guess away.
      */
+    public const DEMO_PASSWORD = 'lagoon ferry demo 2026';
+
+    /**
+     * Seed realistic sample data across every implemented module, for local
+     * dev/demo use. Never run this in production - see the deployment checklist
+     * in README.md.
+     */
+    /**
+     * A demo account with the shared, policy-compliant password. Set explicitly
+     * rather than left to UserFactory, whose default exists for the test suite.
+     */
+    private function demoUser(string $name, string $email, string $role): User
+    {
+        return User::factory()->create([
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make(self::DEMO_PASSWORD),
+        ])->assignRole($role);
+    }
+
     public function run(): void
     {
-        $hotelManager = User::factory()->create([
-            'name' => 'Hana Manager',
-            'email' => 'hotel_manager@example.com',
-        ])->assignRole('hotel_manager');
-
-        $ferryOperator = User::factory()->create([
-            'name' => 'Fiona Operator',
-            'email' => 'ferry_operator@example.com',
-        ])->assignRole('ferry_operator');
-
-        $parkStaff = User::factory()->create([
-            'name' => 'Pete Staff',
-            'email' => 'park_staff@example.com',
-        ])->assignRole('themepark_staff');
-
-        User::factory()->create([
-            'name' => 'Ada Admin',
-            'email' => 'admin@example.com',
-        ])->assignRole('admin');
-
-        $visitor1 = User::factory()->create([
-            'name' => 'Visitor One',
-            'email' => 'visitor1@example.com',
-        ])->assignRole('visitor');
-
-        $visitor2 = User::factory()->create([
-            'name' => 'Visitor Two',
-            'email' => 'visitor2@example.com',
-        ])->assignRole('visitor');
+        $hotelManager = $this->demoUser('Hana Manager', 'hotel_manager@example.com', 'hotel_manager');
+        $ferryOperator = $this->demoUser('Fiona Operator', 'ferry_operator@example.com', 'ferry_operator');
+        $parkStaff = $this->demoUser('Pete Staff', 'park_staff@example.com', 'themepark_staff');
+        $this->demoUser('Ada Admin', 'admin@example.com', 'admin');
+        $visitor1 = $this->demoUser('Visitor One', 'visitor1@example.com', 'visitor');
+        $visitor2 = $this->demoUser('Visitor Two', 'visitor2@example.com', 'visitor');
 
         // --- Hotels ---
         $sunsetResort = Hotel::factory()->create([
@@ -183,7 +186,7 @@ class DemoDataSeeder extends Seeder
             'status' => 'confirmed',
         ]);
 
-        $this->command?->info('Demo accounts (password: "password"):');
+        $this->command?->info('Demo accounts (password: "'.self::DEMO_PASSWORD.'"):');
         $this->command?->table(['Role', 'Email'], [
             ['hotel_manager', $hotelManager->email],
             ['ferry_operator', $ferryOperator->email],

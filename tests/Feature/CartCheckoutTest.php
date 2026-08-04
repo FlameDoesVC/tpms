@@ -3,11 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
-use App\Models\EventBooking;
 use App\Models\EventSlot;
 use App\Models\Ferry;
 use App\Models\FerrySchedule;
-use App\Models\FerryTicket;
 use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\ThemeParkEvent;

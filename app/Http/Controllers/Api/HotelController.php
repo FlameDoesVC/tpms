@@ -20,7 +20,11 @@ class HotelController extends Controller
         // that has to already be on the page.
         $perPage = min((int) $request->integer('per_page', 12) ?: 12, 100);
 
-        $hotels = Hotel::query()->paginate($perPage);
+        // `?all=1` is the management view and is ignored for anyone without a
+        // staff role - a deactivated hotel is not something a visitor should see.
+        $hotels = Hotel::query()
+            ->visibleTo($request->user(), $request->boolean('all'))
+            ->paginate($perPage);
 
         return HotelResource::collection($hotels)->response();
     }
@@ -40,8 +44,12 @@ class HotelController extends Controller
         return response()->json($hotels);
     }
 
-    public function show(Hotel $hotel): HotelResource
+    public function show(Request $request, Hotel $hotel): HotelResource
     {
+        // 404 rather than 403: whether a hidden hotel exists is itself the thing
+        // being withheld.
+        abort_unless($hotel->visibleTo($request->user()), 404);
+
         return new HotelResource($hotel->load('rooms'));
     }
 

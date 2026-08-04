@@ -47,7 +47,7 @@ const summary = computed(() => {
 });
 
 onMounted(async () => {
-    await hotelStore.fetchHotels();
+    await hotelStore.fetchHotels({ all: true });
     if (hotelStore.hotels.length) selectedHotelId.value = hotelStore.hotels[0].id;
 });
 

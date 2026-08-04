@@ -7,6 +7,10 @@ const props = defineProps({
     label: { type: String, default: null },
     error: { type: String, default: null },
     helper: { type: String, default: null },
+    // The suffix is decoration by default, so it never steals a click meant for
+    // the field. Set this when the suffix is a real control, e.g. the
+    // show-password toggle on TPasswordInput.
+    suffixInteractive: { type: Boolean, default: false },
 });
 
 const model = defineModel();
@@ -49,7 +53,11 @@ defineExpose({
                     $slots.suffix ? 'pr-10' : '',
                 ]"
             />
-            <span v-if="$slots.suffix" class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-foreground-muted">
+            <span
+                v-if="$slots.suffix"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-foreground-muted"
+                :class="suffixInteractive ? '' : 'pointer-events-none'"
+            >
                 <slot name="suffix" />
             </span>
         </div>

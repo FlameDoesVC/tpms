@@ -12,7 +12,7 @@ class EventSlotTemplatePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasAnyRole(['themepark_staff', 'admin']);
+        return $user->can('park.events.manage');
     }
 
     /**
@@ -20,7 +20,7 @@ class EventSlotTemplatePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['themepark_staff', 'admin']);
+        return $user->can('park.events.manage');
     }
 
     /**
@@ -28,7 +28,7 @@ class EventSlotTemplatePolicy
      */
     public function update(User $user, EventSlotTemplate $eventSlotTemplate): bool
     {
-        return $user->hasAnyRole(['themepark_staff', 'admin']);
+        return $user->can('park.events.manage');
     }
 
     /**
@@ -36,6 +36,6 @@ class EventSlotTemplatePolicy
      */
     public function delete(User $user, EventSlotTemplate $eventSlotTemplate): bool
     {
-        return $user->hasAnyRole(['themepark_staff', 'admin']);
+        return $user->can('park.events.manage');
     }
 }

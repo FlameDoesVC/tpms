@@ -16,20 +16,23 @@ const lookupError = ref('');
 const scanner = ref(null);
 let scanLocked = false;
 
-const parseBookingId = (raw) => {
-    const match = raw.trim().match(/(\d+)\s*$/);
-    return match ? parseInt(match[1], 10) : null;
+// The scanned code is passed through whole. It used to have its trailing digits
+// parsed into a booking id, so a typed-in sequential guess admitted its holder on
+// someone else's ticket; codes are opaque now and resolved by the server.
+const parseTicketCode = (raw) => {
+    const code = String(raw ?? '').trim().toUpperCase();
+    return /^VFN-[BTE][A-Z0-9]+$/.test(code) ? code : null;
 };
 
 // The camera and the result panel never show at once - a booking found by
 // either the scanner or the manual field freezes the camera (not stopping
 // it, so the stream is still warm and `start()` on the way back is instant)
 // until the operator explicitly returns to scanning.
-const lookupById = async (id) => {
+const lookupByCode = async (code) => {
     lookupError.value = '';
     booking.value = null;
     try {
-        booking.value = await themeParkStore.lookupTicket(id);
+        booking.value = await themeParkStore.lookupTicketByCode(code);
         scanner.value?.pause();
     } catch {
         lookupError.value = 'Booking not found.';
@@ -37,20 +40,20 @@ const lookupById = async (id) => {
 };
 
 const lookupManually = () => {
-    const id = parseBookingId(bookingIdInput.value);
-    if (!id) {
+    const code = parseTicketCode(bookingIdInput.value);
+    if (!code) {
         lookupError.value = 'Booking not found.';
         return;
     }
-    lookupById(id);
+    lookupByCode(code);
 };
 
 const onDecode = async (data) => {
     if (scanLocked) return;
-    const id = parseBookingId(data);
-    if (!id) return;
+    const code = parseTicketCode(data);
+    if (!code) return;
     scanLocked = true;
-    await lookupById(id);
+    await lookupByCode(code);
     scanLocked = false;
 };
 

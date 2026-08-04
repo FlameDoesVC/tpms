@@ -58,6 +58,21 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        /*
+         * Privileged actions and authentication outcomes: ticket validation,
+         * cancellations, role changes, account deletion, failed logins and
+         * lockouts. Kept on its own channel and retained far longer than the
+         * application log, because this is the record you go back to after an
+         * incident rather than while debugging one.
+         */
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => env('LOG_AUDIT_DAYS', 365),
+            'replace_placeholders' => true,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
