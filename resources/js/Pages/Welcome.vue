@@ -2,8 +2,9 @@
 import { computed, onMounted, ref } from 'vue';
 import axios from 'axios';
 import IslandMap from '@/Components/IslandMap.vue';
+import MediaRail from '@/Components/MediaRail.vue';
+import RailCard from '@/Components/RailCard.vue';
 import TButton from '@/Components/ui/TButton.vue';
-import TBadge from '@/Components/ui/TBadge.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import { useCartStore } from '@/stores/cart';
 import { formatDate } from '@/utils/format';
@@ -12,6 +13,7 @@ import { useHotelStore } from '@/stores/hotel';
 import { useThemeParkStore } from '@/stores/themepark';
 import { usePromotionsStore } from '@/stores/promotions';
 import { useTheme } from '@/composables/useTheme';
+import { useReveal } from '@/composables/useReveal';
 
 const auth = useAuthStore();
 const hotelStore = useHotelStore();
@@ -22,6 +24,9 @@ const mapLocations = ref([]);
 const loadingSections = ref(true);
 const { isDark, toggle: toggleTheme } = useTheme();
 
+const page = ref(null);
+const { scan } = useReveal(page);
+
 const CATEGORY_ROUTES = {
     hotel: { name: 'hotels.index' },
     themepark: { name: 'themepark.home' },
@@ -29,11 +34,11 @@ const CATEGORY_ROUTES = {
     general: { name: 'welcome' },
 };
 
-const CATEGORY_VARIANT = {
-    hotel: 'success',
-    themepark: 'info',
-    ferry: 'warning',
-    general: 'neutral',
+const CATEGORY_LABEL = {
+    hotel: 'Stay',
+    themepark: 'Park',
+    ferry: 'Ferry',
+    general: 'Offer',
 };
 
 onMounted(async () => {
@@ -55,6 +60,9 @@ onMounted(async () => {
     ]);
 
     loadingSections.value = false;
+    // Sections gated behind this fetch (the offers rail) weren't in the DOM
+    // for the observer's first pass.
+    scan();
 });
 
 // A promotion deep-links to the matching entity when its title names one, so
@@ -120,31 +128,40 @@ const legs = computed(() => [
 </script>
 
 <template>
-    <div class="min-h-screen bg-page">
-        <!-- Hero. Deep-water gradient: near-black at the top corner falling to
-             teal, with a warm sun bloom off to one side. Fixed in both themes -
-             it reads as the sea, not as a surface. The nav sits inside it so
-             the page opens on water rather than on a white strip. -->
-        <section class="relative overflow-hidden bg-[#061f22] bg-gradient-to-br from-[#04181b] via-[#0a3f42] to-[#10635f]">
+    <div ref="page" class="min-h-screen bg-page">
+        <!-- ================================ HERO ================================
+             A body of water, and a different body of water per theme: a sunlit
+             shallow beach that brightens toward the sand, or deep ocean lit at
+             the surface and falling away to an abyss. Both come out of the
+             .hero-sea tokens, so this markup carries no theme branching beyond
+             choosing which optical effect belongs in which water. -->
+        <section class="hero-sea relative isolate overflow-hidden">
+            <!-- Light shafts at depth; the rippling light net in the shallows. -->
             <div
-                class="pointer-events-none absolute -right-32 -top-40 h-[32rem] w-[32rem] rounded-full bg-accent/20 blur-3xl"
+                v-if="isDark"
+                class="sea-rays pointer-events-none absolute inset-0"
+                aria-hidden="true"
+            />
+            <div
+                v-else
+                class="sea-caustics pointer-events-none absolute inset-x-0 bottom-0 h-2/3"
                 aria-hidden="true"
             />
 
             <!-- Top bar. The wordmark is written out here rather than reusing
                  ApplicationLogo because that one is teal from the theme tokens,
-                 and the hero is dark in both themes. -->
-            <div class="relative z-10 shell flex items-center justify-between py-5">
+                 and it has to survive both waters. -->
+            <div class="rise-in shell relative z-10 flex items-center justify-between py-5">
                 <span class="inline-flex items-center gap-1">
                     <span class="text-xl font-bold tracking-tight text-white">TPMS</span>
-                    <span class="mb-0.5 h-1.5 w-1.5 self-end rounded-full bg-accent" aria-hidden="true" />
+                    <span class="beacon-fill mb-0.5 h-1.5 w-1.5 self-end rounded-full" aria-hidden="true" />
                 </span>
 
                 <div class="flex items-center gap-2 sm:gap-3">
                     <button
                         type="button"
                         @click="toggleTheme"
-                        class="rounded-lg p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                        class="rounded-lg p-2 text-white/75 transition-colors hover:bg-white/10 hover:text-white"
                         :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
                     >
                         <TIcon :name="isDark ? 'sun' : 'moon'" :size="19" />
@@ -165,7 +182,7 @@ const legs = computed(() => [
                     <template v-if="auth.isAuthenticated">
                         <router-link
                             :to="{ name: 'dashboard' }"
-                            class="text-sm font-medium text-white/80 transition-colors hover:text-white"
+                            class="text-sm font-medium text-white/85 transition-colors hover:text-white"
                         >
                             Go to dashboard
                         </router-link>
@@ -173,7 +190,7 @@ const legs = computed(() => [
                     <template v-else>
                         <router-link
                             :to="{ name: 'login' }"
-                            class="hidden text-sm font-medium text-white/80 transition-colors hover:text-white sm:block"
+                            class="hidden text-sm font-medium text-white/85 transition-colors hover:text-white sm:block"
                         >
                             Log in
                         </router-link>
@@ -184,16 +201,22 @@ const legs = computed(() => [
                 </div>
             </div>
 
-            <div class="relative z-10 shell grid items-center gap-12 pb-32 pt-12 lg:grid-cols-[1.05fr_minmax(24rem,0.95fr)] lg:gap-16 lg:pb-40 lg:pt-20">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            <div
+                class="shell relative z-10 grid items-center gap-12 pb-36 pt-12 lg:grid-cols-[1.05fr_minmax(24rem,0.95fr)] lg:gap-16 lg:pb-44 lg:pt-20"
+            >
+                <!-- Two elements, one effect each. Both the load-in and the
+                     scroll-linked sink are animation shorthands, so sharing an
+                     element would let whichever rule comes last win outright. -->
+                <div class="sink">
+                <div class="rise-in" style="--r-delay: 90ms">
+                    <p class="beacon-ink text-xs font-semibold uppercase tracking-[0.2em]">
                         Plan your island visit
                     </p>
                     <h1 class="mt-5 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
                         Everything on the island,<br class="hidden sm:block" />
                         in one itinerary.
                     </h1>
-                    <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
+                    <p class="sea-soft mt-6 max-w-xl text-lg leading-relaxed">
                         Rooms, ferry crossings and theme park time slots — chosen together, paid together.
                         Start without an account and sign in when you check out.
                     </p>
@@ -202,239 +225,234 @@ const legs = computed(() => [
                         <router-link :to="{ name: 'hotels.index' }">
                             <TButton variant="accent" size="lg" as="span">Start with a room</TButton>
                         </router-link>
+                        <!-- Glassed rather than a bare outline: over the pale
+                             shallows a transparent button's white label drops
+                             under 4.5:1, and its own tint fixes that without
+                             needing a second light-theme variant. -->
                         <router-link
                             :to="{ name: 'themepark.home' }"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-white/25 px-5 py-2.5 text-base font-medium text-white transition-colors hover:bg-white/10"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-[rgb(var(--sea-a)/0.5)] px-5 py-2.5 text-base font-medium text-white backdrop-blur-sm transition-colors hover:bg-[rgb(var(--sea-a)/0.78)]"
                         >
                             Browse the park
                             <TIcon name="arrowRight" :size="17" />
                         </router-link>
                     </div>
                 </div>
+                </div>
 
                 <!-- The signature panel: the product itself, shown being filled
                      in. Live from the cart, so it doubles as progress once the
-                     visitor has started. -->
-                <div class="elevated-lg rounded-xl border border-white/10 bg-white/[0.07] p-2 backdrop-blur-md">
-                    <div class="rounded-xl bg-[#04191c]/60 p-5 sm:p-6">
+                     visitor has started. Dark glass in both themes - it reads as
+                     an instrument resting on the water either way, and it keeps
+                     one set of type colours legible over two very different seas. -->
+                <div class="sink-slow">
+                <div
+                    class="trip-card elevated-lg rise-in rounded-xl border border-[var(--card-frame-line)] bg-[var(--card-frame)] p-2 backdrop-blur-md"
+                    style="--r-delay: 220ms"
+                >
+                    <div class="rounded-xl bg-[var(--card-bg)] p-5 sm:p-6">
                         <div class="flex items-baseline justify-between gap-3">
-                            <h2 class="text-sm font-semibold tracking-tight text-white">One trip, three legs</h2>
-                            <span class="text-xs text-white/50">
+                            <h2 class="text-sm font-semibold tracking-tight text-[var(--card-ink)]">One trip, three legs</h2>
+                            <span class="text-xs text-[var(--card-ink-soft)]">
                                 {{ legs.filter((l) => l.done).length }} of 3 started
                             </span>
                         </div>
-                        <div class="perforation my-4 opacity-20" aria-hidden="true" />
+                        <div class="trip-rule my-4" aria-hidden="true" />
 
                         <ol class="relative space-y-1">
                             <!-- Connecting rail. The legs are a real sequence -
                                  the server refuses a ferry seat without a stay -
                                  so the line encodes a dependency, not decoration. -->
                             <span
-                                class="absolute bottom-9 left-[2.125rem] top-9 w-px bg-white/25"
+                                class="absolute bottom-9 left-[2.125rem] top-9 w-px bg-[rgb(var(--card-accent)/0.3)]"
                                 aria-hidden="true"
                             />
 
                             <li v-for="leg in legs" :key="leg.key" class="relative">
                                 <router-link
                                     :to="leg.to"
-                                    class="group flex items-start gap-4 rounded-lg p-3 transition-colors hover:bg-white/10"
+                                    class="group flex items-start gap-4 rounded-lg p-3 transition-colors hover:bg-[var(--card-hover)]"
                                 >
+                                    <!-- Beacons read --card-accent, not --beacon:
+                                         the water-tuned beacon is a bright orange
+                                         that needs a dark backdrop and dies on
+                                         frosted glass. Still orange by day and
+                                         amber by night, only deep enough to hold
+                                         on a translucent card. The done state can
+                                         use the plain accent as a fill, because a
+                                         solid disc doesn't take the water's tint. -->
                                     <span
-                                        class="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full border transition-colors"
+                                        class="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full ring-1 transition-all"
                                         :class="leg.done
-                                            ? 'border-accent bg-accent text-accent-fg'
-                                            : 'border-white/20 bg-[#04191c] text-white/70 group-hover:border-white/40 group-hover:text-white'"
+                                            ? 'bg-accent text-accent-fg ring-accent shadow-[0_0_22px_-6px_rgb(var(--color-accent)/0.7)]'
+                                            : leg.locked
+                                                ? 'bg-[var(--card-disc)] text-[var(--card-ink-faint)] ring-[var(--card-rule)]'
+                                                : 'bg-[var(--card-disc)] text-[rgb(var(--card-accent))] ring-[rgb(var(--card-accent)/0.4)] shadow-[0_0_18px_-7px_rgb(var(--card-accent)/0.55)] group-hover:bg-[rgb(var(--card-accent)/0.2)]'"
                                     >
                                         <TIcon :name="leg.done ? 'check' : leg.icon" :size="19" />
                                     </span>
                                     <span class="min-w-0 flex-1 pt-0.5">
                                         <span class="flex flex-wrap items-center gap-2">
-                                            <span class="font-semibold text-white">{{ leg.title }}</span>
+                                            <span class="font-semibold text-[var(--card-ink)]">{{ leg.title }}</span>
                                             <span
                                                 v-if="leg.locked"
-                                                class="rounded-full border border-white/15 px-2 py-0.5 text-[11px] text-white/50"
+                                                class="rounded-full border border-[var(--card-rule)] px-2 py-0.5 text-[11px] text-[var(--card-ink-soft)]"
                                             >
                                                 {{ leg.note }}
                                             </span>
                                         </span>
-                                        <span class="mt-0.5 block text-sm leading-snug text-white/55">{{ leg.blurb }}</span>
+                                        <span class="mt-0.5 block text-sm leading-snug text-[var(--card-ink-soft)]">{{ leg.blurb }}</span>
                                     </span>
                                     <TIcon
                                         name="chevronRight"
                                         :size="16"
-                                        class="mt-3 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/60"
+                                        class="mt-3 text-[var(--card-ink-faint)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--card-ink-soft)]"
                                     />
                                 </router-link>
                             </li>
                         </ol>
 
+                        <!-- Label in ordinary ink, not accent: accent text on an
+                             accent tint over glass measures ~3.4:1, which is
+                             fine for the arrow but under AA for the words. -->
                         <router-link
                             v-if="showCart"
                             :to="{ name: 'cart.checkout' }"
-                            class="mt-4 flex items-center justify-between rounded-lg bg-accent/15 px-4 py-3 text-sm font-medium text-accent transition-colors hover:bg-accent/25"
+                            class="mt-4 flex items-center justify-between rounded-lg bg-accent/15 px-4 py-3 text-sm font-semibold text-[var(--card-ink)] transition-colors hover:bg-accent/25"
                         >
                             Review and check out
-                            <TIcon name="arrowRight" :size="16" />
+                            <TIcon name="arrowRight" :size="16" class="text-[rgb(var(--card-accent))]" />
                         </router-link>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <!-- Shoreline. Two offset wave bands in the page colour, so the hero
-                 meets the content as water meets sand rather than as a hard rule. -->
-            <svg
-                class="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full sm:h-24"
-                viewBox="0 0 1440 120"
-                preserveAspectRatio="none"
-                aria-hidden="true"
+            <!-- Surf. Four layers, painted back to front: a distant swell, a
+                 back swell, a foam line and the front band in the page's own
+                 colour. Each is longer and slower than the one in front of it,
+                 so the set reads as depth rather than as parallel decals. The
+                 foam is the front band shifted three pixels up and left
+                 underneath it, so it can only ever be exactly on the crest -
+                 one shared animation, no phase to keep in sync. -->
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-20 sm:h-28" aria-hidden="true">
+                <div class="wave-band wave-band-swell absolute inset-x-0 bottom-0 h-full" />
+                <div class="wave-band wave-band-back absolute inset-x-0 bottom-0 h-full opacity-40" />
+                <!-- Foam carries the same modifier as the band it sits on, or
+                     the two desync and the highlight leaves the crest. -->
+                <div class="wave-band wave-band-lead wave-foam absolute inset-x-0 bottom-[3px] h-3/4" />
+                <div class="wave-band wave-band-lead absolute inset-x-0 bottom-0 h-3/4" />
+            </div>
+        </section>
+
+        <!-- =============================== OFFERS =============================== -->
+        <section v-if="promotionsStore.active.length > 0" data-reveal class="r-up shell pt-14">
+            <MediaRail
+                title="Offers on now"
+                hint="Applied automatically at checkout"
+                :items="promotionsStore.active"
             >
-                <path
-                    d="M0 62c120-26 240-26 360 0s240 26 360 0 240-26 360 0 240 26 360 0v58H0z"
-                    fill="rgb(var(--color-background))"
-                    opacity="0.35"
-                />
-                <path
-                    d="M0 86c120-24 240-24 360 0s240 24 360 0 240-24 360 0 240 24 360 0v34H0z"
-                    fill="rgb(var(--color-background))"
-                />
-            </svg>
-        </section>
-
-        <!-- Offers. The reading sections deliberately sit on a narrower measure
-             than the hero and the map: a row of three teasers stretched across
-             the full band reads as a half-empty shelf, and the change of width
-             is what gives the page a rhythm instead of one uniform column. -->
-        <section v-if="promotionsStore.active.length > 0" class="shell pb-4 pt-12">
-            <div class="mx-auto max-w-6xl">
-            <div class="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-                <h2 class="text-2xl font-semibold tracking-tight text-foreground">Offers on now</h2>
-                <p class="text-sm text-foreground-muted">Applied automatically at checkout</p>
-            </div>
-            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <router-link
-                    v-for="promo in promotionsStore.active"
-                    :key="promo.id"
-                    :to="promoTarget(promo)"
-                    class="elevated lift group flex flex-col overflow-hidden rounded-xl border bg-surface"
-                >
-                    <div class="flex h-40 w-full items-center justify-center overflow-hidden bg-surface-hover text-foreground-muted">
-                        <img
-                            v-if="promo.image_url"
-                            :src="promo.image_url"
-                            :alt="promo.title"
-                            loading="lazy"
-                            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <TIcon v-else name="sparkle" :size="28" />
-                    </div>
-                    <div class="flex flex-1 flex-col gap-2 p-4">
-                        <div class="flex items-center gap-2">
-                            <TBadge :variant="CATEGORY_VARIANT[promo.category]">{{ promo.category }}</TBadge>
-                            <span v-if="promoEndsLabel(promo)" class="text-xs font-medium text-warning">
-                                {{ promoEndsLabel(promo) }}
-                            </span>
-                        </div>
-                        <h3 class="font-semibold text-foreground group-hover:text-primary">{{ promo.title }}</h3>
-                        <p v-if="promo.description" class="text-sm text-foreground-muted">{{ promo.description }}</p>
-                    </div>
-                </router-link>
-            </div>
-            </div>
-        </section>
-
-        <!-- Popular theme park events -->
-        <section class="shell py-12">
-            <div class="mx-auto max-w-6xl">
-            <div class="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-                <h2 class="text-2xl font-semibold tracking-tight text-foreground">Popular in the park</h2>
-                <router-link :to="{ name: 'themepark.home' }" class="text-sm font-medium text-primary hover:underline">
-                    See every event &rarr;
-                </router-link>
-            </div>
-
-            <div v-if="loadingSections" class="grid grid-cols-2 gap-5 lg:grid-cols-3">
-                <div v-for="n in 3" :key="n" class="h-56 animate-pulse rounded-xl border bg-surface-hover" />
-            </div>
-            <div v-else-if="themeParkStore.popularEvents.length === 0" class="text-sm text-foreground-muted">
-                No events scheduled just yet — check back soon.
-            </div>
-            <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <router-link
-                    v-for="event in themeParkStore.popularEvents"
-                    :key="event.id"
-                    :to="{ name: 'themepark.home', query: { event: event.id } }"
-                    class="elevated lift group block overflow-hidden rounded-xl border bg-surface"
-                >
-                    <div class="flex aspect-[3/2] items-center justify-center overflow-hidden bg-surface-hover text-foreground-muted">
-                        <img
-                            v-if="event.image_url"
-                            :src="event.image_url"
-                            :alt="event.name"
-                            loading="lazy"
-                            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <TIcon v-else name="sparkle" :size="26" />
-                    </div>
-                    <div class="p-4">
-                        <h3 class="font-semibold text-foreground group-hover:text-primary">{{ event.name }}</h3>
-                        <p class="mt-1 inline-flex items-center gap-1 text-xs text-foreground-muted">
-                            <TIcon name="pin" :size="13" /> {{ event.location }}
-                        </p>
-                    </div>
-                </router-link>
-            </div>
-            </div>
-        </section>
-
-        <!-- Popular hotels -->
-        <section class="border-y bg-surface">
-            <div class="shell py-12">
-                <div class="mx-auto max-w-6xl">
-                <div class="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-                    <h2 class="text-2xl font-semibold tracking-tight text-foreground">Places to stay</h2>
-                    <router-link :to="{ name: 'hotels.index' }" class="text-sm font-medium text-primary hover:underline">
-                        See every hotel &rarr;
-                    </router-link>
-                </div>
-
-                <div v-if="loadingSections" class="grid grid-cols-2 gap-5 lg:grid-cols-3">
-                    <div v-for="n in 3" :key="n" class="h-56 animate-pulse rounded-xl border bg-page" />
-                </div>
-                <div v-else-if="hotelStore.popularHotels.length === 0" class="text-sm text-foreground-muted">
-                    No hotels listed just yet — check back soon.
-                </div>
-                <div v-else class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    <router-link
-                        v-for="hotel in hotelStore.popularHotels"
-                        :key="hotel.id"
-                        :to="{ name: 'hotels.index', query: { hotel: hotel.id } }"
-                        class="elevated lift group block overflow-hidden rounded-xl border bg-page"
+                <template #card="{ item, index }">
+                    <RailCard
+                        :to="promoTarget(item)"
+                        :title="item.title"
+                        :image-url="item.image_url"
+                        :index="index"
+                        icon="sparkle"
                     >
-                        <div class="flex aspect-[3/2] items-center justify-center overflow-hidden bg-surface-hover text-foreground-muted">
-                            <img
-                                v-if="hotel.image_url"
-                                :src="hotel.image_url"
-                                :alt="hotel.name"
-                                loading="lazy"
-                                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                            <TIcon v-else name="hotel" :size="26" />
-                        </div>
-                        <div class="p-4">
-                            <h3 class="font-semibold text-foreground group-hover:text-primary">{{ hotel.name }}</h3>
-                            <p class="mt-1 inline-flex items-center gap-1 text-xs text-foreground-muted">
-                                <TIcon name="pin" :size="13" /> {{ hotel.address }}
-                            </p>
-                        </div>
-                    </router-link>
-                </div>
-                </div>
-            </div>
+                        <template #meta>
+                            <span class="flex flex-wrap items-center gap-2">
+                                <span
+                                    class="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white backdrop-blur"
+                                >
+                                    {{ CATEGORY_LABEL[item.category] ?? item.category }}
+                                </span>
+                                <span v-if="promoEndsLabel(item)" class="text-xs font-medium text-warning">
+                                    {{ promoEndsLabel(item) }}
+                                </span>
+                            </span>
+                        </template>
+                        <template v-if="item.description" #more>{{ item.description }}</template>
+                    </RailCard>
+                </template>
+            </MediaRail>
         </section>
 
-        <!-- Island map -->
-        <section class="shell py-12">
-            <IslandMap :events="themeParkStore.events" :locations="mapLocations" />
+        <!-- ================================ PARK ================================ -->
+        <section data-reveal class="r-up shell py-14">
+            <MediaRail
+                title="Popular in the park"
+                hint="Rides, shows and beach events — booked by time slot"
+                :items="themeParkStore.popularEvents"
+                :loading="loadingSections"
+                :to="{ name: 'themepark.home' }"
+                link-label="See every event"
+                empty-text="No events scheduled just yet — check back soon."
+            >
+                <template #card="{ item, index }">
+                    <RailCard
+                        :to="{ name: 'themepark.home', query: { event: item.id } }"
+                        :title="item.name"
+                        :subtitle="item.location"
+                        :image-url="item.image_url"
+                        :index="index"
+                        icon="sparkle"
+                    >
+                        <template v-if="item.description" #more>{{ item.description }}</template>
+                    </RailCard>
+                </template>
+            </MediaRail>
+        </section>
+
+        <!-- =============================== HOTELS ===============================
+             The one raised band on the page. Its edges are water rather than
+             borders: surface colour washes up over the section above it, and the
+             page colour washes back over its foot. -->
+        <section class="relative bg-surface">
+            <div class="wave-band wave-band-surface absolute inset-x-0 -top-12 h-12" aria-hidden="true" />
+
+            <div data-reveal class="r-up shell py-14">
+                <MediaRail
+                    title="Places to stay"
+                    hint="Every crossing is booked against your stay, so this comes first"
+                    :items="hotelStore.popularHotels"
+                    :loading="loadingSections"
+                    :to="{ name: 'hotels.index' }"
+                    link-label="See every hotel"
+                    empty-text="No hotels listed just yet — check back soon."
+                >
+                    <template #card="{ item, index }">
+                        <RailCard
+                            :to="{ name: 'hotels.index', query: { hotel: item.id } }"
+                            :title="item.name"
+                            :subtitle="item.address"
+                            :image-url="item.image_url"
+                            :index="index"
+                            icon="hotel"
+                        >
+                            <template #meta>
+                                <span
+                                    v-if="item.total_rooms"
+                                    class="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur"
+                                >
+                                    {{ item.total_rooms }} rooms
+                                </span>
+                            </template>
+                            <template v-if="item.description" #more>{{ item.description }}</template>
+                        </RailCard>
+                    </template>
+                </MediaRail>
+            </div>
+
+            <div class="wave-band absolute inset-x-0 bottom-0 h-12" aria-hidden="true" />
+        </section>
+
+        <!-- ================================= MAP ================================ -->
+        <section class="shell pb-16 pt-14">
+            <div class="wave-rule mx-auto mb-12 max-w-xl opacity-70" aria-hidden="true" />
+            <div data-reveal class="r-grow">
+                <IslandMap :events="themeParkStore.events" :locations="mapLocations" />
+            </div>
         </section>
     </div>
 </template>

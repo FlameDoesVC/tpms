@@ -389,12 +389,549 @@
     align-self: stretch;
   }
 
+  /* ------------------------------------------------------------------ *
+   * The sea. The landing hero is a body of water, and the two themes are
+   * two different bodies of water rather than one image dimmed twice:
+   *
+   *   light — a shallow beach: sunlit turquoise that BRIGHTENS downward,
+   *           because water thins as it reaches sand.
+   *   dark  — deep ocean: lit at the surface and falling to an abyss,
+   *           so it DARKENS downward.
+   *
+   * That inversion is the whole trick — same class, opposite direction of
+   * light — and every accent in the hero reads off these tokens, so the
+   * beacon lamps go orange over sand and yellow in the deep without a
+   * single conditional in the markup.
+   * ------------------------------------------------------------------ */
+  .hero-sea {
+    --sea-a: 9 82 99;
+    --sea-b: 13 114 134;
+    --sea-c: 20 160 168;
+    --sea-d: 61 201 189;
+    --sea-sun: 251 191 36;
+    --sea-sun-alpha: 0.32;
+    --sea-glass: 5 45 52;
+    --sea-soft: 222 247 250;
+    /* Foam on the crest. Sunlit water genuinely has a white edge, so it can
+       carry weight here. */
+    --foam: rgb(255 255 255 / 0.28);
+    /* The furthest swell. Sand is far lighter than lagoon water, so simply
+       carrying more of the page colour than the swell in front of it is enough
+       to lift it. */
+    --swell: rgb(var(--color-background) / 0.5);
+    /* Sun on sand. Deliberately brighter than --color-accent: the accent
+       token is a burnt orange tuned for white paper, and it drops under
+       3:1 against lagoon water. */
+    --beacon: 251 146 60;
+    --beacon-fg: 39 20 3;
+
+    background-color: rgb(var(--sea-b));
+    background-image:
+      /* Legibility veil under the headline. The copy sits top-left, and
+         the shallows at the far end of the ramp are far too bright to
+         carry white text on their own. */
+      radial-gradient(115% 90% at 6% 26%, rgb(var(--sea-a) / 0.9), rgb(var(--sea-a) / 0) 62%),
+      /* Sun, just off the top corner. */
+      radial-gradient(46% 58% at 84% -8%, rgb(var(--sea-sun) / var(--sea-sun-alpha)), transparent 70%),
+      /* The water. The brightest stop lands in the bottom padding band,
+         below the last line of text, where the surf meets the page. */
+      linear-gradient(
+        172deg,
+        rgb(var(--sea-a)) 0%,
+        rgb(var(--sea-b)) 46%,
+        rgb(var(--sea-c)) 79%,
+        rgb(var(--sea-d)) 100%
+      );
+  }
+
+  [data-theme="dark"] .hero-sea {
+    --sea-a: 8 60 70;
+    --sea-b: 5 38 47;
+    --sea-c: 3 19 25;
+    --sea-d: 2 7 10;
+    /* Cold at depth: the bloom is the teal surface glow, not a sun. */
+    --sea-sun: 45 212 191;
+    --sea-sun-alpha: 0.16;
+    --sea-glass: 4 20 24;
+    --sea-soft: 178 198 202;
+    /* Darker than the water, not lighter. Any white here reads as a drawn rule
+       against an abyss, however low the alpha; a soft shadow along the crest
+       gives the same separation while sitting *into* the water rather than on
+       top of it. The wave still carries itself on the tonal step between the
+       water and the page - this only deepens the seam. */
+    --foam: rgb(0 0 0 / 0.32);
+    /* Not the page colour here. High in the surf band the abyss has already
+       lifted to a dark teal that is LIGHTER than the near-black page, so more
+       page colour would sink this swell instead of raising it. A deep teal of
+       its own is what reads as a distant crest catching the surface glow -
+       kept within a few levels of the water so it stays a touch, not a rule. */
+    --swell: rgb(13 24 28 / 0.5);
+    /* A lamp in the deep. */
+    --beacon: 251 191 36;
+    --beacon-fg: 26 22 12;
+  }
+
+  /* The itinerary card that floats on the water.
+   *
+   * It was dark glass in both themes, on the reasoning that it read as an
+   * instrument resting on the surface either way. That holds at night and
+   * fails by day: over a sunlit lagoon a dark slab reads as a hole punched in
+   * the water, and it fought the airiness the light hero is built on.
+   *
+   * So the card follows the theme - frosted white over the shallows, deep
+   * glass in the abyss. The pay-off is that its surface now sits the same way
+   * round as every other surface in the app, which means the ordinary
+   * foreground/accent tokens are legible inside it and nearly all of the
+   * hardcoded white in the markup could go. Only the surface itself, the
+   * hover and the rule need tokens of their own, because each has to invert. */
+  .trip-card {
+    /* Glass, not paint. At 0.5 the lagoon is half the colour of this card and
+       the frost only softens it - which is the whole point, but it means none
+       of the app's mid-tone inks survive here. What was capping the
+       transparency was never the surface: grey body text needs 4.5:1 and runs
+       out at about 0.66, and the accent orange needs 3:1 as a glyph and runs
+       out at the same place. Near-black ink at reduced alpha holds above 5:1
+       all the way down, and the beacon carries its own opaque disc, so both
+       constraints come off the surface and the alpha is free. */
+    --card-frame: rgb(255 255 255 / 0.18);
+    --card-frame-line: rgb(255 255 255 / 0.38);
+    --card-bg: rgb(var(--color-background) / 0.5);
+    --card-hover: rgb(var(--color-text) / 0.05);
+    --card-rule: rgb(var(--color-text) / 0.22);
+    --card-ink: rgb(var(--color-text));
+    --card-ink-soft: rgb(var(--color-text) / 0.82);
+    --card-ink-faint: rgb(var(--color-text) / 0.6);
+    /* Opaque: the glyph's contrast no longer depends on how much bright water
+       is showing through the card behind it. */
+    --card-disc: rgb(var(--color-surface-hover));
+    --card-accent: 154 78 8;
+  }
+  [data-theme="dark"] .trip-card {
+    --card-frame: rgb(255 255 255 / 0.07);
+    --card-frame-line: rgb(255 255 255 / 0.1);
+    --card-bg: rgb(var(--sea-glass) / 0.68);
+    --card-hover: rgb(255 255 255 / 0.1);
+    /* Not --color-border-strong: in the dark theme that is a dark grey, which
+       is invisible against deep glass. A rule here has to be light. */
+    --card-rule: rgb(255 255 255 / 0.18);
+    --card-ink: rgb(255 255 255);
+    --card-ink-soft: rgb(255 255 255 / 0.62);
+    --card-ink-faint: rgb(255 255 255 / 0.42);
+    /* An abyss needs no help: a faint amber wash is enough behind the glyph. */
+    --card-disc: rgb(var(--card-accent) / 0.1);
+    /* Amber already carries 11:1 against deep glass. */
+    --card-accent: var(--color-accent);
+  }
+
+  /* A plain hairline, drawn from the card's own rule colour rather than the
+     shared .perforation - which reads --color-border-strong, a dark grey in the
+     dark theme and so invisible against deep glass. */
+  .trip-rule {
+    height: 1px;
+    width: 100%;
+    background-color: var(--card-rule);
+  }
+
+  /* Hero ink. Full-opacity tokens rather than white/70, because the same
+     alpha that reads as calm over an abyss goes illegible over shallows. */
+  .sea-soft {
+    color: rgb(var(--sea-soft));
+  }
+  .beacon-ink {
+    color: rgb(var(--beacon));
+  }
+  .beacon-fill {
+    background-color: rgb(var(--beacon));
+    color: rgb(var(--beacon-fg));
+  }
+
+  /* Light shafts through deep water — dark theme only. */
+  .sea-rays {
+    background-image: repeating-linear-gradient(
+      101deg,
+      rgb(var(--sea-sun) / 0.16) 0 2.5rem,
+      transparent 2.5rem 11rem
+    );
+    filter: blur(16px);
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 72%);
+    mask-image: linear-gradient(to bottom, black, transparent 72%);
+    animation: ray-drift 34s ease-in-out infinite alternate;
+  }
+
+  /* Caustics — the light net that ripples over a sandy bottom. Light only,
+     and pooled near the shore where the water is shallowest. */
+  .sea-caustics {
+    background-image:
+      repeating-linear-gradient(97deg, rgb(255 255 255 / 0.13) 0 3px, transparent 3px 17px),
+      repeating-linear-gradient(83deg, rgb(255 255 255 / 0.09) 0 2px, transparent 2px 23px);
+    filter: blur(2px);
+    -webkit-mask-image: linear-gradient(to top, black, transparent 62%);
+    mask-image: linear-gradient(to top, black, transparent 62%);
+    animation: caustic-drift 26s linear infinite;
+  }
+
+  /* Surf. A band of the page's own colour, masked into a wave and slid
+     sideways forever, so the hero ends in moving water instead of a rule.
+     mask-position (not a transform) because only a repeating mask loops
+     seamlessly at any viewport width.
+
+     The crests are deliberately shallow. In these masks the wave sits on the
+     centreline of the viewBox with both cubic control points at the same
+     height, so the extremum lands at 0.25*centre + 0.75*control - keep the
+     controls near the centreline (40 -> 24/56 here) for a gentle swell;
+     pushing them to the edges of the box gives the steep, scalloped look. */
+  .wave-band {
+    background-color: rgb(var(--color-background));
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 40C40 24 120 24 160 40 200 56 280 56 320 40V80H0Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 40C40 24 120 24 160 40 200 56 280 56 320 40V80H0Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 320px 100%;
+    mask-size: 320px 100%;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    animation: wave-slide 19s linear infinite;
+  }
+
+  /* The leading wave: the hero's own front band, given the longest wavelength
+     of the three so frequency rises with distance (4.3 / 6.2 / 9.5 crests
+     front to back) the way a compressing surface actually reads.
+
+     Only mask-size moves. Amplitude lives in the path as a fraction of the
+     band's height, so it is untouched by a horizontal rescale - which is what
+     lets the wavelengths be reordered without disturbing the amplitude ladder.
+     A modifier rather than a change to .wave-band itself, because that base is
+     also the hotels section's edge and has no business being retuned from
+     here. */
+  .wave-band-lead {
+    -webkit-mask-size: 460px 100%;
+    mask-size: 460px 100%;
+    animation: wave-slide-lead 19s linear infinite;
+  }
+
+  /* The band behind it: shorter wavelength, opposite drift, half-opaque —
+     two speeds is what stops it reading as a sliding decal. */
+  .wave-band-back {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 34C50 45 110 45 160 34 210 23 270 23 320 34V80H0Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 34C50 45 110 45 160 34 210 23 270 23 320 34V80H0Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 320px 100%;
+    mask-size: 320px 100%;
+    animation: wave-slide-back 31s linear infinite;
+  }
+
+  /* Lets a raised section wash up over the page instead of meeting it at a
+     1px rule: same wave, filled with the surface colour. */
+  .wave-band-surface {
+    background-color: rgb(var(--color-surface));
+  }
+
+  /* The crest highlight. Must be declared after .wave-band to beat its
+     background-colour, and reads from a per-theme token because a single fixed
+     white cannot serve both a sunlit shallow and an abyss. */
+  .wave-foam {
+    background-color: var(--foam);
+  }
+
+  /* The third line, furthest out. Its own mask rather than the shared one so
+     its crest can sit high in the viewBox (y=32 of 100) and ride above the
+     wave in front of it without needing an oversized element.
+
+     Amplitude in PIXELS is what separates one line from another, not amplitude
+     relative to its own wavelength: 12.6 / 11.5 / 7.3px from the front band
+     outward. Tuning this by steepness alone once left the furthest wave
+     physically taller than the one in front of it, which reads as two copies of
+     the same wave however different the ratios are.
+
+     Frequency then runs the other way. Wavelengths are 320 / 460 / 210px, so
+     this furthest line is the SHORTEST and shallowest - fine tight chop rather
+     than a long roll, which is how distant water actually reads as the surface
+     compresses toward the horizon. Note the viewBox is still 540 wide and gets
+     squeezed into a 210px mask: preserveAspectRatio='none' scales the two axes
+     independently, so the horizontal frequency can change without touching the
+     amplitude, which stays pinned to the band's height.
+
+     There is only one direction with room in it. On a ~2000px band those three
+     wavelengths give 6.2 / 4.3 / 9.5 crests, and the space between wave 1 and
+     wave 2 is already crowded: lengthening this line from 210 walks it straight
+     through wave 1's frequency (300px lands within 7% of it) and then into wave
+     2's. Going longer than wave 2 instead drops steepness to ~0.011, which is
+     the flat floor. So when this line reads as too close to wave 1, it wants to
+     get TIGHTER, not longer.
+
+     Steepness lands at 0.039 / 0.025 / 0.035. The floor is about 0.010 - below
+     that a line stops registering as water at all.
+
+     The crest also has to land close enough to overlap the wave in front (this
+     one spans roughly 29-43px of a 112px band, against the next one's 36-59px),
+     because two lines that interleave read as one body of water where two
+     separated lines read as stripes.
+
+     Speed has to be judged as CRESTS PASSING PER SECOND (1/period), not as
+     px/s. Those two disagree whenever the wavelengths differ, and it's the
+     crest rate the eye actually reads as pace: at 260px/27s this line was a
+     respectable 9.6px/s, yet 0.037 crests/s - passing MORE often than the wave
+     in front of it (0.032) and close to the front band (0.053), so it felt
+     almost as quick as the front despite travelling half the distance. 59s puts
+     it at 0.017/s, roughly a third of the front band's rate, and because that
+     rate is 1/period it stays put when the wavelength is retuned. 59 is prime,
+     so it can't fall into step with the 19s and 31s loops the way an even
+     multiple like 62s (2x31) would. Direction alternates
+     - front rightward, second leftward, this one rightward again - so each line
+     is legible against its neighbour instead of sliding along with it, and
+     distance is carried by speed rather than by direction. */
+  .wave-band-swell {
+    background-color: var(--swell);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 100' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 32C90 23.3 180 23.3 270 32 360 40.7 450 40.7 540 32V100H0Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 100' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 32C90 23.3 180 23.3 270 32 360 40.7 450 40.7 540 32V100H0Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 210px 100%;
+    mask-size: 210px 100%;
+    animation: wave-slide-swell 59s linear infinite;
+  }
+
+  /* A wave as a stroked line rather than a fill. Inside a mask an SVG's
+     stroke contributes alpha, so a stroke='black' path masks the element's
+     own themed background-colour into a wavy hairline - which is how this
+     stays theme-aware where a data-URI stroke colour could not. */
+  .wave-rule {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M0 6Q25 3.5 50 6T100 6T150 6T200 6' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M0 6Q25 3.5 50 6T100 6T150 6T200 6' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E");
+    -webkit-mask-size: 200px 100%;
+    mask-size: 200px 100%;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    height: 12px;
+    animation: wave-slide 19s linear infinite;
+  }
+  /* Section separator. Sections are divided by moving water rather than a
+     1px border — the page's one structural conceit. */
+  .wave-rule {
+    background-color: rgb(var(--color-primary) / 0.4);
+    animation-duration: 26s;
+  }
+
+  /* Stand-in artwork. Every event and hotel currently ships without a
+     photo, so the fallback has to be designed, not a grey box: a little
+     seascape per card, hue-shifted by slot so a rail of them reads as a
+     set of different waters instead of three identical panels. */
+  .wave-plate {
+    position: relative;
+    overflow: hidden;
+    background-image: linear-gradient(147deg, rgb(var(--plate-a)), rgb(var(--plate-b)));
+  }
+  .wave-plate::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: -6%;
+    height: 62%;
+    background-color: rgb(255 255 255 / 0.12);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 40C40 24 120 24 160 40 200 56 280 56 320 40V80H0Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 80' preserveAspectRatio='none'%3E%3Cpath fill='black' d='M0 40C40 24 120 24 160 40 200 56 280 56 320 40V80H0Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: 230px 100%;
+    mask-size: 230px 100%;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+  }
+  .plate-1 {
+    --plate-a: 11 79 90;
+    --plate-b: 13 124 116;
+  }
+  .plate-2 {
+    --plate-a: 16 71 94;
+    --plate-b: 26 127 140;
+  }
+  .plate-3 {
+    --plate-a: 15 90 82;
+    --plate-b: 42 143 111;
+  }
+
+  /* ---------------------------- rails ---------------------------- *
+   * Horizontal, draggable, snap-aligned. The scrollbar is hidden in
+   * favour of a progress bar the component draws itself, and the ends
+   * are masked rather than covered by a gradient overlay, so one rail
+   * works over any section background.
+   * -------------------------------------------------------------- */
+  .rail-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    /* Focus lands inset from the masked edge instead of under the fade. */
+    scroll-padding-inline: 1.5rem;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade-l, 0px),
+      black calc(100% - var(--fade-r, 0px)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade-l, 0px),
+      black calc(100% - var(--fade-r, 0px)),
+      transparent 100%
+    );
+    transition: -webkit-mask-image 200ms linear, mask-image 200ms linear;
+  }
+  .rail-track::-webkit-scrollbar {
+    display: none;
+  }
+  .rail-grab {
+    cursor: grab;
+  }
+  .rail-grab.is-dragging {
+    cursor: grabbing;
+    /* Snap fights a drag in progress; it re-engages on release. */
+    scroll-snap-type: none;
+  }
+  .rail-card {
+    scroll-snap-align: start;
+  }
+
+  /* ------------------------- scroll reveal -------------------------
+   * Applied only once JS has added .reveal-on to the page root, so a
+   * slow or absent bundle can never leave the content invisible.
+   * --------------------------------------------------------------- */
+  /* The hidden state is deliberately NOT transitioned. The class that turns
+     this on is added by JS after first paint, so the sections go from "no rule"
+     to "hidden" - and with a transition here that state change animates too,
+     fading content out before it ever fades in. The transition belongs to the
+     reveal, so it lives on .is-in. */
+  .reveal-on .r-up,
+  .reveal-on .r-grow {
+    opacity: 0;
+    will-change: opacity, transform;
+  }
+  .reveal-on .r-up {
+    transform: translateY(1.5rem);
+  }
+  /* Expands into place rather than sliding — for the map, which is the
+     one block big enough that growth reads better than travel. */
+  .reveal-on .r-grow {
+    transform: scale(0.97) translateY(1.75rem);
+  }
+  .reveal-on .r-up.is-in,
+  .reveal-on .r-grow.is-in {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 700ms cubic-bezier(0.22, 0.7, 0.2, 1),
+      transform 700ms cubic-bezier(0.22, 0.7, 0.2, 1);
+    transition-delay: var(--r-delay, 0ms);
+  }
+
+  /* Opening sequence for the hero. Pure CSS and not gated on the observer:
+     the first thing a visitor sees must never depend on JS having run. */
+  .rise-in {
+    animation: rise-in 900ms cubic-bezier(0.22, 0.7, 0.2, 1) both;
+    animation-delay: var(--r-delay, 0ms);
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rise-in {
+      animation: none;
+    }
+  }
+
+  /* Scroll-linked hero. Where the browser can drive an animation off
+     scroll position, the hero sinks as it leaves — no JS, no listener,
+     and nothing at all where it isn't supported. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .sink {
+        animation: sink linear both;
+        animation-timeline: view();
+        animation-range: exit 0% exit 90%;
+      }
+      .sink-slow {
+        animation: sink-slow linear both;
+        animation-timeline: view();
+        animation-range: exit 0% exit 100%;
+      }
+    }
+  }
+
+  @keyframes wave-slide {
+    to {
+      -webkit-mask-position: 320px 0;
+      mask-position: 320px 0;
+    }
+  }
+  @keyframes wave-slide-back {
+    to {
+      -webkit-mask-position: -320px 0;
+      mask-position: -320px 0;
+    }
+  }
+  /* The leading wave, rightward, one wavelength per cycle. */
+  @keyframes wave-slide-lead {
+    to {
+      -webkit-mask-position: 460px 0;
+      mask-position: 460px 0;
+    }
+  }
+  /* Positive: rightward, against the leftward wave in front of it. One
+     wavelength per cycle, so the loop is seamless at any width. */
+  @keyframes wave-slide-swell {
+    to {
+      -webkit-mask-position: 210px 0;
+      mask-position: 210px 0;
+    }
+  }
+  @keyframes ray-drift {
+    from {
+      transform: translate3d(-4%, 0, 0);
+    }
+    to {
+      transform: translate3d(4%, 0, 0);
+    }
+  }
+  @keyframes caustic-drift {
+    to {
+      background-position: 240px -60px, -200px 80px;
+    }
+  }
+  @keyframes sink {
+    to {
+      opacity: 0.15;
+      transform: translateY(-2.5rem) scale(0.975);
+    }
+  }
+  @keyframes sink-slow {
+    to {
+      opacity: 0.4;
+      transform: translateY(-1rem);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .lift,
     .lift:hover,
     .lift:active {
       transition: none;
       transform: none;
+    }
+    /* The water stops moving, but it's still water. */
+    .wave-band,
+    .wave-band-lead,
+    .wave-band-back,
+    .wave-band-swell,
+    .wave-rule,
+    .sea-rays,
+    .sea-caustics {
+      animation: none;
+    }
+    .reveal-on .r-up,
+    .reveal-on .r-grow {
+      opacity: 1;
+      transform: none;
+      transition: none;
     }
   }
 }
