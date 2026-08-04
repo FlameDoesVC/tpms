@@ -454,5 +454,12 @@ const legs = computed(() => [
                 <IslandMap :events="themeParkStore.events" :locations="mapLocations" />
             </div>
         </section>
+
+        <footer class="relative bg-surface">
+            <div class="wave-band wave-band-surface absolute inset-x-0 -top-12 h-12" aria-hidden="true" />
+            <p class="shell pb-10 pt-8 text-center text-sm text-muted">
+                &copy; {{ new Date().getFullYear() }} ESS. All rights reserved.
+            </p>
+        </footer>
     </div>
 </template>
