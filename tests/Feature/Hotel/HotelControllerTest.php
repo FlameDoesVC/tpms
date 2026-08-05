@@ -6,6 +6,8 @@ use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class HotelControllerTest extends TestCase
@@ -104,6 +106,51 @@ class HotelControllerTest extends TestCase
         ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_hotel_manager_can_upload_a_hotel_image(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        $hotel = Hotel::factory()->create();
+
+        $response = $this->actingAs($manager)->post("/api/hotels/{$hotel->id}", [
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->image('resort.jpg'),
+        ]);
+
+        $response->assertOk();
+        $this->assertNotNull($response->json('image_url'));
+        $this->assertCount(1, $hotel->fresh()->getMedia('image'));
+    }
+
+    public function test_a_non_image_file_is_rejected_for_a_hotel(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        $hotel = Hotel::factory()->create();
+
+        $this->actingAs($manager)->post("/api/hotels/{$hotel->id}", [
+            '_method' => 'PATCH',
+            'image' => UploadedFile::fake()->create('shell.php', 10, 'application/x-php'),
+        ])->assertInvalid(['image']);
+
+        $this->assertCount(0, $hotel->fresh()->getMedia('image'));
+    }
+
+    public function test_hotel_manager_can_remove_a_hotel_image(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        $hotel = Hotel::factory()->create();
+        $hotel->addMedia(UploadedFile::fake()->image('resort.jpg'))->toMediaCollection('image');
+
+        $response = $this->actingAs($manager)->patchJson("/api/hotels/{$hotel->id}", [
+            'remove_image' => true,
+        ]);
+
+        $response->assertOk()->assertJsonPath('image_url', null);
+        $this->assertCount(0, $hotel->fresh()->getMedia('image'));
     }
 
     public function test_hotel_manager_can_update_hotel(): void

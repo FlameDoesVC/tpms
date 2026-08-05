@@ -64,19 +64,24 @@ const backToScanning = () => {
     scanner.value?.resume();
 };
 
+// The server rejects a scan for several distinct reasons (already used,
+// cancelled slot, more than an hour past the slot's start) - a single
+// hardcoded string here would tell staff the wrong one.
 const confirmUsed = async () => {
     try {
         booking.value = await themeParkStore.validateTicket(booking.value.id);
-    } catch {
-        lookupError.value = 'This ticket has already been used.';
+    } catch (e) {
+        lookupError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ')
+            || 'This ticket could not be validated.';
     }
 };
 
 const cancelBooking = async () => {
     try {
         booking.value = await themeParkStore.cancelBooking(booking.value.id);
-    } catch {
-        lookupError.value = 'This booking could not be cancelled.';
+    } catch (e) {
+        lookupError.value = Object.values(e.response?.data?.errors ?? {}).flat().join(' ')
+            || 'This booking could not be cancelled.';
     }
 };
 

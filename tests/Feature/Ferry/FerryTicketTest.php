@@ -349,7 +349,10 @@ class FerryTicketTest extends TestCase
     public function test_ferry_operator_can_validate_a_ticket(): void
     {
         $operator = User::factory()->create()->assignRole('ferry_operator');
-        $schedule = FerrySchedule::factory()->create(['departure_date' => now()->toDateString()]);
+        $schedule = FerrySchedule::factory()->create([
+            'departure_date' => now()->toDateString(),
+            'departure_time' => now()->format('H:i:s'),
+        ]);
         $ticket = FerryTicket::factory()->create([
             'schedule_id' => $schedule->id,
             'status' => 'issued',
@@ -361,6 +364,28 @@ class FerryTicketTest extends TestCase
         );
 
         $response->assertOk()->assertJsonPath('status', 'used');
+    }
+
+    public function test_validating_a_ticket_more_than_an_hour_after_departure_fails(): void
+    {
+        $operator = User::factory()->create()->assignRole('ferry_operator');
+        // Date and time both come off the same shifted instant so the pair
+        // stays consistent even if "90 minutes ago" crosses midnight.
+        $departedAt = now()->subMinutes(90);
+        $schedule = FerrySchedule::factory()->create([
+            'departure_date' => $departedAt->toDateString(),
+            'departure_time' => $departedAt->format('H:i:s'),
+        ]);
+        $ticket = FerryTicket::factory()->create([
+            'schedule_id' => $schedule->id,
+            'status' => 'issued',
+        ]);
+
+        $this->actingAs($operator)->postJson(
+            "/api/ferry/tickets/{$ticket->id}/validate",
+            ['schedule_id' => $schedule->id]
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors(['schedule_id']);
     }
 
     public function test_validating_an_already_used_ticket_fails(): void

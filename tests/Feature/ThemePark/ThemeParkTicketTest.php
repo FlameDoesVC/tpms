@@ -71,6 +71,27 @@ class ThemeParkTicketTest extends TestCase
         $response->assertOk()->assertJsonPath('status', 'used');
     }
 
+    public function test_validating_a_ticket_more_than_an_hour_after_the_slot_started_fails(): void
+    {
+        $staff = User::factory()->create()->assignRole('themepark_staff');
+        // Date and time both come off the same shifted instant so the pair
+        // stays consistent even if "90 minutes ago" crosses midnight.
+        $startedAt = now()->subMinutes(90);
+        $slot = EventSlot::factory()->create([
+            'slot_date' => $startedAt->toDateString(),
+            'slot_time' => $startedAt->format('H:i:s'),
+            'status' => 'scheduled',
+        ]);
+        $booking = EventBooking::factory()->create([
+            'event_slot_id' => $slot->id,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($staff)->postJson("/api/themepark/tickets/{$booking->id}/validate")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    }
+
     public function test_validating_an_already_used_ticket_fails(): void
     {
         $staff = User::factory()->create()->assignRole('themepark_staff');

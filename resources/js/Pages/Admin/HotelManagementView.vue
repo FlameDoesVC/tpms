@@ -6,6 +6,7 @@ import TCard from '@/Components/ui/TCard.vue';
 import TModal from '@/Components/ui/TModal.vue';
 import TButton from '@/Components/ui/TButton.vue';
 import TInput from '@/Components/ui/TInput.vue';
+import TImageUpload from '@/Components/ui/TImageUpload.vue';
 import TCheckbox from '@/Components/ui/TCheckbox.vue';
 import TBadge from '@/Components/ui/TBadge.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
@@ -42,16 +43,21 @@ const emptyForm = () => ({
     description: '',
     address: '',
     total_rooms: 0,
-    image_url: '',
     is_active: true,
 });
 const form = ref(emptyForm());
+const imageFile = ref(null);
+const imageRemoved = ref(false);
+const currentImageUrl = ref(null);
 
 onMounted(() => hotelStore.fetchHotels({ all: true }));
 
 const openAddModal = () => {
     editingHotel.value = null;
     form.value = emptyForm();
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = null;
     errors.value = {};
     showModal.value = true;
 };
@@ -63,9 +69,11 @@ const openEditModal = (hotel) => {
         description: hotel.description ?? '',
         address: hotel.address,
         total_rooms: hotel.total_rooms,
-        image_url: hotel.image_url ?? '',
         is_active: hotel.is_active,
     };
+    imageFile.value = null;
+    imageRemoved.value = false;
+    currentImageUrl.value = hotel.image_url ?? null;
     errors.value = {};
     showModal.value = true;
 };
@@ -74,11 +82,33 @@ const closeModal = () => {
     showModal.value = false;
 };
 
+// Only reaches for FormData when there's actually a file to send or an
+// existing image to clear - plain JSON keeps working for every other edit.
+const buildPayload = () => {
+    const fields = { ...form.value, total_rooms: Number(form.value.total_rooms) || 0 };
+    if (!imageFile.value && !imageRemoved.value) {
+        return fields;
+    }
+    const payload = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        // Laravel's `boolean` rule doesn't accept the strings "true"/"false"
+        // that FormData.append would otherwise coerce a JS boolean into.
+        payload.append(key, typeof value === 'boolean' ? (value ? '1' : '0') : value);
+    });
+    if (imageFile.value) {
+        payload.append('image', imageFile.value);
+    } else if (imageRemoved.value) {
+        payload.append('remove_image', '1');
+    }
+    return payload;
+};
+
 const save = async () => {
     errors.value = {};
     saving.value = true;
     try {
-        const payload = { ...form.value, total_rooms: Number(form.value.total_rooms) || 0 };
+        const payload = buildPayload();
         if (editingHotel.value) {
             await hotelStore.updateHotel(editingHotel.value.id, payload);
         } else {
@@ -231,11 +261,12 @@ const remove = async (hotel) => {
                     label="Total rooms"
                     :error="errors.total_rooms?.[0]"
                 />
-                <TInput
-                    id="image_url"
-                    v-model="form.image_url"
-                    label="Image URL"
-                    :error="errors.image_url?.[0]"
+                <TImageUpload
+                    v-model:file="imageFile"
+                    v-model:removed="imageRemoved"
+                    :current-url="currentImageUrl"
+                    label="Image"
+                    :error="errors.image?.[0]"
                 />
                 <TCheckbox v-if="editingHotel" v-model="form.is_active" label="Active" />
                 <button type="submit" class="hidden" />

@@ -104,6 +104,16 @@ class ThemeParkTicketController extends Controller
             ]);
         }
 
+        // Admission closes an hour after the slot starts - a ticket scanned
+        // later than that isn't catching a late arrival, it's someone showing
+        // up after the ride or show already happened.
+        $startedAt = $booking->slot->slot_date->copy()->setTimeFromTimeString($booking->slot->slot_time);
+        if (now()->greaterThan($startedAt->addMinutes(60))) {
+            throw ValidationException::withMessages([
+                'status' => 'This slot started more than an hour ago and the ticket can no longer be validated.',
+            ]);
+        }
+
         $booking->update([
             'status' => 'used',
             'validated_by' => $request->user()->id,

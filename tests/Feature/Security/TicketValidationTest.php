@@ -35,6 +35,10 @@ class TicketValidationTest extends TestCase
         return FerrySchedule::factory()->create([
             'ferry_id' => Ferry::factory()->create(['capacity' => 40])->id,
             'departure_date' => $date,
+            // Boarding closes an hour after departure, so a "today" sailing
+            // has to depart around now, not at the factory's fixed 09:00, or
+            // this starts failing the moment a test run happens after 10am.
+            'departure_time' => now()->format('H:i:s'),
             'status' => $status,
             'available_seats' => 40,
         ]);

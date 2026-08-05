@@ -476,6 +476,16 @@ class FerryController extends Controller
             ]);
         }
 
+        // Boarding closes an hour after departure - a ticket scanned later than
+        // that isn't catching a delayed boat, it's someone showing up for a
+        // sailing that already left.
+        $departedAt = $schedule->departure_date->copy()->setTimeFromTimeString($schedule->departure_time);
+        if (now()->greaterThan($departedAt->addMinutes(60))) {
+            throw ValidationException::withMessages([
+                'schedule_id' => 'This departure left more than an hour ago and can no longer be boarded.',
+            ]);
+        }
+
         if ($ticket->status === 'used') {
             throw ValidationException::withMessages([
                 'status' => 'This ticket has already been used.',

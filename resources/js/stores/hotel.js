@@ -161,8 +161,15 @@ export const useHotelStore = defineStore('hotel', {
             return data;
         },
 
+        // PHP never populates $_FILES for PATCH multipart bodies, so a file
+        // upload has to travel as a spoofed POST (`_method=PATCH`) instead.
         async updateHotel(hotelId, payload) {
-            const { data } = await axios.patch(`/api/hotels/${hotelId}`, payload);
+            const isUpload = payload instanceof FormData;
+            if (isUpload) payload.append('_method', 'PATCH');
+
+            const { data } = isUpload
+                ? await axios.post(`/api/hotels/${hotelId}`, payload)
+                : await axios.patch(`/api/hotels/${hotelId}`, payload);
             const index = this.hotels.findIndex((h) => h.id === hotelId);
             if (index !== -1) this.hotels[index] = data;
             return data;

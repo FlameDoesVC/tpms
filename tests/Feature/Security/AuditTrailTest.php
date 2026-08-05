@@ -28,6 +28,7 @@ class AuditTrailTest extends TestCase
         $schedule = FerrySchedule::factory()->create([
             'ferry_id' => Ferry::factory()->create(['capacity' => 20])->id,
             'departure_date' => now()->toDateString(),
+            'departure_time' => now()->format('H:i:s'),
         ]);
         $ticket = FerryTicket::factory()->create([
             'schedule_id' => $schedule->id,

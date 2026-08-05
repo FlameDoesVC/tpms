@@ -22,7 +22,6 @@ class HotelFactory extends Factory
             'description' => fake()->paragraph(),
             'address' => fake()->address(),
             'total_rooms' => fake()->numberBetween(5, 50),
-            'image_url' => null,
             'is_active' => true,
         ];
     }

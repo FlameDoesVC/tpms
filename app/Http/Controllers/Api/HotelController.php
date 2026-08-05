@@ -62,10 +62,14 @@ class HotelController extends Controller
             'description' => ['nullable', 'string'],
             'address' => ['required', 'string', 'max:255'],
             'total_rooms' => ['required', 'integer', 'min:0'],
-            'image_url' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
         ]);
 
-        $hotel = Hotel::create($validated)->refresh();
+        $hotel = Hotel::create(collect($validated)->except('image')->all())->refresh();
+
+        if ($request->hasFile('image')) {
+            $hotel->addMediaFromRequest('image')->toMediaCollection('image');
+        }
 
         return (new HotelResource($hotel))->response()->setStatusCode(201);
     }
@@ -79,11 +83,18 @@ class HotelController extends Controller
             'description' => ['nullable', 'string'],
             'address' => ['sometimes', 'string', 'max:255'],
             'total_rooms' => ['sometimes', 'integer', 'min:0'],
-            'image_url' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            'remove_image' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
-        $hotel->update($validated);
+        $hotel->update(collect($validated)->except(['image', 'remove_image'])->all());
+
+        if ($request->hasFile('image')) {
+            $hotel->addMediaFromRequest('image')->toMediaCollection('image');
+        } elseif ($request->boolean('remove_image')) {
+            $hotel->clearMediaCollection('image');
+        }
 
         return new HotelResource($hotel);
     }
