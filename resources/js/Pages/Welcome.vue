@@ -282,8 +282,12 @@ const legs = computed(() => [
                                         :class="leg.done
                                             ? 'bg-accent text-accent-fg ring-accent shadow-[0_0_22px_-6px_rgb(var(--color-accent)/0.7)]'
                                             : leg.locked
-                                                ? 'bg-[var(--card-disc)] text-[var(--card-ink-faint)] ring-[var(--card-rule)]'
-                                                : 'bg-[var(--card-disc)] text-[rgb(var(--card-accent))] ring-[rgb(var(--card-accent)/0.4)] shadow-[0_0_18px_-7px_rgb(var(--card-accent)/0.55)] group-hover:bg-[rgb(var(--card-accent)/0.2)]'"
+                                                /* card-disc is a translucent wash in the dark theme (see
+                                                   card-disc-base above) - painting it straight as the badge's
+                                                   only background let the connecting rail (the span two levels
+                                                   up) show straight through instead of stopping at its edge. */
+                                                ? 'bg-[var(--card-disc-base)] [background-image:linear-gradient(var(--card-disc),var(--card-disc))] text-[var(--card-ink-faint)] ring-[var(--card-rule)]'
+                                                : 'bg-[var(--card-disc-base)] [background-image:linear-gradient(var(--card-disc),var(--card-disc))] text-[rgb(var(--card-accent))] ring-[rgb(var(--card-accent)/0.4)] shadow-[0_0_18px_-7px_rgb(var(--card-accent)/0.55)] group-hover:[background-image:linear-gradient(rgb(var(--card-accent)/0.2),rgb(var(--card-accent)/0.2))]'"
                                     >
                                         <TIcon :name="leg.done ? 'check' : leg.icon" :size="19" />
                                     </span>

@@ -504,6 +504,9 @@
     /* Opaque: the glyph's contrast no longer depends on how much bright water
        is showing through the card behind it. */
     --card-disc: rgb(var(--color-surface-hover));
+    /* Already opaque here, so the base is just itself - see the dark override
+       below for why this indirection exists at all. */
+    --card-disc-base: var(--card-disc);
     --card-accent: 154 78 8;
   }
   [data-theme="dark"] .trip-card {
@@ -519,6 +522,12 @@
     --card-ink-faint: rgb(255 255 255 / 0.42);
     /* An abyss needs no help: a faint amber wash is enough behind the glyph. */
     --card-disc: rgb(var(--card-accent) / 0.1);
+    /* card-disc's own alpha is what makes the wash read as "faint" - but that
+       same alpha means anything drawn behind the badge (the leg-connector
+       rail) shows straight through it instead of stopping at its edge. This
+       is the opaque stand-in the badge actually paints on, with card-disc
+       layered on top as a background-image so the wash still shows. */
+    --card-disc-base: rgb(var(--sea-glass));
     /* Amber already carries 11:1 against deep glass. */
     --card-accent: var(--color-accent);
   }
