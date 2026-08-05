@@ -233,6 +233,7 @@ const TONE_CLASS = {
 // that already spells out what it counts.
 const quickLinks = [
     { label: 'Users', hint: 'Accounts and roles', icon: 'users', to: { name: 'admin.users' } },
+    { label: 'Hotels', hint: 'Add and edit properties', icon: 'hotel', to: { name: 'admin.hotels' } },
     { label: 'Promotions', hint: 'Offers on the site', icon: 'sparkle', to: { name: 'promotions' } },
     { label: 'Island map', hint: 'Pins and locations', icon: 'map', to: { name: 'admin.map' } },
     { label: 'Hotel bookings', hint: 'Confirm and cancel', icon: 'bed', to: { name: 'manager.hotel-dashboard' } },

@@ -73,6 +73,7 @@ const navByRole = {
             { label: 'Island Map', name: 'admin.map', icon: 'map' },
         ] },
         { section: 'Hotel', items: [
+            { label: 'Hotels', name: 'admin.hotels', icon: 'hotel' },
             { label: 'Bookings', name: 'manager.hotel-dashboard', icon: 'calendar' },
             { label: 'Rooms', name: 'manager.rooms', icon: 'bed' },
         ] },

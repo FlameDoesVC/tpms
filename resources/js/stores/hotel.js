@@ -155,6 +155,24 @@ export const useHotelStore = defineStore('hotel', {
             return data;
         },
 
+        async createHotel(payload) {
+            const { data } = await axios.post('/api/hotels', payload);
+            this.hotels.unshift(data);
+            return data;
+        },
+
+        async updateHotel(hotelId, payload) {
+            const { data } = await axios.patch(`/api/hotels/${hotelId}`, payload);
+            const index = this.hotels.findIndex((h) => h.id === hotelId);
+            if (index !== -1) this.hotels[index] = data;
+            return data;
+        },
+
+        async deleteHotel(hotelId) {
+            await axios.delete(`/api/hotels/${hotelId}`);
+            this.hotels = this.hotels.filter((h) => h.id !== hotelId);
+        },
+
         async createRoom(hotelId, payload) {
             const { data } = await axios.post(`/api/hotels/${hotelId}/rooms`, payload);
             this.rooms.push(data);

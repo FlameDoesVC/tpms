@@ -191,6 +191,12 @@ const routes = [
         meta: { auth: true, roles: ['hotel_manager', 'themepark_staff', 'ferry_operator', 'admin'] },
     },
     {
+        path: '/admin/hotels',
+        name: 'admin.hotels',
+        component: () => import('@/Pages/Admin/HotelManagementView.vue'),
+        meta: { auth: true, roles: ['admin'] },
+    },
+    {
         path: '/admin/map',
         name: 'admin.map',
         component: () => import('@/Pages/Admin/MapManagementView.vue'),
