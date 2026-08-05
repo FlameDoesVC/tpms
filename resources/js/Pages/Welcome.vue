@@ -205,15 +205,16 @@ const legs = computed(() => [
                 <div class="sink">
                 <div class="rise-in" style="--r-delay: 90ms">
                     <p class="beacon-ink text-xs font-semibold uppercase tracking-[0.2em]">
-                        Plan your island visit
+                        Plan your Velaafinolhu visit
                     </p>
                     <h1 class="mt-5 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
                         Everything on the island,<br class="hidden sm:block" />
                         in one itinerary.
                     </h1>
                     <p class="sea-soft mt-6 max-w-xl text-lg leading-relaxed">
-                        Rooms, ferry crossings and theme park time slots — chosen together, paid together.
-                        Start without an account and sign in when you check out.
+                        Rooms, ferry crossings and theme park time slots across
+                        <span class="beacon-ink font-semibold">Velaafinolhu</span>, chosen together, paid
+                        together. Start without an account and sign in when you check out.
                     </p>
 
                     <div class="mt-9 flex flex-wrap items-center gap-3">
