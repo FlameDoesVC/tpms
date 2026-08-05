@@ -1,6 +1,13 @@
+<script setup>
+import { computed } from 'vue';
+
+const props = defineProps({
+    size: { type: [String, Number], default: 32 },
+});
+
+const px = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
+</script>
+
 <template>
-    <span class="inline-flex items-center gap-1">
-        <span class="text-xl font-bold tracking-tight text-primary">TPMS</span>
-        <span class="mb-0.5 h-1.5 w-1.5 self-end rounded-full bg-accent" aria-hidden="true" />
-    </span>
+    <img src="/images/logo.png" alt="TPMS" :width="px" :height="px" class="object-contain" />
 </template>

@@ -122,7 +122,7 @@ const logout = async () => {
             <!-- Brand -->
             <div class="flex h-16 items-center gap-2.5 border-b px-4">
                 <router-link :to="{ name: 'welcome' }" class="flex items-center gap-2.5 overflow-hidden">
-                    <span class="grid h-8 w-8 shrink-0 place-items-center rounded bg-primary text-sm font-bold text-white shadow-sm">T</span>
+                    <img src="/images/logo.png" alt="TPMS" class="h-8 w-8 shrink-0 object-contain" />
                     <span v-if="!collapsed" class="truncate text-base font-bold tracking-tight text-foreground">
                         TPMS<span class="text-accent">.</span>
                     </span>

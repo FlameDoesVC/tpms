@@ -148,14 +148,9 @@ const legs = computed(() => [
                 aria-hidden="true"
             />
 
-            <!-- Top bar. The wordmark is written out here rather than reusing
-                 ApplicationLogo because that one is teal from the theme tokens,
-                 and it has to survive both waters. -->
+            <!-- Top bar. -->
             <div class="rise-in shell relative z-10 flex items-center justify-between py-5">
-                <span class="inline-flex items-center gap-1">
-                    <span class="text-xl font-bold tracking-tight text-white">TPMS</span>
-                    <span class="beacon-fill mb-0.5 h-1.5 w-1.5 self-end rounded-full" aria-hidden="true" />
-                </span>
+                <img src="/images/logo.png" alt="TPMS" class="h-9 w-9 object-contain" />
 
                 <div class="flex items-center gap-2 sm:gap-3">
                     <button

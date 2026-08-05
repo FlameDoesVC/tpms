@@ -9,7 +9,7 @@ const { isDark, toggle: toggleTheme } = useTheme();
     <div class="flex min-h-screen flex-col items-center bg-page pt-6 sm:justify-center sm:pt-0">
         <div class="flex items-center gap-4">
             <router-link to="/">
-                <ApplicationLogo class="text-3xl" />
+                <ApplicationLogo :size="44" />
             </router-link>
             <button
                 type="button"
