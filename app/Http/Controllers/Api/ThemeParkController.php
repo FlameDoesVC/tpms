@@ -28,6 +28,7 @@ class ThemeParkController extends Controller
         return response()->json(
             ThemeParkEvent::query()
                 ->visibleTo($request->user(), $request->boolean('all'))
+                ->with('media')
                 ->get()
         );
     }
@@ -39,6 +40,7 @@ class ThemeParkController extends Controller
     {
         $events = ThemeParkEvent::query()
             ->where('is_active', true)
+            ->with('media')
             ->withCount(['bookings' => fn ($query) => $query->where('event_bookings.status', '!=', 'cancelled')])
             ->orderByDesc('bookings_count')
             ->limit(3)

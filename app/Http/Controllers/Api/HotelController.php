@@ -24,6 +24,7 @@ class HotelController extends Controller
         // staff role - a deactivated hotel is not something a visitor should see.
         $hotels = Hotel::query()
             ->visibleTo($request->user(), $request->boolean('all'))
+            ->with('media')
             ->paginate($perPage);
 
         return HotelResource::collection($hotels)->response();
@@ -36,6 +37,7 @@ class HotelController extends Controller
     {
         $hotels = Hotel::query()
             ->where('is_active', true)
+            ->with('media')
             ->withCount(['bookings' => fn ($query) => $query->where('status', '!=', 'cancelled')])
             ->orderByDesc('bookings_count')
             ->limit(3)

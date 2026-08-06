@@ -19,7 +19,7 @@ class PromotionController extends Controller
     public function index(): JsonResponse
     {
         $promotions = Promotion::active()
-            ->with('creator:id,name')
+            ->with(['creator:id,name', 'media'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -33,7 +33,7 @@ class PromotionController extends Controller
             abort(403);
         }
 
-        $query = Promotion::with('creator:id,name')->orderByDesc('created_at');
+        $query = Promotion::with(['creator:id,name', 'media'])->orderByDesc('created_at');
 
         if (! $request->user()->hasRole('admin')) {
             $query->where('created_by', $request->user()->id);
