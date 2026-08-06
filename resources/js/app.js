@@ -22,6 +22,12 @@ const router = createRouter({
         // land underneath.
         if (to.hash) return { el: to.hash, top: 88, behavior: 'smooth' };
 
+        // Same page, only the query changed. The detail pages keep their dates
+        // and guest count in the URL so a link is shareable, which means every
+        // tap of a stepper is technically a navigation - scrolling to the top
+        // for those threw the reader out of the room list mid-edit.
+        if (to.path === from.path) return false;
+
         return { top: 0 };
     },
 });
