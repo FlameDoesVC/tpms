@@ -265,7 +265,15 @@ class ThemeParkEventTest extends TestCase
     public function test_visitor_can_cancel_their_booking_and_capacity_is_restored(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $slot = EventSlot::factory()->create(['available_capacity' => 10]);
+        // The event is pinned rather than left to the factory: cancelling clamps
+        // the restored capacity to capacity_per_slot, which the factory rolls
+        // anywhere from 10 upwards - so a roll below 12 failed this test at
+        // random rather than because anything was wrong.
+        $event = ThemeParkEvent::factory()->create(['capacity_per_slot' => 20]);
+        $slot = EventSlot::factory()->create([
+            'event_id' => $event->id,
+            'available_capacity' => 10,
+        ]);
         $booking = EventBooking::factory()->create([
             'user_id' => $visitor->id,
             'event_slot_id' => $slot->id,
