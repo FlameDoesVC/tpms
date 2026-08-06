@@ -134,7 +134,7 @@ const logout = async () => {
             <!-- Brand -->
             <div class="flex h-16 items-center gap-2.5 border-b px-4">
                 <router-link :to="{ name: 'welcome' }">
-                    <BrandMark :wordmark="!collapsed" />
+                    <BrandMark />
                 </router-link>
             </div>
 

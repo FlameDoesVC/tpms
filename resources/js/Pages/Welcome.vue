@@ -157,7 +157,7 @@ const legs = computed(() => [
 
             <!-- Top bar. -->
             <div class="rise-in shell relative z-10 flex items-center justify-between py-5">
-                <img src="/images/logo.png" alt="TPMS" class="h-9 w-9 object-contain" />
+                <img src="/images/logo.png" alt="TPMS" class="h-9 w-auto object-contain" />
 
                 <div class="flex items-center gap-2 sm:gap-3">
                     <button

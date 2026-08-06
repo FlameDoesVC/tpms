@@ -12,6 +12,9 @@
 
         <title>{{ config('app.name', 'TPMS') }}</title>
 
+        <link rel="icon" type="image/png" href="/images/favicon.png">
+        <link rel="apple-touch-icon" href="/images/favicon.png">
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=outfit:300,400,500,600,700,800&display=swap" rel="stylesheet" />

@@ -9,5 +9,5 @@ const px = computed(() => (typeof props.size === 'number' ? `${props.size}px` : 
 </script>
 
 <template>
-    <img src="/images/logo.png" alt="TPMS" :width="px" :height="px" class="object-contain" />
+    <img src="/images/logo.png" alt="TPMS" :style="{ height: px, width: 'auto' }" class="object-contain" />
 </template>
