@@ -493,9 +493,9 @@
        out at the same place. Near-black ink at reduced alpha holds above 5:1
        all the way down, and the beacon carries its own opaque disc, so both
        constraints come off the surface and the alpha is free. */
-    --card-frame: rgb(255 255 255 / 0.18);
+    --card-frame: rgb(255 255 255 / 0.1);
     --card-frame-line: rgb(255 255 255 / 0.38);
-    --card-bg: rgb(var(--color-background) / 0.5);
+    --card-bg: rgb(var(--color-background) / 0.25);
     --card-hover: rgb(var(--color-text) / 0.05);
     --card-rule: rgb(var(--color-text) / 0.22);
     --card-ink: rgb(var(--color-text));
@@ -503,12 +503,29 @@
     --card-ink-faint: rgb(var(--color-text) / 0.6);
     /* Opaque: the glyph's contrast no longer depends on how much bright water
        is showing through the card behind it. */
-    --card-disc: rgb(var(--color-surface-hover));
-    /* Already opaque here, so the base is just itself - see the dark override
-       below for why this indirection exists at all. */
-    --card-disc-base: var(--card-disc);
+    --card-disc: rgb(var(--color-background) / 0.3);
+    /* Opaque on purpose, and deliberately NOT var(--card-disc): the disc is a
+       translucent wash now, and a translucent base would let the leg-connector
+       rail show straight through the badge - the very thing this token exists
+       to stop. Sand at full strength is the light-theme counterpart of the dark
+       override's opaque sea glass. */
+    --card-disc-base: rgb(var(--color-background));
     --card-accent: 154 78 8;
+    /* Blur on its own was already applied here and did nothing visible: the
+       hero behind this card is a smooth gradient, and a blurred smooth gradient
+       is the same gradient. The saturation lift is what makes it read as glass -
+       it blooms the lagoon coming through, so the panel looks like something
+       light passes through rather than paint laid on top. */
+    --card-frost: blur(18px) saturate(1.8);
   }
+
+  /* On the frame, so one filter covers the whole card - a backdrop-filter is
+     clipped to its own border box, and this element's box is the entire card. */
+  .trip-card {
+    -webkit-backdrop-filter: var(--card-frost);
+    backdrop-filter: var(--card-frost);
+  }
+
   [data-theme="dark"] .trip-card {
     --card-frame: rgb(255 255 255 / 0.07);
     --card-frame-line: rgb(255 255 255 / 0.1);
@@ -530,6 +547,10 @@
     --card-disc-base: rgb(var(--sea-glass));
     /* Amber already carries 11:1 against deep glass. */
     --card-accent: var(--color-accent);
+    /* An abyss has almost no colour to bloom, so saturation alone can't sell
+       glass here. A small brightness lift does: it separates the pane from the
+       water behind it without turning the deep card into a grey slab. */
+    --card-frost: blur(18px) saturate(1.5) brightness(1.25);
   }
 
   /* A plain hairline, drawn from the card's own rule colour rather than the

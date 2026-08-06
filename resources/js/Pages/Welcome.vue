@@ -243,7 +243,7 @@ const legs = computed(() => [
                      one set of type colours legible over two very different seas. -->
                 <div class="sink-slow">
                 <div
-                    class="trip-card elevated-lg rise-in rounded-xl border border-[var(--card-frame-line)] bg-[var(--card-frame)] p-2 backdrop-blur-md"
+                    class="trip-card elevated-lg rise-in rounded-xl border border-[var(--card-frame-line)] bg-[var(--card-frame)] p-2"
                     style="--r-delay: 220ms"
                 >
                     <div class="rounded-xl bg-[var(--card-bg)] p-5 sm:p-6">
