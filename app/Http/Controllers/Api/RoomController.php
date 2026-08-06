@@ -10,7 +10,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
+/**
+ * Physical room inventory, for the manager screens. Visitors browse and book
+ * room types (see RoomTypeController) and never see a room number until their
+ * booking is confirmed.
+ */
 class RoomController extends Controller
 {
     public function index(Request $request, Hotel $hotel): JsonResponse
@@ -18,9 +24,16 @@ class RoomController extends Controller
         $validated = $request->validate([
             'check_in_date' => ['nullable', 'date', 'required_with:check_out_date'],
             'check_out_date' => ['nullable', 'date', 'after:check_in_date', 'required_with:check_in_date'],
+            'room_type_id' => ['nullable', 'integer'],
         ]);
 
-        $rooms = $hotel->rooms()->get();
+        $rooms = $hotel->rooms()
+            ->with('roomType')
+            ->when(
+                ! empty($validated['room_type_id']),
+                fn ($query) => $query->where('room_type_id', $validated['room_type_id'])
+            )
+            ->get();
 
         if (! empty($validated['check_in_date'])) {
             $rooms = $rooms->filter(fn (Room $room) => $room->isAvailableBetween(
@@ -32,59 +45,25 @@ class RoomController extends Controller
         return RoomResource::collection($rooms)->response();
     }
 
-    /**
-     * Rooms grouped by type/price/capacity, with an available-unit count -
-     * lets a party book multiple rooms of one type instead of being limited
-     * to whatever a single room fits.
-     */
-    public function types(Request $request, Hotel $hotel): JsonResponse
-    {
-        $validated = $request->validate([
-            'check_in_date' => ['nullable', 'date', 'required_with:check_out_date'],
-            'check_out_date' => ['nullable', 'date', 'after:check_in_date', 'required_with:check_in_date'],
-        ]);
-
-        $rooms = $hotel->rooms()->where('is_available', true)->get();
-
-        if (! empty($validated['check_in_date'])) {
-            $rooms = $rooms->filter(fn (Room $room) => $room->isAvailableBetween(
-                $validated['check_in_date'],
-                $validated['check_out_date']
-            ))->values();
-        }
-
-        $groups = $rooms
-            ->groupBy(fn (Room $room) => "{$room->type}|{$room->price_per_night}|{$room->max_guests}")
-            ->map(function ($group) {
-                $first = $group->first();
-
-                return [
-                    'representative_room_id' => $first->id,
-                    'type' => $first->type,
-                    'price_per_night' => $first->price_per_night,
-                    'max_guests' => $first->max_guests,
-                    'available_count' => $group->count(),
-                ];
-            })
-            ->values();
-
-        return response()->json($groups);
-    }
-
     public function store(Request $request, Hotel $hotel): JsonResponse
     {
         Gate::authorize('update', $hotel);
 
         $validated = $request->validate([
             'room_number' => ['required', 'string', 'max:50'],
-            'type' => ['required', 'in:single,double,suite'],
-            'price_per_night' => ['required', 'numeric', 'min:0'],
-            'max_guests' => ['required', 'integer', 'min:1'],
+            // Scoped to this hotel: rooms keep their own hotel_id for the
+            // bookings relation, and a room whose type belongs elsewhere would
+            // price and describe itself from another hotel's inventory.
+            'room_type_id' => [
+                'required',
+                Rule::exists('room_types', 'id')->where('hotel_id', $hotel->id),
+            ],
+            'is_available' => ['sometimes', 'boolean'],
         ]);
 
         $room = $hotel->rooms()->create($validated)->refresh();
 
-        return (new RoomResource($room))->response()->setStatusCode(201);
+        return (new RoomResource($room->load('roomType')))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, Room $room): RoomResource
@@ -93,15 +72,16 @@ class RoomController extends Controller
 
         $validated = $request->validate([
             'room_number' => ['sometimes', 'string', 'max:50'],
-            'type' => ['sometimes', 'in:single,double,suite'],
-            'price_per_night' => ['sometimes', 'numeric', 'min:0'],
-            'max_guests' => ['sometimes', 'integer', 'min:1'],
+            'room_type_id' => [
+                'sometimes',
+                Rule::exists('room_types', 'id')->where('hotel_id', $room->hotel_id),
+            ],
             'is_available' => ['sometimes', 'boolean'],
         ]);
 
         $room->update($validated);
 
-        return new RoomResource($room);
+        return new RoomResource($room->load('roomType'));
     }
 
     public function destroy(Room $room): Response

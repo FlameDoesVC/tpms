@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -15,27 +16,24 @@ class HotelBookingService
 {
     /**
      * Creates `quantity` bookings for a party, splitting guests evenly across
-     * sibling rooms of the same type/price/capacity. Callers must run this
-     * inside a DB transaction - the availability check below relies on
-     * lockForUpdate() to mean anything.
+     * sibling rooms of the requested type. Callers must run this inside a DB
+     * transaction - the availability check below relies on lockForUpdate() to
+     * mean anything.
      */
     public function create(int $userId, array $data): Collection
     {
         $quantity = $data['quantity'] ?? 1;
-        $representative = Room::findOrFail($data['room_id']);
+        $roomType = RoomType::where('is_active', true)->findOrFail($data['room_type_id']);
 
-        if ($data['guests_count'] > $representative->max_guests * $quantity) {
+        if ($data['guests_count'] > $roomType->max_guests * $quantity) {
             throw ValidationException::withMessages([
-                'guests_count' => 'These rooms only fit '.($representative->max_guests * $quantity).' guests total - increase the room quantity.',
+                'guests_count' => 'These rooms only fit '.($roomType->max_guests * $quantity).' guests total - increase the room quantity.',
             ]);
         }
 
         $nights = Carbon::parse($data['check_in_date'])->diffInDays(Carbon::parse($data['check_out_date']));
 
-        $candidates = Room::where('hotel_id', $representative->hotel_id)
-            ->where('type', $representative->type)
-            ->where('price_per_night', $representative->price_per_night)
-            ->where('max_guests', $representative->max_guests)
+        $candidates = Room::where('room_type_id', $roomType->id)
             ->where('is_available', true)
             ->lockForUpdate()
             ->get()
@@ -58,7 +56,7 @@ class HotelBookingService
             'check_in_date' => $data['check_in_date'],
             'check_out_date' => $data['check_out_date'],
             'guests_count' => $baseGuests + ($i < $extraGuests ? 1 : 0),
-            'total_price' => $nights * $room->price_per_night,
+            'total_price' => $nights * $roomType->price_per_night,
             'status' => 'pending',
         ]))->values();
 

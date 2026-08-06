@@ -88,7 +88,7 @@ const pay = async () => {
                                 <div class="flex justify-between gap-3">
                                     <dt class="text-foreground-muted">Room</dt>
                                     <dd class="text-right capitalize text-foreground">
-                                        {{ booking.room?.type }} · no. {{ booking.room?.room_number }} ·
+                                        {{ booking.room?.room_type?.name }} · no. {{ booking.room?.room_number }} ·
                                         {{ booking.guests_count }} guest{{ booking.guests_count === 1 ? '' : 's' }}
                                     </dd>
                                 </div>

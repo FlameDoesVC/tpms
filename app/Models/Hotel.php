@@ -22,6 +22,12 @@ class Hotel extends Model implements HasMedia
         'name',
         'description',
         'address',
+        'facilities',
+        'check_in_time',
+        'check_out_time',
+        'phone',
+        'email',
+        'website',
         'total_rooms',
         'is_active',
     ];
@@ -31,27 +37,39 @@ class Hotel extends Model implements HasMedia
     protected function casts(): array
     {
         return [
+            'facilities' => 'array',
             'is_active' => 'boolean',
         ];
     }
 
     public function registerMediaConversions(?Media $media = null): void
     {
+        // Unscoped on purpose - see the note in RoomType.
         $this->registerSanitisedImageConversion();
     }
 
     public function registerMediaCollections(): void
     {
+        $mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
         $this->addMediaCollection('image')
             ->singleFile()
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+            ->acceptsMimeTypes($mimes);
+
+        $this->addMediaCollection('gallery')
+            ->acceptsMimeTypes($mimes);
     }
 
-    // imageUrl() and the sanitising conversion come from HasSanitisedImage.
+    // imageUrl(), galleryItems() and the sanitising conversion come from HasSanitisedImage.
 
     public function rooms(): HasMany
     {
         return $this->hasMany(Room::class);
+    }
+
+    public function roomTypes(): HasMany
+    {
+        return $this->hasMany(RoomType::class);
     }
 
     public function bookings(): HasManyThrough

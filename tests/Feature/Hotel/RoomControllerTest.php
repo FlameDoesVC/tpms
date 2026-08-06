@@ -5,6 +5,7 @@ namespace Tests\Feature\Hotel;
 use App\Models\Booking;
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -49,93 +50,16 @@ class RoomControllerTest extends TestCase
         $this->assertFalse($ids->contains($bookedRoom->id));
     }
 
-    public function test_room_types_groups_rooms_by_type_price_and_capacity(): void
-    {
-        $user = User::factory()->create()->assignRole('visitor');
-        $hotel = Hotel::factory()->create();
-        Room::factory()->count(3)->create([
-            'hotel_id' => $hotel->id,
-            'type' => 'double',
-            'price_per_night' => 100,
-            'max_guests' => 2,
-        ]);
-        Room::factory()->create([
-            'hotel_id' => $hotel->id,
-            'type' => 'suite',
-            'price_per_night' => 250,
-            'max_guests' => 4,
-        ]);
-
-        $response = $this->actingAs($user)->getJson("/api/hotels/{$hotel->id}/room-types");
-
-        $response->assertOk();
-        $groups = collect($response->json());
-        $this->assertCount(2, $groups);
-        $double = $groups->firstWhere('type', 'double');
-        $this->assertEquals(3, $double['available_count']);
-        $suite = $groups->firstWhere('type', 'suite');
-        $this->assertEquals(1, $suite['available_count']);
-    }
-
-    public function test_room_types_excludes_rooms_taken_for_the_given_dates(): void
-    {
-        $user = User::factory()->create()->assignRole('visitor');
-        $hotel = Hotel::factory()->create();
-        $rooms = Room::factory()->count(2)->create([
-            'hotel_id' => $hotel->id,
-            'type' => 'double',
-            'price_per_night' => 100,
-            'max_guests' => 2,
-        ]);
-        Booking::factory()->create([
-            'room_id' => $rooms->first()->id,
-            'status' => 'confirmed',
-            'check_in_date' => '2026-08-10',
-            'check_out_date' => '2026-08-15',
-        ]);
-
-        $response = $this->actingAs($user)->getJson(
-            "/api/hotels/{$hotel->id}/room-types?check_in_date=2026-08-12&check_out_date=2026-08-14"
-        );
-
-        $response->assertOk();
-        $groups = collect($response->json());
-        $this->assertEquals(1, $groups->firstWhere('type', 'double')['available_count']);
-    }
-
-    public function test_room_types_hides_fully_booked_type_entirely(): void
-    {
-        $user = User::factory()->create()->assignRole('visitor');
-        $hotel = Hotel::factory()->create();
-        $room = Room::factory()->create([
-            'hotel_id' => $hotel->id,
-            'type' => 'double',
-        ]);
-        Booking::factory()->create([
-            'room_id' => $room->id,
-            'status' => 'confirmed',
-            'check_in_date' => '2026-08-10',
-            'check_out_date' => '2026-08-15',
-        ]);
-
-        $response = $this->actingAs($user)->getJson(
-            "/api/hotels/{$hotel->id}/room-types?check_in_date=2026-08-12&check_out_date=2026-08-14"
-        );
-
-        $response->assertOk();
-        $this->assertCount(0, $response->json());
-    }
-
     public function test_hotel_manager_can_create_room(): void
     {
         $manager = User::factory()->create()->assignRole('hotel_manager');
         $hotel = Hotel::factory()->create();
 
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id]);
+
         $response = $this->actingAs($manager)->postJson("/api/hotels/{$hotel->id}/rooms", [
             'room_number' => '101',
-            'type' => 'double',
-            'price_per_night' => 120.50,
-            'max_guests' => 2,
+            'room_type_id' => $roomType->id,
         ]);
 
         $response->assertCreated()
@@ -149,12 +73,27 @@ class RoomControllerTest extends TestCase
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
 
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id]);
+
         $this->actingAs($visitor)->postJson("/api/hotels/{$hotel->id}/rooms", [
             'room_number' => '101',
-            'type' => 'double',
-            'price_per_night' => 120.50,
-            'max_guests' => 2,
+            'room_type_id' => $roomType->id,
         ])->assertForbidden();
+    }
+
+    // rooms.hotel_id is kept alongside room_type_id for the bookings relation,
+    // so nothing but this check stops a room from pricing and describing itself
+    // out of another hotel's inventory.
+    public function test_room_cannot_be_created_with_another_hotels_room_type(): void
+    {
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+        $hotel = Hotel::factory()->create();
+        $foreignType = RoomType::factory()->create();
+
+        $this->actingAs($manager)->postJson("/api/hotels/{$hotel->id}/rooms", [
+            'room_number' => '101',
+            'room_type_id' => $foreignType->id,
+        ])->assertUnprocessable();
     }
 
     public function test_hotel_manager_can_update_room(): void

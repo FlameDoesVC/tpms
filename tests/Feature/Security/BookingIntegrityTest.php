@@ -5,6 +5,7 @@ namespace Tests\Feature\Security;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -119,7 +120,8 @@ class BookingIntegrityTest extends TestCase
     public function test_cancelled_booking_cannot_be_revived(): void
     {
         $visitor = $this->visitor();
-        $room = Room::factory()->create(['max_guests' => 4, 'is_available' => true]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create(['is_available' => true]);
 
         $booking = Booking::factory()->create([
             'user_id' => $visitor->id,
@@ -142,10 +144,11 @@ class BookingIntegrityTest extends TestCase
     {
         $first = $this->visitor();
         $second = $this->visitor();
-        $room = Room::factory()->create(['max_guests' => 4, 'is_available' => true]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create(['is_available' => true]);
 
         $payload = [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDays(5)->toDateString(),
             'check_out_date' => now()->addDays(7)->toDateString(),
             'guests_count' => 2,

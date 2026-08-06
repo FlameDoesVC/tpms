@@ -546,7 +546,7 @@ const markTicketUsed = async (t) => {
                     <div class="mt-3 rounded-lg border p-3 text-sm" :class="showingFallback ? 'bg-surface' : ''">
                         <p class="font-medium text-foreground">{{ party.booking.room?.hotel?.name }}</p>
                         <p class="text-foreground-muted">
-                            {{ party.booking.room?.type }} room -
+                            {{ party.booking.room?.room_type?.name }} -
                             {{ party.booking.check_in_date?.slice(0, 10) }} to {{ party.booking.check_out_date?.slice(0, 10) }}
                         </p>
                         <p class="text-foreground-muted">

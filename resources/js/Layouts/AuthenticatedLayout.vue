@@ -13,11 +13,14 @@ import PaymentsDueMenu from '@/Components/PaymentsDueMenu.vue';
 import CartHeaderButton from '@/Components/CartHeaderButton.vue';
 import CartDockedPanel from '@/Components/CartDockedPanel.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useCartStore } from '@/stores/cart';
 import { useHotelStore } from '@/stores/hotel';
+import { showToast } from '@/composables/useToast';
 import { useTheme } from '@/composables/useTheme';
 
 const showingNavigationDropdown = ref(false);
 const auth = useAuthStore();
+const cart = useCartStore();
 const hotelStore = useHotelStore();
 const route = useRoute();
 const router = useRouter();
@@ -40,6 +43,14 @@ const showItinerary = computed(() => auth.canShop && !DOCK_FREE_ROUTES.includes(
 
 onMounted(() => {
     if (auth.isAuthenticated && auth.canShop) hotelStore.fetchMyBookings({ silent: true });
+
+    // A saved itinerary from before the room-type rework cannot be checked out -
+    // its hotel rows identify a room by a name the API no longer accepts. It is
+    // dropped on load; say so once rather than let it vanish silently.
+    if (cart.wasReset) {
+        showToast('Your saved itinerary was reset after an update. Please add your rooms again.');
+        cart.acknowledgeReset();
+    }
 });
 
 const VISITOR_LINKS = [

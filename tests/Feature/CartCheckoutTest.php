@@ -8,6 +8,7 @@ use App\Models\Ferry;
 use App\Models\FerrySchedule;
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\ThemeParkEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +21,8 @@ class CartCheckoutTest extends TestCase
     public function test_checkout_creates_a_mixed_cart_in_one_go(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
         $event = ThemeParkEvent::factory()->create(['price_per_ticket' => 10]);
         $slot = EventSlot::factory()->create(['event_id' => $event->id, 'available_capacity' => 5]);
 
@@ -29,7 +31,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,
@@ -56,7 +58,8 @@ class CartCheckoutTest extends TestCase
     public function test_checkout_creates_a_ferry_ticket_linked_to_a_hotel_item_in_the_same_cart(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['price_per_night' => 100, 'max_guests' => 2]);
+        $roomType = RoomType::factory()->create(['price_per_night' => 100, 'max_guests' => 2]);
+        Room::factory()->forType($roomType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create(['ferry_id' => $ferry->id, 'available_seats' => 10]);
 
@@ -65,7 +68,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,
@@ -92,7 +95,8 @@ class CartCheckoutTest extends TestCase
     public function test_checkout_rolls_back_everything_when_one_item_fails(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        Room::factory()->forType($roomType)->create();
         $event = ThemeParkEvent::factory()->create();
         $slot = EventSlot::factory()->create(['event_id' => $event->id, 'available_capacity' => 1]);
 
@@ -101,7 +105,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,
@@ -132,12 +136,11 @@ class CartCheckoutTest extends TestCase
         // and must not leave a dangling confirmed hotel booking behind.
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        Room::factory()->count(2)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'single',
             'max_guests' => 1,
         ]);
-        $room = Room::where('hotel_id', $hotel->id)->first();
+        Room::factory()->count(2)->forType($roomType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create(['ferry_id' => $ferry->id, 'available_seats' => 10]);
 
@@ -146,7 +149,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,
@@ -178,13 +181,12 @@ class CartCheckoutTest extends TestCase
         // capacity, not fail against whichever single room it references.
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        Room::factory()->count(2)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'double',
             'max_guests' => 2,
             'price_per_night' => 150,
         ]);
-        $room = Room::where('hotel_id', $hotel->id)->first();
+        Room::factory()->count(2)->forType($roomType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create(['ferry_id' => $ferry->id, 'available_seats' => 10]);
 
@@ -193,7 +195,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 3,
@@ -227,19 +229,21 @@ class CartCheckoutTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        $singles = Room::factory()->count(2)->create([
-            'hotel_id' => $hotel->id, 'type' => 'single', 'max_guests' => 1, 'price_per_night' => 80,
+        $singleType = RoomType::factory()->create([
+            'hotel_id' => $hotel->id, 'name' => 'Single', 'max_guests' => 1, 'price_per_night' => 80,
         ]);
-        $doubles = Room::factory()->count(3)->create([
-            'hotel_id' => $hotel->id, 'type' => 'double', 'max_guests' => 2, 'price_per_night' => 150,
+        Room::factory()->count(2)->forType($singleType)->create();
+        $doubleType = RoomType::factory()->create([
+            'hotel_id' => $hotel->id, 'name' => 'Double', 'max_guests' => 2, 'price_per_night' => 150,
         ]);
+        Room::factory()->count(3)->forType($doubleType)->create();
 
         $response = $this->actingAs($visitor)->postJson('/api/cart/checkout', [
             'items' => [
                 [
                     'id' => 'cart-single',
                     'type' => 'hotel',
-                    'representativeRoomId' => $singles->first()->id,
+                    'roomTypeId' => $singleType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     // 2 singles hold 2 of the 3 guests.
@@ -249,7 +253,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-double',
                     'type' => 'hotel',
-                    'representativeRoomId' => $doubles->first()->id,
+                    'roomTypeId' => $doubleType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     // the double holds the remaining 1.
@@ -278,12 +282,14 @@ class CartCheckoutTest extends TestCase
         $hotel = Hotel::factory()->create();
         // Price is pinned because create() groups interchangeable rooms by
         // type + price + capacity; a randomised price would split them.
-        $singles = Room::factory()->count(2)->create([
-            'hotel_id' => $hotel->id, 'type' => 'single', 'max_guests' => 1, 'price_per_night' => 80,
+        $singleType = RoomType::factory()->create([
+            'hotel_id' => $hotel->id, 'name' => 'Single', 'max_guests' => 1, 'price_per_night' => 80,
         ]);
-        $doubles = Room::factory()->count(2)->create([
-            'hotel_id' => $hotel->id, 'type' => 'double', 'max_guests' => 2, 'price_per_night' => 150,
+        Room::factory()->count(2)->forType($singleType)->create();
+        $doubleType = RoomType::factory()->create([
+            'hotel_id' => $hotel->id, 'name' => 'Double', 'max_guests' => 2, 'price_per_night' => 150,
         ]);
+        Room::factory()->count(2)->forType($doubleType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 20, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create([
             'ferry_id' => $ferry->id, 'available_seats' => 20, 'departure_date' => '2026-09-01',
@@ -293,13 +299,13 @@ class CartCheckoutTest extends TestCase
             'items' => [
                 [
                     'id' => 'cart-single', 'type' => 'hotel',
-                    'representativeRoomId' => $singles->first()->id,
+                    'roomTypeId' => $singleType->id,
                     'checkIn' => '2026-09-01', 'checkOut' => '2026-09-03',
                     'guestsCount' => 2, 'quantity' => 2,
                 ],
                 [
                     'id' => 'cart-double', 'type' => 'hotel',
-                    'representativeRoomId' => $doubles->first()->id,
+                    'roomTypeId' => $doubleType->id,
                     'checkIn' => '2026-09-01', 'checkOut' => '2026-09-03',
                     'guestsCount' => 1, 'quantity' => 1,
                 ],
@@ -349,7 +355,8 @@ class CartCheckoutTest extends TestCase
     public function test_checkout_refuses_a_cancelled_ferry_departure(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        Room::factory()->forType($roomType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create([
             'ferry_id' => $ferry->id,
@@ -362,7 +369,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,
@@ -389,7 +396,8 @@ class CartCheckoutTest extends TestCase
     public function test_checkout_refuses_an_already_departed_ferry(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        Room::factory()->forType($roomType)->create();
         $ferry = Ferry::factory()->create(['capacity' => 10, 'price_per_seat' => 20]);
         $schedule = FerrySchedule::factory()->create([
             'ferry_id' => $ferry->id,
@@ -402,7 +410,7 @@ class CartCheckoutTest extends TestCase
                 [
                     'id' => 'cart-hotel-1',
                     'type' => 'hotel',
-                    'representativeRoomId' => $room->id,
+                    'roomTypeId' => $roomType->id,
                     'checkIn' => '2026-09-01',
                     'checkOut' => '2026-09-03',
                     'guestsCount' => 2,

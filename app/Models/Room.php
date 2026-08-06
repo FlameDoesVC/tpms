@@ -13,17 +13,14 @@ class Room extends Model
 
     protected $fillable = [
         'hotel_id',
+        'room_type_id',
         'room_number',
-        'type',
-        'price_per_night',
-        'max_guests',
         'is_available',
     ];
 
     protected function casts(): array
     {
         return [
-            'price_per_night' => 'decimal:2',
             'is_available' => 'boolean',
         ];
     }
@@ -31,6 +28,11 @@ class Room extends Model
     public function hotel(): BelongsTo
     {
         return $this->belongsTo(Hotel::class);
+    }
+
+    public function roomType(): BelongsTo
+    {
+        return $this->belongsTo(RoomType::class);
     }
 
     public function bookings(): HasMany

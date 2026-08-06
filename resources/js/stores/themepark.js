@@ -6,6 +6,9 @@ export const useThemeParkStore = defineStore('themepark', {
         events: [],
         popularEvents: [],
         event: null,
+        // Distinct from error.event: a missing or unannounced attraction is a
+        // page state, not a message in a red box.
+        eventNotFound: false,
         slots: [],
         templates: [],
         myBookings: [],
@@ -59,18 +62,40 @@ export const useThemeParkStore = defineStore('themepark', {
             return data;
         },
 
-        async fetchEventSlots(eventId, date) {
+        // The attraction detail page's request: the event plus the schedule for
+        // one date. `keepEvent` refreshes the slots on a date change without
+        // clearing the copy and photographs the page is already showing.
+        async fetchEventSlots(eventId, date, { keepEvent = false } = {}) {
             this.loading.event = true;
             this.error.event = null;
+            this.eventNotFound = false;
+            if (!keepEvent) this.event = null;
             try {
                 const { data } = await axios.get(`/api/themepark/events/${eventId}`, { params: { date } });
                 this.event = data;
                 this.slots = data.slots ?? [];
+                return data;
             } catch (e) {
+                // An unannounced or deleted attraction 404s; that is a page
+                // state rather than an error message.
+                if (e.response?.status === 404) this.eventNotFound = true;
                 this.error.event = e.response?.data?.message ?? 'Failed to load event.';
+                return null;
             } finally {
                 this.loading.event = false;
             }
+        },
+
+        async uploadEventGallery(eventId, files) {
+            const form = new FormData();
+            files.forEach((file) => form.append('images[]', file));
+            const { data } = await axios.post(`/api/themepark/events/${eventId}/gallery`, form);
+            return data.gallery;
+        },
+
+        async deleteEventGalleryImage(eventId, mediaId) {
+            const { data } = await axios.delete(`/api/themepark/events/${eventId}/gallery/${mediaId}`);
+            return data.gallery;
         },
 
         async bookSlot(slotId, ticketCount, { silent = false } = {}) {

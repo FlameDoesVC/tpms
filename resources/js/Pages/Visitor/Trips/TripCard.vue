@@ -79,7 +79,7 @@ const hasParkTime = computed(() => props.legs.some((leg) => leg.kind === 'park')
                         <TIcon name="users" :size="13" />
                         {{ guests }} guest{{ guests === 1 ? '' : 's' }}
                     </span>
-                    <span v-if="stay.room?.type" class="capitalize">{{ stay.room.type }}</span>
+                    <span v-if="stay.room?.room_type?.name">{{ stay.room.room_type.name }}</span>
                 </p>
             </div>
 

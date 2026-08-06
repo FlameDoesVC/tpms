@@ -32,7 +32,7 @@ class BookingController extends Controller
         // Name only. A hotel manager needs to know whose booking this is, not the
         // whole account record - this returned every visitor's email address,
         // verification timestamp and guest flag on every row.
-        $query = Booking::query()->with(['room.hotel', 'user:id,name']);
+        $query = Booking::query()->with(['room.hotel', 'room.roomType', 'user:id,name']);
 
         /*
          * Two callers, two meanings. A manager opening the bookings desk wants
@@ -69,13 +69,13 @@ class BookingController extends Controller
             abort(403);
         }
 
-        return response()->json($booking->load('room.hotel'));
+        return response()->json($booking->load('room.hotel', 'room.roomType'));
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'room_id' => ['required', 'exists:rooms,id'],
+            'room_type_id' => ['required', 'exists:room_types,id'],
             'check_in_date' => ['required', 'date', 'after_or_equal:today'],
             'check_out_date' => ['required', 'date', 'after:check_in_date'],
             'guests_count' => ['required', 'integer', 'min:1'],

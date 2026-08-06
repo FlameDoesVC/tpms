@@ -12,6 +12,18 @@ import { setupErrorHandler } from '@/plugins/errorHandler';
 const router = createRouter({
     history: createWebHistory(),
     routes,
+
+    // Browsing a list and opening a result is now two pages rather than one
+    // expanding card, so navigation has to move the viewport: without this, the
+    // detail page opens at whatever scroll offset the list was left at.
+    scrollBehavior(to, from, savedPosition) {
+        if (savedPosition) return savedPosition;
+        // Clears the sticky header, which the in-page anchors would otherwise
+        // land underneath.
+        if (to.hash) return { el: to.hash, top: 88, behavior: 'smooth' };
+
+        return { top: 0 };
+    },
 });
 
 setupErrorHandler(router);

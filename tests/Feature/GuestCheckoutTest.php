@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\EventSlot;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,10 +15,11 @@ class GuestCheckoutTest extends TestCase
 
     public function test_unauthenticated_hotel_booking_creates_and_logs_in_a_guest(): void
     {
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $response = $this->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDay()->toDateString(),
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,
@@ -52,10 +54,11 @@ class GuestCheckoutTest extends TestCase
     public function test_already_authenticated_user_does_not_get_a_guest_account(): void
     {
         $user = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $this->actingAs($user)->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDay()->toDateString(),
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,
@@ -66,10 +69,11 @@ class GuestCheckoutTest extends TestCase
 
     public function test_guest_can_claim_their_account(): void
     {
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $this->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDay()->toDateString(),
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,
@@ -114,10 +118,11 @@ class GuestCheckoutTest extends TestCase
     public function test_guest_can_log_into_an_existing_account_and_bookings_transfer(): void
     {
         $existing = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $booking = $this->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDay()->toDateString(),
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,
@@ -139,10 +144,11 @@ class GuestCheckoutTest extends TestCase
     public function test_guest_login_with_wrong_password_keeps_guest_session(): void
     {
         $existing = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $this->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => now()->addDay()->toDateString(),
             'check_out_date' => now()->addDays(3)->toDateString(),
             'guests_count' => 2,

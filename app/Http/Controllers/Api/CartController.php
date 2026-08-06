@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Room;
+use App\Models\RoomType;
 use App\Services\FerryTicketService;
 use App\Services\HotelBookingService;
 use App\Services\ThemeParkBookingService;
@@ -67,7 +67,7 @@ class CartController extends Controller
             foreach ($items as $item) {
                 if ($item['type'] === 'hotel') {
                     $data = Validator::make($item, [
-                        'representativeRoomId' => ['required', 'exists:rooms,id'],
+                        'roomTypeId' => ['required', 'exists:room_types,id'],
                         'checkIn' => ['required', 'date'],
                         'checkOut' => ['required', 'date', 'after:checkIn'],
                         'guestsCount' => ['required', 'integer', 'min:1'],
@@ -75,7 +75,7 @@ class CartController extends Controller
                     ])->validate();
 
                     $bookings = $this->hotelBookings->create($userId, [
-                        'room_id' => $data['representativeRoomId'],
+                        'room_type_id' => $data['roomTypeId'],
                         'check_in_date' => $data['checkIn'],
                         'check_out_date' => $data['checkOut'],
                         'guests_count' => $data['guestsCount'],
@@ -86,7 +86,7 @@ class CartController extends Controller
                     $bookings = $this->hotelBookings->settle($bookings, $actor);
 
                     $stayKey = implode('|', [
-                        Room::findOrFail($data['representativeRoomId'])->hotel_id,
+                        RoomType::findOrFail($data['roomTypeId'])->hotel_id,
                         $data['checkIn'],
                         $data['checkOut'],
                     ]);

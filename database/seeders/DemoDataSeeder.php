@@ -12,6 +12,7 @@ use App\Models\FerryScheduleTemplate;
 use App\Models\FerryTicket;
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\ThemeParkEvent;
 use App\Models\User;
 use App\Services\EventSlotTemplateGenerator;
@@ -62,27 +63,60 @@ class DemoDataSeeder extends Seeder
         // --- Hotels ---
         $sunsetResort = Hotel::factory()->create([
             'name' => 'Sunset Resort',
+            'description' => 'A barefoot-luxury resort on the quiet southern shore, built around a '
+                ."shallow house reef. Every room opens onto the water, and the dive centre runs \n"
+                .'two boat trips a day to the outer atoll.',
             'address' => '1 Beach Road, South Male Atoll',
+            'facilities' => ['wifi', 'pool', 'spa', 'restaurant', 'bar', 'beach_access', 'dive_center', 'airport_shuttle', 'room_service'],
+            'check_in_time' => '14:00',
+            'check_out_time' => '12:00',
+            'phone' => '+960 664 1100',
+            'email' => 'stay@sunsetresort.example',
+            'website' => 'https://sunsetresort.example',
             'total_rooms' => 12,
         ]);
         $lagoonInn = Hotel::factory()->create([
             'name' => 'Lagoon Inn',
+            'description' => 'A small, family-run inn a few minutes from the ferry jetty. Simple '
+                .'rooms, a good kitchen, and the calmest swimming water on the island.',
             'address' => '22 Lagoon Drive, North Male Atoll',
+            'facilities' => ['wifi', 'restaurant', 'beach_access', 'laundry', 'air_conditioning', 'water_sports'],
+            'check_in_time' => '15:00',
+            'check_out_time' => '11:00',
+            'phone' => '+960 664 2255',
+            'email' => 'hello@lagooninn.example',
+            'website' => 'https://lagooninn.example',
             'total_rooms' => 8,
         ]);
 
         // Multiple rooms per type so a party bigger than one room can still
         // book several units of the same type instead of the hotel appearing sold out.
+        $roomTypeSpecs = [
+            ['Garden Single', 'SG', 80, 1, 2, ['wifi', 'air_conditioning', 'safe', 'tv'],
+                'A compact room off the garden path, with a shaded terrace and an outdoor shower.'],
+            ['Ocean Double', 'DB', 120, 2, 3, ['wifi', 'air_conditioning', 'sea_view', 'balcony', 'minibar', 'coffee_maker'],
+                'A double facing the lagoon, with a balcony wide enough for two loungers and an unbroken view west.'],
+            ['Beachfront Suite', 'ST', 250, 4, 2, ['wifi', 'air_conditioning', 'sea_view', 'balcony', 'bathtub', 'king_bed', 'minibar', 'coffee_maker'],
+                'A two-room suite opening straight onto the sand, with a freestanding tub and a private deck.'],
+        ];
+
         $rooms = collect();
+        $roomTypes = collect();
         foreach ([$sunsetResort, $lagoonInn] as $hotel) {
-            foreach ([['single', 'SG', 80, 1, 2], ['double', 'DB', 120, 2, 3], ['suite', 'ST', 250, 4, 2]] as [$type, $prefix, $price, $maxGuests, $count]) {
+            foreach ($roomTypeSpecs as [$name, $prefix, $price, $maxGuests, $count, $amenities, $description]) {
+                $roomType = RoomType::factory()->create([
+                    'hotel_id' => $hotel->id,
+                    'name' => $name,
+                    'description' => $description,
+                    'price_per_night' => $price,
+                    'max_guests' => $maxGuests,
+                    'amenities' => $amenities,
+                ]);
+                $roomTypes->push($roomType);
+
                 for ($i = 1; $i <= $count; $i++) {
-                    $rooms->push(Room::factory()->create([
-                        'hotel_id' => $hotel->id,
+                    $rooms->push(Room::factory()->forType($roomType)->create([
                         'room_number' => $prefix.$hotel->id.$i,
-                        'type' => $type,
-                        'price_per_night' => $price,
-                        'max_guests' => $maxGuests,
                     ]));
                 }
             }
@@ -94,7 +128,7 @@ class DemoDataSeeder extends Seeder
             'room_id' => $rooms->first()->id,
             'check_in_date' => now()->addDays(3)->toDateString(),
             'check_out_date' => now()->addDays(6)->toDateString(),
-            'total_price' => $rooms->first()->price_per_night * 3,
+            'total_price' => $rooms->first()->roomType->price_per_night * 3,
             'status' => 'confirmed',
             'guests_count' => 2,
         ]);
@@ -139,14 +173,30 @@ class DemoDataSeeder extends Seeder
         // --- Theme park ---
         $ride = ThemeParkEvent::factory()->create([
             'name' => 'Wave Runner',
+            'description' => 'A jet-boat run through the channel markers on the north side, with '
+                .'two full-throttle spin sections. Expect to get soaked.',
+            'highlights' => [
+                '15 minutes at full throttle across the outer channel',
+                'Two 360-degree spin sections',
+                'Waterproof bag storage included',
+            ],
             'type' => 'ride',
             'location' => 'North Shore',
             'duration_minutes' => 15,
+            'min_age' => 12,
+            'min_height_cm' => 140,
             'capacity_per_slot' => 20,
             'price_per_ticket' => 25,
         ]);
         $show = ThemeParkEvent::factory()->create([
             'name' => 'Sunset Dolphin Show',
+            'description' => 'The resident pod comes into the lagoon at dusk. Forty minutes of '
+                .'open-water display from the tiered seating at the Marine Theatre.',
+            'highlights' => [
+                'Tiered seating with an uninterrupted lagoon view',
+                'Narrated by the marine team',
+                'Best light in the half hour before sunset',
+            ],
             'type' => 'show',
             'location' => 'Marine Theatre',
             'duration_minutes' => 40,
@@ -155,6 +205,13 @@ class DemoDataSeeder extends Seeder
         ]);
         $beachEvent = ThemeParkEvent::factory()->create([
             'name' => 'Beach Volleyball',
+            'description' => 'Drop-in doubles on the main beach courts. Teams are made up on the '
+                .'spot, and the bar keeps the scoreboard.',
+            'highlights' => [
+                'Two floodlit sand courts',
+                'Equipment provided',
+                'All skill levels - teams mixed on arrival',
+            ],
             'type' => 'beach_event',
             'location' => 'Main Beach',
             'duration_minutes' => 60,

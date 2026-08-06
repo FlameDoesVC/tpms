@@ -20,9 +20,12 @@ class ThemeParkEvent extends Model implements HasMedia
     protected $fillable = [
         'name',
         'description',
+        'highlights',
         'type',
         'location',
         'duration_minutes',
+        'min_age',
+        'min_height_cm',
         'capacity_per_slot',
         'price_per_ticket',
         'is_active',
@@ -33,6 +36,7 @@ class ThemeParkEvent extends Model implements HasMedia
     protected function casts(): array
     {
         return [
+            'highlights' => 'array',
             'price_per_ticket' => 'decimal:2',
             'is_active' => 'boolean',
         ];
@@ -40,17 +44,23 @@ class ThemeParkEvent extends Model implements HasMedia
 
     public function registerMediaConversions(?Media $media = null): void
     {
+        // Unscoped on purpose - see the note in RoomType.
         $this->registerSanitisedImageConversion();
     }
 
     public function registerMediaCollections(): void
     {
+        $mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
         $this->addMediaCollection('image')
             ->singleFile()
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+            ->acceptsMimeTypes($mimes);
+
+        $this->addMediaCollection('gallery')
+            ->acceptsMimeTypes($mimes);
     }
 
-    // imageUrl() and the sanitising conversion come from HasSanitisedImage.
+    // imageUrl(), galleryItems() and the sanitising conversion come from HasSanitisedImage.
 
     public function slots(): HasMany
     {

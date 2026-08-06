@@ -193,7 +193,7 @@ const cancelSelected = async () => {
                 <div class="min-w-0 flex-1">
                     <p class="font-semibold text-foreground">{{ booking.room?.hotel?.name }}</p>
                     <p class="text-sm capitalize text-foreground-secondary">
-                        {{ booking.room?.type }}
+                        {{ booking.room?.room_type?.name }}
                         <span v-if="booking.party_guests_count" class="text-foreground-muted">
                             · {{ booking.party_guests_count }} guest{{ booking.party_guests_count === 1 ? '' : 's' }}
                         </span>

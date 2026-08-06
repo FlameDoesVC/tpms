@@ -4,6 +4,7 @@ namespace Tests\Feature\Security;
 
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -69,13 +70,14 @@ class RateLimitTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        $room = Room::factory()->create(['hotel_id' => $hotel->id, 'max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id, 'max_guests' => 4]);
+        Room::factory()->forType($roomType)->create();
 
         $throttled = false;
 
         for ($i = 0; $i < 30; $i++) {
             $status = $this->actingAs($visitor)->postJson('/api/bookings', [
-                'room_id' => $room->id,
+                'room_type_id' => $roomType->id,
                 'check_in_date' => now()->addDays(1)->toDateString(),
                 'check_out_date' => now()->addDays(2)->toDateString(),
                 'guests_count' => 1,

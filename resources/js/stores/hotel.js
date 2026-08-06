@@ -6,7 +6,11 @@ export const useHotelStore = defineStore('hotel', {
         hotels: [],
         popularHotels: [],
         hotel: null,
+        // Distinct from error.hotel: a missing or deactivated hotel is a page
+        // state (an empty state with a way back), not a message in a red box.
+        hotelNotFound: false,
         rooms: [],
+        roomTypes: [],
         myBookings: [],
         activeBooking: null,
         activeBookings: [],
@@ -68,14 +72,30 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
-        async fetchHotel(hotelId) {
+        // The hotel detail page's only request: the hotel, its gallery and its
+        // room types with availability, in one round trip. Always pass dates -
+        // without them the response carries no available_count and the room
+        // steppers have no ceiling.
+        async fetchHotel(hotelId, dates = {}) {
             this.loading.hotel = true;
             this.error.hotel = null;
+            this.hotelNotFound = false;
+            // Cleared up front so a previous hotel cannot flash under the new
+            // one's skeleton.
+            this.hotel = null;
             try {
-                const { data } = await axios.get(`/api/hotels/${hotelId}`);
+                const { data } = await axios.get(`/api/hotels/${hotelId}`, {
+                    params: {
+                        check_in_date: dates.checkIn,
+                        check_out_date: dates.checkOut,
+                    },
+                });
                 this.hotel = data;
+                return data;
             } catch (e) {
+                if (e.response?.status === 404) this.hotelNotFound = true;
                 this.error.hotel = e.response?.data?.message ?? 'Failed to load hotel.';
+                return null;
             } finally {
                 this.loading.hotel = false;
             }
@@ -99,13 +119,16 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
-        // Side-effect-free: lets the combined hotel-booking page fetch room
-        // types for many hotels at once without them overwriting each other.
-        async fetchRoomTypes(hotelId, dates = {}) {
+        // Side-effect-free, and returned rather than stored: the detail page
+        // calls this on every date change to refresh availability alone, and
+        // merges the counts into what it is already showing so the descriptions
+        // and photographs do not flicker.
+        async fetchRoomTypes(hotelId, dates = {}, { all = false } = {}) {
             const { data } = await axios.get(`/api/hotels/${hotelId}/room-types`, {
                 params: {
                     check_in_date: dates.checkIn,
                     check_out_date: dates.checkOut,
+                    ...(all ? { all: 1 } : {}),
                 },
             });
             return data;
@@ -179,6 +202,71 @@ export const useHotelStore = defineStore('hotel', {
             await axios.delete(`/api/hotels/${hotelId}`);
             this.hotels = this.hotels.filter((h) => h.id !== hotelId);
         },
+
+        // --- Room types (what a visitor picks) ---
+
+        // `all` includes deactivated types, which the management screen needs
+        // to be able to bring one back.
+        async fetchManagerRoomTypes(hotelId) {
+            this.roomTypes = await this.fetchRoomTypes(hotelId, {}, { all: true });
+            return this.roomTypes;
+        },
+
+        async createRoomType(hotelId, payload) {
+            const { data } = await axios.post(`/api/hotels/${hotelId}/room-types`, payload);
+            this.roomTypes.push(data);
+            return data;
+        },
+
+        // Same PATCH-spoof as updateHotel - PHP leaves $_FILES empty on a PATCH
+        // multipart body, so an upload has to travel as POST + _method=PATCH.
+        async updateRoomType(roomTypeId, payload) {
+            const isUpload = payload instanceof FormData;
+            if (isUpload) payload.append('_method', 'PATCH');
+
+            const { data } = isUpload
+                ? await axios.post(`/api/room-types/${roomTypeId}`, payload)
+                : await axios.patch(`/api/room-types/${roomTypeId}`, payload);
+
+            const index = this.roomTypes.findIndex((t) => t.id === roomTypeId);
+            if (index !== -1) this.roomTypes[index] = data;
+            return data;
+        },
+
+        async deleteRoomType(roomTypeId) {
+            await axios.delete(`/api/room-types/${roomTypeId}`);
+            this.roomTypes = this.roomTypes.filter((t) => t.id !== roomTypeId);
+        },
+
+        // --- Galleries ---
+        // One request per batch of new files, then one per removed image; both
+        // return the collection as it now stands.
+
+        async uploadHotelGallery(hotelId, files) {
+            const form = new FormData();
+            files.forEach((file) => form.append('images[]', file));
+            const { data } = await axios.post(`/api/hotels/${hotelId}/gallery`, form);
+            return data.gallery;
+        },
+
+        async deleteHotelGalleryImage(hotelId, mediaId) {
+            const { data } = await axios.delete(`/api/hotels/${hotelId}/gallery/${mediaId}`);
+            return data.gallery;
+        },
+
+        async uploadRoomTypeGallery(roomTypeId, files) {
+            const form = new FormData();
+            files.forEach((file) => form.append('images[]', file));
+            const { data } = await axios.post(`/api/room-types/${roomTypeId}/gallery`, form);
+            return data.gallery;
+        },
+
+        async deleteRoomTypeGalleryImage(roomTypeId, mediaId) {
+            const { data } = await axios.delete(`/api/room-types/${roomTypeId}/gallery/${mediaId}`);
+            return data.gallery;
+        },
+
+        // --- Rooms (physical inventory, manager-only) ---
 
         async createRoom(hotelId, payload) {
             const { data } = await axios.post(`/api/hotels/${hotelId}/rooms`, payload);

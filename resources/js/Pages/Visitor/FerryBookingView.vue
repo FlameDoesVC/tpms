@@ -57,7 +57,7 @@ const eligibleBookings = computed(() => {
             confirmed: true,
             hotelName: anchor.room?.hotel?.name ?? 'Your stay',
             detail: anchor.reference_code,
-            roomsLabel: rooms.length > 1 ? `${rooms.length} rooms` : (anchor.room?.type ?? '1 room'),
+            roomsLabel: rooms.length > 1 ? `${rooms.length} rooms` : (anchor.room?.room_type?.name ?? '1 room'),
             label: `${anchor.reference_code} - ${anchor.room?.hotel?.name} (${checkIn} to ${checkOut})`,
             checkIn,
             checkOut,
@@ -85,7 +85,7 @@ const eligibleBookings = computed(() => {
         const roomCount = rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0);
         const roomsLabel = rows.length > 1
             ? `${roomCount} rooms across ${rows.length} types`
-            : `${roomCount} ${first.roomType}`;
+            : `${roomCount} × ${first.roomTypeName}`;
 
         return {
             key: `cart-${first.id}`,

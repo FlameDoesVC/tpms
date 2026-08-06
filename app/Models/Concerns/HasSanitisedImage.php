@@ -49,4 +49,26 @@ trait HasSanitisedImage
                 ?: ($this->getFirstMediaUrl('image') ?: null)
         );
     }
+
+    /**
+     * The 'gallery' collection as [{id, url}], newest ordering left to spatie's
+     * order_column. Same display-then-original preference as imageUrl().
+     *
+     * The ids are what the delete endpoint takes, so a caller can remove one
+     * image without re-uploading the rest.
+     *
+     * @return list<array{id: int, url: string}>
+     */
+    public function galleryItems(): array
+    {
+        return $this->getMedia('gallery')
+            ->map(fn ($media) => [
+                'id' => $media->id,
+                'url' => $media->hasGeneratedConversion('display')
+                    ? $media->getUrl('display')
+                    : $media->getUrl(),
+            ])
+            ->values()
+            ->all();
+    }
 }

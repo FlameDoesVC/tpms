@@ -62,11 +62,25 @@ const routes = [
     {
         // No auth required: guest checkout lets a visitor browse and book
         // before an account exists (see AutoLoginGuest on the backend).
-        // Search dates/guests + every hotel's rooms live on one page now -
-        // ?hotel=<id> (see Welcome.vue) scrolls straight to that hotel's section.
         path: '/hotels',
         name: 'hotels.index',
-        component: () => import('@/Pages/Visitor/HotelBookingView.vue'),
+        component: () => import('@/Pages/Visitor/HotelListView.vue'),
+        meta: { roles: ['visitor'] },
+        // ?hotel=<id> used to focus one hotel's section on the combined page.
+        // Those links are in promotions, the homepage rails and the map, so they
+        // are forwarded rather than broken.
+        beforeEnter: (to) => {
+            if (!to.query.hotel) return true;
+            const { hotel, ...rest } = to.query;
+
+            return { name: 'hotels.show', params: { id: hotel }, query: rest };
+        },
+    },
+    {
+        path: '/hotels/:id',
+        name: 'hotels.show',
+        component: () => import('@/Pages/Visitor/HotelDetailView.vue'),
+        // Same guest-browsing rule as the listing: no auth, visitors only.
         meta: { roles: ['visitor'] },
     },
     {
@@ -140,11 +154,25 @@ const routes = [
         meta: { auth: true, roles: ['ferry_operator'] },
     },
     {
-        // ?event=<id> (see Welcome.vue) pre-filters the page down to just
-        // that one event instead of showing every event.
         path: '/themepark',
         name: 'themepark.home',
         component: () => import('@/Pages/Visitor/ThemeParkHomeView.vue'),
+        meta: { roles: ['visitor'] },
+        // ?event=<id> used to filter this page down to one attraction. Those
+        // links live in the homepage rails and the island map.
+        beforeEnter: (to) => {
+            if (!to.query.event) return true;
+            const { event, ...rest } = to.query;
+
+            return { name: 'themepark.event', params: { id: event }, query: rest };
+        },
+    },
+    {
+        // Declared before the /themepark/staff/* routes would matter either way -
+        // these are literal segments, so there is no ambiguity with :id.
+        path: '/themepark/events/:id',
+        name: 'themepark.event',
+        component: () => import('@/Pages/Visitor/EventDetailView.vue'),
         meta: { roles: ['visitor'] },
     },
     { path: '/themepark/my-bookings', redirect: () => ({ name: 'trips', query: { tab: 'park' } }) },

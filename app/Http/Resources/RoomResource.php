@@ -17,11 +17,10 @@ class RoomResource extends JsonResource
         return [
             'id' => $this->id,
             'hotel_id' => $this->hotel_id,
+            'room_type_id' => $this->room_type_id,
             'room_number' => $this->room_number,
-            'type' => $this->type,
-            'price_per_night' => $this->price_per_night,
-            'max_guests' => $this->max_guests,
             'is_available' => $this->is_available,
+            'room_type' => new RoomTypeResource($this->whenLoaded('roomType')),
         ];
     }
 }

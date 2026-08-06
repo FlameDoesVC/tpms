@@ -5,6 +5,7 @@ namespace Tests\Feature\Hotel;
 use App\Models\Booking;
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -38,10 +39,11 @@ class BookingControllerTest extends TestCase
     public function test_visitor_can_create_a_booking(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        $roomType = RoomType::factory()->create(['price_per_night' => 100, 'max_guests' => 4]);
+        $room = Room::factory()->forType($roomType)->create();
 
         $response = $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-04',
             'guests_count' => 2,
@@ -58,15 +60,15 @@ class BookingControllerTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        $rooms = Room::factory()->count(3)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'double',
             'price_per_night' => 100,
             'max_guests' => 2,
         ]);
+        $rooms = Room::factory()->count(3)->forType($roomType)->create();
 
         $response = $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $rooms->first()->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-04',
             'guests_count' => 5,
@@ -86,15 +88,15 @@ class BookingControllerTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        $rooms = Room::factory()->count(2)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'double',
             'price_per_night' => 100,
             'max_guests' => 2,
         ]);
+        Room::factory()->count(2)->forType($roomType)->create();
 
         $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $rooms->first()->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-04',
             'guests_count' => 4,
@@ -108,15 +110,14 @@ class BookingControllerTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        Room::factory()->count(3)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'double',
             'max_guests' => 2,
         ]);
-        $room = Room::where('hotel_id', $hotel->id)->first();
+        Room::factory()->count(3)->forType($roomType)->create();
 
         $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-04',
             'guests_count' => 7,
@@ -127,7 +128,8 @@ class BookingControllerTest extends TestCase
     public function test_booking_rejects_overlapping_dates_for_same_room(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['price_per_night' => 100]);
+        $roomType = RoomType::factory()->create(['price_per_night' => 100]);
+        $room = Room::factory()->forType($roomType)->create();
         Booking::factory()->create([
             'room_id' => $room->id,
             'status' => 'confirmed',
@@ -136,7 +138,7 @@ class BookingControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-12',
             'check_out_date' => '2026-09-14',
             'guests_count' => 1,
@@ -148,10 +150,11 @@ class BookingControllerTest extends TestCase
     public function test_booking_rejects_guests_over_room_capacity(): void
     {
         $visitor = User::factory()->create()->assignRole('visitor');
-        $room = Room::factory()->create(['max_guests' => 2]);
+        $roomType = RoomType::factory()->create(['max_guests' => 2]);
+        Room::factory()->forType($roomType)->create();
 
         $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $room->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-03',
             'guests_count' => 5,
@@ -192,15 +195,15 @@ class BookingControllerTest extends TestCase
     {
         $visitor = User::factory()->create()->assignRole('visitor');
         $hotel = Hotel::factory()->create();
-        $rooms = Room::factory()->count(3)->create([
+        $roomType = RoomType::factory()->create([
             'hotel_id' => $hotel->id,
-            'type' => 'double',
             'price_per_night' => 100,
             'max_guests' => 2,
         ]);
+        Room::factory()->count(3)->forType($roomType)->create();
 
         $created = $this->actingAs($visitor)->postJson('/api/bookings', [
-            'room_id' => $rooms->first()->id,
+            'room_type_id' => $roomType->id,
             'check_in_date' => '2026-09-01',
             'check_out_date' => '2026-09-04',
             'guests_count' => 5,

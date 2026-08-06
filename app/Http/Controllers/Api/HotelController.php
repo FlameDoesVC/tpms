@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\ManagesGallery;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\HotelResource;
 use App\Models\Hotel;
+use App\Support\FacilityCatalog;
+use App\Support\RoomTypeAvailability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class HotelController extends Controller
 {
+    use ManagesGallery;
+
     public function index(Request $request): JsonResponse
     {
         // Capped rather than unbounded so a hostile per_page can't ask for the
@@ -46,13 +52,48 @@ class HotelController extends Controller
         return response()->json($hotels);
     }
 
+    /**
+     * Everything the hotel detail page renders: gallery, facilities, and the
+     * bookable room types with their availability for the requested stay.
+     */
     public function show(Request $request, Hotel $hotel): HotelResource
     {
         // 404 rather than 403: whether a hidden hotel exists is itself the thing
         // being withheld.
         abort_unless($hotel->visibleTo($request->user()), 404);
 
-        return new HotelResource($hotel->load('rooms'));
+        $validated = $request->validate([
+            'check_in_date' => ['nullable', 'date', 'required_with:check_out_date'],
+            'check_out_date' => ['nullable', 'date', 'after:check_in_date', 'required_with:check_in_date'],
+        ]);
+
+        $hotel->load([
+            'media',
+            'roomTypes' => fn ($query) => $query->where('is_active', true)->orderBy('price_per_night'),
+            'roomTypes.media',
+        ]);
+
+        RoomTypeAvailability::attach($hotel->roomTypes, RoomTypeAvailability::forHotel(
+            $hotel,
+            $validated['check_in_date'] ?? null,
+            $validated['check_out_date'] ?? null,
+        ));
+
+        return new HotelResource($hotel);
+    }
+
+    public function storeGallery(Request $request, Hotel $hotel): JsonResponse
+    {
+        Gate::authorize('update', $hotel);
+
+        return $this->addGalleryImages($request, $hotel);
+    }
+
+    public function destroyGalleryImage(Hotel $hotel, int $media): JsonResponse
+    {
+        Gate::authorize('update', $hotel);
+
+        return $this->removeGalleryImage($hotel, $media);
     }
 
     public function store(Request $request): JsonResponse
@@ -65,6 +106,7 @@ class HotelController extends Controller
             'address' => ['required', 'string', 'max:255'],
             'total_rooms' => ['required', 'integer', 'min:0'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            ...$this->detailRules(),
         ]);
 
         $hotel = Hotel::create(collect($validated)->except('image')->all())->refresh();
@@ -88,6 +130,7 @@ class HotelController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
             'remove_image' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
+            ...$this->detailRules(),
         ]);
 
         $hotel->update(collect($validated)->except(['image', 'remove_image'])->all());
@@ -108,5 +151,26 @@ class HotelController extends Controller
         $hotel->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * The detail-page fields, shared by store() and update() - both accept them
+     * optionally, since none of them is required to list a hotel.
+     *
+     * @return array<string, mixed>
+     */
+    private function detailRules(): array
+    {
+        return [
+            // Restricted to the catalog so the UI always has a label and an icon
+            // for whatever comes back.
+            'facilities' => ['nullable', 'array'],
+            'facilities.*' => ['string', Rule::in(FacilityCatalog::hotelFacilities())],
+            'check_in_time' => ['nullable', 'date_format:H:i'],
+            'check_out_time' => ['nullable', 'date_format:H:i'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'website' => ['nullable', 'url', 'max:255'],
+        ];
     }
 }

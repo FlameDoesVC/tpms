@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Hotel;
+use App\Support\FacilityCatalog;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,6 +22,12 @@ class HotelFactory extends Factory
             'name' => fake()->company().' Resort',
             'description' => fake()->paragraph(),
             'address' => fake()->address(),
+            'facilities' => fake()->randomElements(FacilityCatalog::hotelFacilities(), 5),
+            'check_in_time' => '14:00',
+            'check_out_time' => '12:00',
+            'phone' => fake()->phoneNumber(),
+            'email' => fake()->companyEmail(),
+            'website' => fake()->url(),
             'total_rooms' => fake()->numberBetween(5, 50),
             'is_active' => true,
         ];

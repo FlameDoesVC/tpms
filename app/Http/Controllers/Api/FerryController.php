@@ -578,7 +578,7 @@ class FerryController extends Controller
             ->get();
 
         return response()->json([
-            'booking' => $booking->load('room.hotel'),
+            'booking' => $booking->load('room.hotel', 'room.roomType'),
             'party_guests_count' => $partyGuestsCount,
             'tickets' => $tickets,
             'remaining_seats' => max(0, $partyGuestsCount - $tickets->count()),

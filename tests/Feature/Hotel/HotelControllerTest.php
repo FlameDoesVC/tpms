@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Hotel;
 
+use App\Models\Booking;
 use App\Models\Hotel;
 use App\Models\Room;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -65,17 +67,107 @@ class HotelControllerTest extends TestCase
         $this->assertSame(100, $response->json('meta.per_page'));
     }
 
-    public function test_show_returns_hotel_with_rooms(): void
+    /**
+     * This is the hotel detail page's only request, so everything the page
+     * renders has to come back in one response.
+     */
+    public function test_show_returns_the_detail_payload(): void
     {
         $user = User::factory()->create()->assignRole('visitor');
-        $hotel = Hotel::factory()->create();
-        Room::factory()->count(2)->create(['hotel_id' => $hotel->id]);
+        $hotel = Hotel::factory()->create([
+            'facilities' => ['wifi', 'pool'],
+            'check_in_time' => '14:00',
+            'check_out_time' => '12:00',
+        ]);
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id, 'name' => 'Ocean Double']);
+        Room::factory()->count(2)->forType($roomType)->create();
 
         $response = $this->actingAs($user)->getJson("/api/hotels/{$hotel->id}");
 
         $response->assertOk()
             ->assertJsonPath('id', $hotel->id)
-            ->assertJsonCount(2, 'rooms');
+            ->assertJsonPath('facilities', ['wifi', 'pool'])
+            ->assertJsonPath('check_in_time', '14:00')
+            ->assertJsonPath('gallery', [])
+            ->assertJsonCount(1, 'room_types')
+            ->assertJsonPath('room_types.0.name', 'Ocean Double')
+            ->assertJsonPath('room_types.0.available_count', 2);
+    }
+
+    public function test_show_reports_availability_for_the_requested_stay(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id]);
+        $rooms = Room::factory()->count(2)->forType($roomType)->create();
+
+        Booking::factory()->create([
+            'room_id' => $rooms->first()->id,
+            'status' => 'confirmed',
+            'check_in_date' => '2026-08-10',
+            'check_out_date' => '2026-08-15',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/hotels/{$hotel->id}?check_in_date=2026-08-12&check_out_date=2026-08-14")
+            ->assertOk()
+            ->assertJsonPath('room_types.0.available_count', 1);
+    }
+
+    public function test_show_rejects_a_checkout_before_its_checkin(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson("/api/hotels/{$hotel->id}?check_in_date=2026-08-14&check_out_date=2026-08-12")
+            ->assertUnprocessable();
+    }
+
+    public function test_show_omits_inactive_room_types(): void
+    {
+        $user = User::factory()->create()->assignRole('visitor');
+        $hotel = Hotel::factory()->create();
+        RoomType::factory()->create(['hotel_id' => $hotel->id, 'name' => 'Live']);
+        RoomType::factory()->create(['hotel_id' => $hotel->id, 'name' => 'Retired', 'is_active' => false]);
+
+        $this->actingAs($user)->getJson("/api/hotels/{$hotel->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'room_types')
+            ->assertJsonPath('room_types.0.name', 'Live');
+    }
+
+    public function test_hotel_accepts_detail_fields(): void
+    {
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+
+        $this->actingAs($manager)->postJson('/api/hotels', [
+            'name' => 'Reef House',
+            'address' => '3 Reef Rd',
+            'total_rooms' => 10,
+            'facilities' => ['wifi', 'dive_center'],
+            'check_in_time' => '15:00',
+            'check_out_time' => '11:00',
+            'phone' => '+960 664 0000',
+            'email' => 'stay@reefhouse.example',
+            'website' => 'https://reefhouse.example',
+        ])->assertCreated()
+            ->assertJsonPath('facilities', ['wifi', 'dive_center'])
+            ->assertJsonPath('phone', '+960 664 0000');
+    }
+
+    // The frontend renders each slug as a labelled icon, so anything outside the
+    // catalog would come back as a blank chip.
+    public function test_facilities_outside_the_catalog_are_rejected(): void
+    {
+        $manager = User::factory()->create()->assignRole('hotel_manager');
+
+        $this->actingAs($manager)->postJson('/api/hotels', [
+            'name' => 'Reef House',
+            'address' => '3 Reef Rd',
+            'total_rooms' => 10,
+            'facilities' => ['private_submarine'],
+        ])->assertUnprocessable()->assertJsonValidationErrors('facilities.0');
     }
 
     public function test_hotel_manager_can_create_hotel(): void

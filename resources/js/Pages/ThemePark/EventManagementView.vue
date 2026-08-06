@@ -6,6 +6,7 @@ import TButton from '@/Components/ui/TButton.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TInput from '@/Components/ui/TInput.vue';
 import TImageUpload from '@/Components/ui/TImageUpload.vue';
+import TGalleryUpload from '@/Components/ui/TGalleryUpload.vue';
 import TSelect from '@/Components/ui/TSelect.vue';
 import TNumberInput from '@/Components/ui/TNumberInput.vue';
 import TSwitch from '@/Components/ui/TSwitch.vue';
@@ -36,11 +37,24 @@ const TYPE_LABELS = Object.fromEntries(typeOptions.map((o) => [o.value, o.label]
 const emptyForm = () => ({
     name: '', description: '', type: 'ride', location: '',
     duration_minutes: 30, capacity_per_slot: 20, price_per_ticket: null,
+    highlights: [], min_age: null, min_height_cm: null,
 });
 const form = ref(emptyForm());
 const imageFile = ref(null);
 const imageRemoved = ref(false);
 const currentImageUrl = ref(null);
+
+// Deferred like the cover image, so a cancelled modal leaves no orphan uploads.
+const galleryFiles = ref([]);
+const galleryRemovedIds = ref([]);
+const currentGallery = ref([]);
+
+const addHighlight = () => {
+    if (form.value.highlights.length < 10) form.value.highlights.push('');
+};
+const removeHighlight = (index) => {
+    form.value.highlights = form.value.highlights.filter((_, i) => i !== index);
+};
 
 const search = ref('');
 const typeFilter = ref('');
@@ -82,6 +96,9 @@ const openAddModal = () => {
     imageFile.value = null;
     imageRemoved.value = false;
     currentImageUrl.value = null;
+    galleryFiles.value = [];
+    galleryRemovedIds.value = [];
+    currentGallery.value = [];
     errors.value = {};
     showModal.value = true;
 };
@@ -98,10 +115,16 @@ const openEditModal = (event) => {
         duration_minutes: event.duration_minutes,
         capacity_per_slot: event.capacity_per_slot,
         price_per_ticket: Number(event.price_per_ticket),
+        highlights: [...(event.highlights ?? [])],
+        min_age: event.min_age,
+        min_height_cm: event.min_height_cm,
     };
     imageFile.value = null;
     imageRemoved.value = false;
     currentImageUrl.value = event.image_url ?? null;
+    galleryFiles.value = [];
+    galleryRemovedIds.value = [];
+    currentGallery.value = event.gallery ?? [];
     errors.value = {};
     showModal.value = true;
 };
@@ -112,12 +135,24 @@ const closeModal = () => (showModal.value = false);
 // existing image to clear - plain JSON keeps working for every other edit
 // (including the is_active toggle, which calls updateEvent separately).
 const buildPayload = () => {
+    // Blank rows are an artefact of the editor, not something to publish.
+    const fields = {
+        ...form.value,
+        highlights: form.value.highlights.map((h) => h.trim()).filter(Boolean),
+    };
+
     if (!imageFile.value && !imageRemoved.value) {
-        return { ...form.value };
+        return fields;
     }
     const payload = new FormData();
-    Object.entries(form.value).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) payload.append(key, value);
+    Object.entries(fields).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+        // Arrays need the [] suffix or only the last entry survives.
+        if (Array.isArray(value)) {
+            value.forEach((entry) => payload.append(`${key}[]`, entry));
+            return;
+        }
+        payload.append(key, value);
     });
     if (imageFile.value) {
         payload.append('image', imageFile.value);
@@ -132,11 +167,21 @@ const save = async () => {
     saving.value = true;
     try {
         const payload = buildPayload();
-        if (editingEvent.value) {
-            await themeParkStore.updateEvent(editingEvent.value.id, payload);
-        } else {
-            await themeParkStore.createEvent(payload);
+        const saved = editingEvent.value
+            ? await themeParkStore.updateEvent(editingEvent.value.id, payload)
+            : await themeParkStore.createEvent(payload);
+
+        // After the event exists - a create has no id to upload against until now.
+        if (galleryFiles.value.length) {
+            await themeParkStore.uploadEventGallery(saved.id, galleryFiles.value);
         }
+        for (const mediaId of galleryRemovedIds.value) {
+            await themeParkStore.deleteEventGalleryImage(saved.id, mediaId);
+        }
+        if (galleryFiles.value.length || galleryRemovedIds.value.length) {
+            await themeParkStore.fetchEvents({ all: true });
+        }
+
         showToast(editingEvent.value ? 'Event updated.' : 'Event created.', 'success');
         closeModal();
     } catch (e) {
@@ -337,12 +382,75 @@ const remove = async (event) => {
                     />
                 </div>
 
+                <!-- Bullet points for the attraction page. Free text rather
+                     than a catalog: what makes a ride worth doing is different
+                     every time. -->
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-foreground">Highlights</label>
+                    <div v-if="form.highlights.length" class="space-y-2">
+                        <div v-for="(_, index) in form.highlights" :key="index" class="flex items-center gap-2">
+                            <TInput
+                                v-model="form.highlights[index]"
+                                class="flex-1"
+                                placeholder="e.g. Two 360-degree spin sections"
+                            />
+                            <button
+                                type="button"
+                                class="rounded-lg p-2 text-foreground-muted transition-colors hover:text-danger"
+                                aria-label="Remove highlight"
+                                @click="removeHighlight(index)"
+                            >
+                                <TIcon name="trash" :size="16" />
+                            </button>
+                        </div>
+                    </div>
+                    <TButton
+                        v-if="form.highlights.length < 10"
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        class="mt-2"
+                        @click="addHighlight"
+                    >
+                        Add highlight
+                    </TButton>
+                    <p v-if="errors['highlights.0']?.[0]" class="mt-1.5 text-sm text-danger">
+                        {{ errors['highlights.0'][0] }}
+                    </p>
+                </div>
+
+                <!-- Shown as a callout above the booking controls, so a limit
+                     is not discovered at the gate. -->
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <TNumberInput
+                        v-model="form.min_age"
+                        label="Minimum age"
+                        :min="0"
+                        width="full"
+                        :error="errors.min_age?.[0]"
+                    />
+                    <TNumberInput
+                        v-model="form.min_height_cm"
+                        label="Minimum height (cm)"
+                        :min="0"
+                        width="full"
+                        :error="errors.min_height_cm?.[0]"
+                    />
+                </div>
+
                 <TImageUpload
                     v-model:file="imageFile"
                     v-model:removed="imageRemoved"
                     :current-url="currentImageUrl"
-                    label="Image"
+                    label="Cover image"
                     :error="errors.image?.[0]"
+                />
+                <TGalleryUpload
+                    v-model:files="galleryFiles"
+                    v-model:removed-ids="galleryRemovedIds"
+                    :current-images="currentGallery"
+                    label="Gallery"
+                    :error="errors['images.0']?.[0]"
                 />
             </form>
 

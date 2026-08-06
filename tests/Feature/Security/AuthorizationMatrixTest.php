@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Security;
 
+use App\Models\Hotel;
+use App\Models\Room;
+use App\Models\RoomType;
+use App\Models\ThemeParkEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -23,6 +27,25 @@ class AuthorizationMatrixTest extends TestCase
 
     private const ALL_ROLES = ['visitor', 'hotel_manager', 'ferry_operator', 'themepark_staff', 'admin'];
 
+    /**
+     * The parameterized rows below address record id 1. SubstituteBindings runs
+     * ahead of the route's role middleware, so without these the routes would
+     * 404 for every role and the matrix would pass while asserting nothing.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $hotel = Hotel::factory()->create();
+        $roomType = RoomType::factory()->create(['hotel_id' => $hotel->id]);
+        // Each row walks every role in turn against the same record, so a
+        // destructive row would delete it partway through and leave the
+        // remaining roles asserting against a 404. A room keeps the delete
+        // refusable (422) without making it unreachable.
+        Room::factory()->forType($roomType)->create();
+        ThemeParkEvent::factory()->create();
+    }
+
     /** @return array<string, array{string, string, list<string>}> */
     public static function privilegedRoutes(): array
     {
@@ -34,11 +57,20 @@ class AuthorizationMatrixTest extends TestCase
             'map manage' => ['GET', '/api/map/locations/manage', ['admin']],
             'map create' => ['POST', '/api/map/locations', ['admin']],
             'hotel create' => ['POST', '/api/hotels', ['hotel_manager', 'admin']],
+            'hotel gallery upload' => ['POST', '/api/hotels/1/gallery', ['hotel_manager', 'admin']],
+            'hotel gallery delete' => ['DELETE', '/api/hotels/1/gallery/1', ['hotel_manager', 'admin']],
+            'room type create' => ['POST', '/api/hotels/1/room-types', ['hotel_manager', 'admin']],
+            'room type update' => ['PATCH', '/api/room-types/1', ['hotel_manager', 'admin']],
+            'room type delete' => ['DELETE', '/api/room-types/1', ['hotel_manager', 'admin']],
+            'room type gallery upload' => ['POST', '/api/room-types/1/gallery', ['hotel_manager', 'admin']],
+            'room type gallery delete' => ['DELETE', '/api/room-types/1/gallery/1', ['hotel_manager', 'admin']],
             'ferry create' => ['POST', '/api/ferries', ['ferry_operator', 'admin']],
             'ferry schedule create' => ['POST', '/api/ferry/schedules', ['ferry_operator', 'admin']],
             'ferry templates list' => ['GET', '/api/ferry/schedule-templates', ['ferry_operator', 'admin']],
             'ferry walkup ticket' => ['POST', '/api/ferry/tickets/walkup', ['ferry_operator', 'admin']],
             'park event create' => ['POST', '/api/themepark/events', ['themepark_staff', 'admin']],
+            'park event gallery upload' => ['POST', '/api/themepark/events/1/gallery', ['themepark_staff', 'admin']],
+            'park event gallery delete' => ['DELETE', '/api/themepark/events/1/gallery/1', ['themepark_staff', 'admin']],
             'park slot templates list' => ['GET', '/api/themepark/slot-templates', ['themepark_staff', 'admin']],
             'park sell ticket' => ['POST', '/api/themepark/tickets/sell', ['themepark_staff', 'admin']],
             'park sales report' => ['GET', '/api/themepark/reports/sales', ['themepark_staff', 'admin']],

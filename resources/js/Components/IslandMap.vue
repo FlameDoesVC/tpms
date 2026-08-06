@@ -205,7 +205,7 @@ const leafletMarkers = new Map();
 /** Where a pin should take you. */
 const targetFor = (marker) => {
     if (marker.events.length === 1) {
-        return { name: 'themepark.home', query: { event: marker.events[0].id } };
+        return { name: 'themepark.event', params: { id: marker.events[0].id } };
     }
     if (marker.events.length > 1) return { name: 'themepark.home' };
     if (marker.type === 'hotel') return { name: 'hotels.index' };

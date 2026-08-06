@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\HotelController;
 use App\Http\Controllers\Api\MapLocationController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\RoomTypeController;
 use App\Http\Controllers\Api\ThemeParkController;
 use App\Http\Controllers\Api\ThemeParkTicketController;
 use App\Http\Controllers\ProfileController;
@@ -28,7 +29,7 @@ Route::prefix('api')->group(function () {
     Route::get('hotels', [HotelController::class, 'index']);
     Route::get('hotels/{hotel}', [HotelController::class, 'show']);
     Route::get('hotels/{hotel}/rooms', [RoomController::class, 'index']);
-    Route::get('hotels/{hotel}/room-types', [RoomController::class, 'types']);
+    Route::get('hotels/{hotel}/room-types', [RoomTypeController::class, 'index']);
 
     Route::get('ferries', [FerryController::class, 'ferries']);
     Route::get('ferry/schedules', [FerryController::class, 'schedules']);
@@ -114,6 +115,18 @@ Route::middleware('auth')->group(function () {
         Route::post('hotels/{hotel}/rooms', [RoomController::class, 'store']);
         Route::patch('rooms/{room}', [RoomController::class, 'update']);
         Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
+
+        Route::post('hotels/{hotel}/room-types', [RoomTypeController::class, 'store']);
+        Route::patch('room-types/{roomType}', [RoomTypeController::class, 'update']);
+        Route::delete('room-types/{roomType}', [RoomTypeController::class, 'destroy']);
+
+        // {media} stays a plain integer rather than a bound Media model: binding
+        // would fetch an image belonging to any record before the owning hotel or
+        // room type has been checked.
+        Route::post('hotels/{hotel}/gallery', [HotelController::class, 'storeGallery']);
+        Route::delete('hotels/{hotel}/gallery/{media}', [HotelController::class, 'destroyGalleryImage']);
+        Route::post('room-types/{roomType}/gallery', [RoomTypeController::class, 'storeGallery']);
+        Route::delete('room-types/{roomType}/gallery/{media}', [RoomTypeController::class, 'destroyGalleryImage']);
     });
 
     // The fleet, its sailings, and the gate. Reading the ferry list stays public
@@ -154,6 +167,8 @@ Route::middleware('auth')->group(function () {
         Route::post('themepark/events', [ThemeParkController::class, 'store']);
         Route::patch('themepark/events/{event}', [ThemeParkController::class, 'update']);
         Route::delete('themepark/events/{event}', [ThemeParkController::class, 'destroy']);
+        Route::post('themepark/events/{event}/gallery', [ThemeParkController::class, 'storeGallery']);
+        Route::delete('themepark/events/{event}/gallery/{media}', [ThemeParkController::class, 'destroyGalleryImage']);
         Route::post('themepark/events/{event}/slots', [ThemeParkController::class, 'storeSlot']);
         Route::patch('themepark/slots/{slot}', [ThemeParkController::class, 'updateSlot']);
         Route::delete('themepark/slots/{slot}', [ThemeParkController::class, 'destroySlot']);

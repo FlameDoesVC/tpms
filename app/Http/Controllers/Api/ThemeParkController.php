@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\ManagesGallery;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\EventResource;
 use App\Models\EventBooking;
 use App\Models\EventSlot;
 use App\Models\ThemeParkEvent;
@@ -18,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class ThemeParkController extends Controller
 {
+    use ManagesGallery;
+
     public function __construct(private ThemeParkBookingService $bookings) {}
 
     public function index(Request $request): JsonResponse
@@ -25,12 +29,12 @@ class ThemeParkController extends Controller
         // `?all=1` is the staff management view. Without it the event management
         // screen shared the visitor's filtered list, so toggling an event inactive
         // removed it from the only screen that could turn it back on.
-        return response()->json(
-            ThemeParkEvent::query()
-                ->visibleTo($request->user(), $request->boolean('all'))
-                ->with('media')
-                ->get()
-        );
+        $events = ThemeParkEvent::query()
+            ->visibleTo($request->user(), $request->boolean('all'))
+            ->with('media')
+            ->get();
+
+        return response()->json(EventResource::collection($events));
     }
 
     /**
@@ -46,9 +50,13 @@ class ThemeParkController extends Controller
             ->limit(3)
             ->get();
 
-        return response()->json($events);
+        return response()->json(EventResource::collection($events));
     }
 
+    /**
+     * Everything the attraction detail page renders, plus the schedule for the
+     * requested date.
+     */
     public function show(Request $request, ThemeParkEvent $event): JsonResponse
     {
         // An unannounced event and its schedule are commercially confidential;
@@ -57,15 +65,15 @@ class ThemeParkController extends Controller
 
         $validated = $request->validate(['date' => ['nullable', 'date']]);
 
-        $slots = $event->slots();
-        if (! empty($validated['date'])) {
-            $slots->whereDate('slot_date', $validated['date']);
-        }
+        $event->load([
+            'media',
+            'slots' => fn ($query) => $query
+                ->when(! empty($validated['date']), fn ($slots) => $slots->whereDate('slot_date', $validated['date']))
+                ->orderBy('slot_date')
+                ->orderBy('slot_time'),
+        ]);
 
-        $data = $event->toArray();
-        $data['slots'] = $slots->get();
-
-        return response()->json($data);
+        return response()->json(new EventResource($event));
     }
 
     public function store(Request $request): JsonResponse
@@ -81,6 +89,7 @@ class ThemeParkController extends Controller
             'capacity_per_slot' => ['required', 'integer', 'min:1'],
             'price_per_ticket' => ['required', 'numeric', 'min:0'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
+            ...$this->detailRules(),
         ]);
 
         $event = ThemeParkEvent::create(collect($validated)->except('image')->all())->refresh();
@@ -89,7 +98,7 @@ class ThemeParkController extends Controller
             $event->addMediaFromRequest('image')->toMediaCollection('image');
         }
 
-        return response()->json($event, 201);
+        return response()->json(new EventResource($event), 201);
     }
 
     public function update(Request $request, ThemeParkEvent $event): JsonResponse
@@ -107,6 +116,7 @@ class ThemeParkController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
             'remove_image' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
+            ...$this->detailRules(),
         ]);
 
         $event->update(collect($validated)->except(['image', 'remove_image'])->all());
@@ -117,7 +127,7 @@ class ThemeParkController extends Controller
             $event->clearMediaCollection('image');
         }
 
-        return response()->json($event);
+        return response()->json(new EventResource($event->refresh()));
     }
 
     public function destroy(ThemeParkEvent $event): Response
@@ -127,6 +137,36 @@ class ThemeParkController extends Controller
         $event->delete();
 
         return response()->noContent();
+    }
+
+    public function storeGallery(Request $request, ThemeParkEvent $event): JsonResponse
+    {
+        Gate::authorize('update', $event);
+
+        return $this->addGalleryImages($request, $event);
+    }
+
+    public function destroyGalleryImage(ThemeParkEvent $event, int $media): JsonResponse
+    {
+        Gate::authorize('update', $event);
+
+        return $this->removeGalleryImage($event, $media);
+    }
+
+    /**
+     * Detail-page copy, shared by store() and update(). All optional - an event
+     * can be listed with nothing but the operational fields.
+     *
+     * @return array<string, mixed>
+     */
+    private function detailRules(): array
+    {
+        return [
+            'highlights' => ['nullable', 'array', 'max:10'],
+            'highlights.*' => ['string', 'max:255'],
+            'min_age' => ['nullable', 'integer', 'min:0', 'max:120'],
+            'min_height_cm' => ['nullable', 'integer', 'min:0', 'max:250'],
+        ];
     }
 
     /**

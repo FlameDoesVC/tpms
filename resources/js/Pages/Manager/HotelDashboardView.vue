@@ -196,8 +196,8 @@ const cancelBooking = async (booking) => {
                                         {{ booking.reference_code }}
                                     </p>
                                 </td>
-                                <td class="capitalize">
-                                    {{ booking.room?.type }}
+                                <td>
+                                    {{ booking.room?.room_type?.name }}
                                     <span class="text-foreground-muted">· {{ booking.room?.room_number }}</span>
                                 </td>
                                 <td class="whitespace-nowrap">

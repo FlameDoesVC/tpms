@@ -70,11 +70,11 @@ onMounted(async () => {
 const promoTarget = (promo) => {
     const events = themeParkStore.events ?? [];
     const match = events.find((e) => promo.title?.toLowerCase().includes(e.name?.toLowerCase()));
-    if (match) return { name: 'themepark.home', query: { event: match.id } };
+    if (match) return { name: 'themepark.event', params: { id: match.id } };
 
     const hotels = hotelStore.popularHotels ?? [];
     const hotelMatch = hotels.find((h) => promo.title?.toLowerCase().includes(h.name?.toLowerCase()));
-    if (hotelMatch) return { name: 'hotels.index', query: { hotel: hotelMatch.id } };
+    if (hotelMatch) return { name: 'hotels.show', params: { id: hotelMatch.id } };
 
     return CATEGORY_ROUTES[promo.category] ?? CATEGORY_ROUTES.general;
 };
@@ -398,7 +398,7 @@ const legs = computed(() => [
             >
                 <template #card="{ item, index }">
                     <RailCard
-                        :to="{ name: 'themepark.home', query: { event: item.id } }"
+                        :to="{ name: 'themepark.event', params: { id: item.id } }"
                         :title="item.name"
                         :subtitle="item.location"
                         :image-url="item.image_url"
@@ -430,7 +430,7 @@ const legs = computed(() => [
                 >
                     <template #card="{ item, index }">
                         <RailCard
-                            :to="{ name: 'hotels.index', query: { hotel: item.id } }"
+                            :to="{ name: 'hotels.show', params: { id: item.id } }"
                             :title="item.name"
                             :subtitle="item.address"
                             :image-url="item.image_url"

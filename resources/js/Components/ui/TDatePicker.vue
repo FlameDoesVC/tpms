@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TMonthYearPanel from '@/Components/ui/TMonthYearPanel.vue';
 
@@ -19,6 +19,8 @@ const model = defineModel({ type: String, default: '' });
 
 const open = ref(false);
 const wrapperRef = ref(null);
+const anchorRef = ref(null);
+const popoverRef = ref(null);
 const gridRef = ref(null);
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -79,19 +81,54 @@ const weeks = computed(() => {
     return rows;
 });
 
+// The popover is teleported to <body> so it can't be clipped by an ancestor's
+// `overflow-hidden` or trapped under a modal's stacking context - inside a
+// TModal an absolutely-positioned popover renders behind the dialog. Teleporting
+// means it no longer inherits the trigger's position, so track it by hand.
+const POPOVER_WIDTH = 288; // w-72
+const VIEWPORT_MARGIN = 8;
+const GAP = 4;
+const popoverStyle = ref({});
+
+const updatePosition = () => {
+    const anchor = anchorRef.value;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    // Falls back to a typical day-grid height on the first pass, before the
+    // popover has been measured; nextTick corrects it.
+    const height = popoverRef.value?.offsetHeight || 340;
+    const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN;
+    const flipUp = spaceBelow < height && rect.top - VIEWPORT_MARGIN > spaceBelow;
+
+    popoverStyle.value = {
+        top: `${flipUp ? rect.top - height - GAP : rect.bottom + GAP}px`,
+        left: `${Math.min(Math.max(VIEWPORT_MARGIN, rect.left), window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN)}px`,
+    };
+};
+
 const openPicker = () => {
     viewDate.value = parseIso(model.value);
     // Always opens on the day grid; the jump view is somewhere you go, not a
     // state the field remembers.
     jumping.value = false;
     open.value = true;
+    updatePosition();
     nextTick(() => {
+        updatePosition();
         const el = gridRef.value?.querySelector('[data-selected="true"]') ?? gridRef.value?.querySelector('[data-today="true"]');
         el?.focus();
     });
 };
 const close = () => { open.value = false; };
 const toggle = () => (open.value ? close() : openPicker());
+
+// The jump panel is a different height than the day grid, so a popover that
+// flipped upwards has to be re-anchored when the two swap.
+watch(jumping, () => nextTick(updatePosition));
+
+// Capture phase so scrolling inside the modal's own scroll container counts,
+// not just the window.
+const onViewportChange = () => { if (open.value) updatePosition(); };
 
 const changeMonth = (delta) => {
     const d = new Date(viewDate.value);
@@ -117,11 +154,22 @@ const clear = () => {
     close();
 };
 
+// The popover lives outside the wrapper in the DOM now, so it needs its own
+// containment check or clicking a day would count as clicking outside.
 const onClickOutside = (e) => {
+    if (popoverRef.value?.contains(e.target)) return;
     if (wrapperRef.value && !wrapperRef.value.contains(e.target)) close();
 };
-onMounted(() => document.addEventListener('mousedown', onClickOutside));
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
+onMounted(() => {
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('scroll', onViewportChange, true);
+    window.addEventListener('resize', onViewportChange);
+});
+onUnmounted(() => {
+    document.removeEventListener('mousedown', onClickOutside);
+    document.removeEventListener('scroll', onViewportChange, true);
+    window.removeEventListener('resize', onViewportChange);
+});
 
 const onTriggerKeydown = (e) => {
     if (['Enter', ' ', 'ArrowDown'].includes(e.key)) {
@@ -137,7 +185,7 @@ const onGridKeydown = (e) => {
 <template>
     <div ref="wrapperRef">
         <label v-if="label" class="mb-1.5 block text-sm font-medium text-foreground">{{ label }}</label>
-        <div class="relative">
+        <div ref="anchorRef" class="relative">
             <button
                 type="button"
                 class="flex w-full items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-left text-sm shadow-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -159,84 +207,88 @@ const onGridKeydown = (e) => {
                 <TIcon name="x" :size="14" />
             </button>
 
-            <Transition
-                enter-active-class="transition duration-100 ease-out"
-                enter-from-class="opacity-0 scale-95"
-                enter-to-class="opacity-100 scale-100"
-                leave-active-class="transition duration-75 ease-in"
-                leave-from-class="opacity-100 scale-100"
-                leave-to-class="opacity-0 scale-95"
-            >
-                <div
-                    v-if="open"
-                    class="elevated-lg absolute z-50 mt-1 w-72 origin-top rounded-lg border bg-surface p-3"
-                    @keydown="onGridKeydown"
+            <Teleport to="body">
+                <Transition
+                    enter-active-class="transition duration-100 ease-out"
+                    enter-from-class="opacity-0 scale-95"
+                    enter-to-class="opacity-100 scale-100"
+                    leave-active-class="transition duration-75 ease-in"
+                    leave-from-class="opacity-100 scale-100"
+                    leave-to-class="opacity-0 scale-95"
                 >
-                    <TMonthYearPanel
-                        v-if="jumping"
-                        :model-value="viewIso"
-                        class="!w-full !p-0"
-                        @update:model-value="onJump"
-                        @close="jumping = false"
-                    />
+                    <div
+                        v-if="open"
+                        ref="popoverRef"
+                        class="elevated-lg fixed z-[60] w-72 origin-top rounded-lg border bg-surface p-3"
+                        :style="popoverStyle"
+                        @keydown="onGridKeydown"
+                    >
+                        <TMonthYearPanel
+                            v-if="jumping"
+                            :model-value="viewIso"
+                            class="!w-full !p-0"
+                            @update:model-value="onJump"
+                            @close="jumping = false"
+                        />
 
-                    <template v-else>
-                    <div class="mb-2 flex items-center justify-between">
-                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Previous month" @click="changeMonth(-1)">
-                            <TIcon name="chevronLeft" :size="16" />
-                        </button>
-                        <!-- Clicking the month opens the jump view in place, so a
-                             date two quarters out isn't six presses of Next. -->
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-semibold text-foreground hover:bg-surface-hover"
-                            aria-label="Jump to another month or year"
-                            @click="jumping = true"
-                        >
-                            {{ monthLabel }}
-                            <TIcon name="chevronDown" :size="13" class="text-foreground-muted" />
-                        </button>
-                        <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Next month" @click="changeMonth(1)">
-                            <TIcon name="chevronRight" :size="16" />
-                        </button>
-                    </div>
+                        <template v-else>
+                        <div class="mb-2 flex items-center justify-between">
+                            <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Previous month" @click="changeMonth(-1)">
+                                <TIcon name="chevronLeft" :size="16" />
+                            </button>
+                            <!-- Clicking the month opens the jump view in place, so a
+                                 date two quarters out isn't six presses of Next. -->
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-semibold text-foreground hover:bg-surface-hover"
+                                aria-label="Jump to another month or year"
+                                @click="jumping = true"
+                            >
+                                {{ monthLabel }}
+                                <TIcon name="chevronDown" :size="13" class="text-foreground-muted" />
+                            </button>
+                            <button type="button" class="rounded p-1.5 text-foreground-muted hover:bg-surface-hover hover:text-foreground" aria-label="Next month" @click="changeMonth(1)">
+                                <TIcon name="chevronRight" :size="16" />
+                            </button>
+                        </div>
 
-                    <div class="grid grid-cols-7 text-center text-xs font-medium text-foreground-muted">
-                        <span v-for="wd in WEEKDAYS" :key="wd" class="py-1">{{ wd }}</span>
-                    </div>
+                        <div class="grid grid-cols-7 text-center text-xs font-medium text-foreground-muted">
+                            <span v-for="wd in WEEKDAYS" :key="wd" class="py-1">{{ wd }}</span>
+                        </div>
 
-                    <div ref="gridRef" class="grid grid-cols-7 gap-y-0.5">
-                        <button
-                            v-for="day in weeks.flat()"
-                            :key="day.iso"
-                            type="button"
-                            :disabled="day.disabled"
-                            :data-selected="day.isSelected"
-                            :data-today="day.isToday"
-                            class="grid h-8 w-8 place-items-center justify-self-center rounded text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                            :class="[
-                                day.isSelected ? 'bg-primary text-white font-medium' : 'hover:bg-surface-hover',
-                                !day.isSelected && day.isToday ? 'ring-1 ring-inset ring-primary text-primary font-medium' : '',
-                                !day.isSelected && !day.isToday && day.inMonth ? 'text-foreground' : '',
-                                !day.isSelected && !day.isToday && !day.inMonth ? 'text-foreground-muted' : '',
-                            ]"
-                            @click="select(day)"
-                        >
-                            {{ day.day }}
-                        </button>
-                    </div>
+                        <div ref="gridRef" class="grid grid-cols-7 gap-y-0.5">
+                            <button
+                                v-for="day in weeks.flat()"
+                                :key="day.iso"
+                                type="button"
+                                :disabled="day.disabled"
+                                :data-selected="day.isSelected"
+                                :data-today="day.isToday"
+                                class="grid h-8 w-8 place-items-center justify-self-center rounded text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+                                :class="[
+                                    day.isSelected ? 'bg-primary text-white font-medium' : 'hover:bg-surface-hover',
+                                    !day.isSelected && day.isToday ? 'ring-1 ring-inset ring-primary text-primary font-medium' : '',
+                                    !day.isSelected && !day.isToday && day.inMonth ? 'text-foreground' : '',
+                                    !day.isSelected && !day.isToday && !day.inMonth ? 'text-foreground-muted' : '',
+                                ]"
+                                @click="select(day)"
+                            >
+                                {{ day.day }}
+                            </button>
+                        </div>
 
-                    <div class="mt-2 flex items-center justify-between border-t pt-2">
-                        <button type="button" class="text-xs font-medium text-primary hover:underline" @click="selectToday">
-                            Today
-                        </button>
-                        <button v-if="clearable && model" type="button" class="text-xs text-foreground-muted hover:text-foreground hover:underline" @click="clear">
-                            Clear
-                        </button>
+                        <div class="mt-2 flex items-center justify-between border-t pt-2">
+                            <button type="button" class="text-xs font-medium text-primary hover:underline" @click="selectToday">
+                                Today
+                            </button>
+                            <button v-if="clearable && model" type="button" class="text-xs text-foreground-muted hover:text-foreground hover:underline" @click="clear">
+                                Clear
+                            </button>
+                        </div>
+                        </template>
                     </div>
-                    </template>
-                </div>
-            </Transition>
+                </Transition>
+            </Teleport>
         </div>
         <p v-if="error" class="mt-1.5 text-sm text-danger">{{ error }}</p>
         <p v-else-if="helper" class="mt-1.5 text-sm text-foreground-muted">{{ helper }}</p>

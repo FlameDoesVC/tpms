@@ -95,7 +95,7 @@ const removeItem = async (item) => {
         >
             <div>
                 <template v-if="item.type === 'hotel'">
-                    <p class="font-medium text-foreground">{{ item.hotelName }} - {{ item.roomType }}</p>
+                    <p class="font-medium text-foreground">{{ item.hotelName }} - {{ item.roomTypeName }}</p>
                     <p class="text-xs text-foreground-muted">
                         {{ item.quantity }} room{{ item.quantity === 1 ? '' : 's' }} ·
                         {{ formatDateRange(item.checkIn, item.checkOut) }}

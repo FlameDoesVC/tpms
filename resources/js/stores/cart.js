@@ -3,17 +3,35 @@ import axios from 'axios';
 
 const STORAGE_KEY = 'tpms.cart';
 
+// v1 stored a bare array whose hotel items identified a room type by name plus
+// a representative room id. Checkout now takes a roomTypeId, and there is no
+// way to derive one from what v1 saved - so a v1 cart is dropped rather than
+// carried forward into a 422 at the payment step. `discarded` lets the UI say
+// so once, instead of the itinerary silently emptying itself.
+const CART_VERSION = 2;
+
+let discarded = false;
+
 const loadFromStorage = () => {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw);
+        if (parsed?.version === CART_VERSION && Array.isArray(parsed.items)) {
+            return parsed.items;
+        }
+
+        discarded = Array.isArray(parsed) ? parsed.length > 0 : (parsed?.items?.length ?? 0) > 0;
+        localStorage.removeItem(STORAGE_KEY);
+        return [];
     } catch {
         return [];
     }
 };
 
 const saveToStorage = (items) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: CART_VERSION, items }));
 };
 
 // Client-side only - nothing here is a real booking yet. Checkout walks
@@ -22,6 +40,9 @@ const saveToStorage = (items) => {
 export const useCartStore = defineStore('cart', {
     state: () => ({
         items: loadFromStorage(),
+        // True for the one session in which an incompatible saved cart was
+        // dropped; the layout reads it once and clears it.
+        wasReset: discarded,
     }),
 
     getters: {
@@ -76,6 +97,10 @@ export const useCartStore = defineStore('cart', {
         clear() {
             this.items = [];
             saveToStorage(this.items);
+        },
+
+        acknowledgeReset() {
+            this.wasReset = false;
         },
 
         // Everything is created server-side in one DB transaction - either
