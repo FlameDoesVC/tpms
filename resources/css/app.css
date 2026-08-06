@@ -216,6 +216,31 @@
     }
   }
 
+  /*
+   * App chrome that spans the screen: the same gutters as .shell, no max-width.
+   *
+   * The nav used .shell, which capped it at 1800px and centred it. On a wide
+   * screen that left a gap between the last nav item and the right edge - and
+   * the gap CHANGED SIZE per page, because the docked itinerary shifts the
+   * centre of the column the page content sits in. A bar is chrome, not a
+   * measure: it should reach both edges on every page, and let the page decide
+   * how wide its own content is.
+   */
+  .shell-bleed {
+    width: 100%;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .shell-bleed {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .shell-bleed {
+      padding-inline: 2.5rem;
+    }
+  }
+
   /* Ferry deck outline. The bow taper is the whole point: it's what makes a
      seat map read as a boat rather than a spreadsheet with a legend. */
   .deck-hull {
@@ -246,25 +271,53 @@
     opacity: 0.4;
   }
 
-  /* Tide line — the signature wave accent below navigation */
+  /* Tide line - the signature accent below navigation */
   .tide-line {
     position: relative;
   }
+  /*
+   * A colour border, not a wave. This was 6px of primary at 0.12 alpha -
+   * invisible - and then briefly a drifting wave, which reads as fidgety on
+   * chrome that sits on every page. What it wants is presence without any
+   * movement of SHAPE: a 2px rule carrying the brand pair, teal through amber and
+   * back, with the gradient easing slowly along the bar. Nothing translates, so
+   * there is no edge to track out of the corner of your eye - only the colour at
+   * a given point changes. The 200%-wide background is what gives the position
+   * animation room to travel.
+   */
   .tide-line::after {
     content: '';
     position: absolute;
     bottom: -1px;
     left: 0;
     right: 0;
-    height: 6px;
-    background-color: rgb(var(--color-primary) / 0.12);
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' fill='black'%3E%3Cpath d='M0 3 Q25 0 50 3 T100 3 T150 3 T200 3 V6 H0 Z'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6' fill='black'%3E%3Cpath d='M0 3 Q25 0 50 3 T100 3 T150 3 T200 3 V6 H0 Z'/%3E%3C/svg%3E");
-    -webkit-mask-size: 200px 6px;
-    mask-size: 200px 6px;
-    -webkit-mask-repeat: repeat-x;
-    mask-repeat: repeat-x;
+    height: 2px;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--color-primary) / 0.7),
+      rgb(var(--color-accent) / 0.55),
+      rgb(var(--color-primary) / 0.7),
+      rgb(var(--color-accent) / 0.55),
+      rgb(var(--color-primary) / 0.7)
+    );
+    background-size: 200% 100%;
     pointer-events: none;
+    animation: tide-shift 18s ease-in-out infinite;
+  }
+  @keyframes tide-shift {
+    0%,
+    100% {
+      background-position: 0% 0;
+    }
+    50% {
+      background-position: 100% 0;
+    }
+  }
+  @keyframes wave-rule-drift {
+    to {
+      -webkit-mask-position: 200px 0;
+      mask-position: 200px 0;
+    }
   }
 
   /* Staff data tables. Every management screen was hand-rolling its own header
@@ -734,7 +787,10 @@
      1px border — the page's one structural conceit. */
   .wave-rule {
     background-color: rgb(var(--color-primary) / 0.4);
-    animation-duration: 26s;
+    /* Its own keyframe, not wave-slide: this masks at 200px while wave-slide
+       travels 320px, so the pattern used to land out of phase and jump on every
+       loop. Travel must equal the wavelength. */
+    animation: wave-rule-drift 26s linear infinite;
   }
 
   /* Stand-in artwork. Every event and hotel currently ships without a
@@ -948,6 +1004,7 @@
       transform: none;
     }
     /* The water stops moving, but it's still water. */
+    .tide-line::after,
     .wave-band,
     .wave-band-lead,
     .wave-band-back,

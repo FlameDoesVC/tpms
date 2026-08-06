@@ -47,7 +47,10 @@ const today = todayIso();
 
 // — Primary search: what the visitor is shopping for.
 const date = ref(today);
-const tickets = ref(1);
+// Ticket counts are chosen per event, right where the time slot is - a
+// visitor booking two attractions rarely wants the same headcount for both,
+// and a single page-level count made every second add a two-step edit.
+const ticketCounts = reactive({});
 const search = ref('');
 
 // — Refinements.
@@ -76,12 +79,6 @@ const addDays = (dateStr, days) => {
     d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
 };
-
-const dateShortcuts = computed(() => [
-    { label: 'Today', value: today },
-    { label: 'Tomorrow', value: addDays(today, 1) },
-    { label: 'In 3 days', value: addDays(today, 3) },
-]);
 
 const bandOf = (slotTime) => {
     const hour = Number(String(slotTime ?? '').split(':')[0]);
@@ -161,6 +158,7 @@ const visibleEvents = computed(() => {
 });
 
 const activeFilterCount = computed(() =>
+    (search.value.trim() ? 1 : 0) +
     (selectedTypes.value.length ? 1 : 0) +
     (selectedBands.value.length ? 1 : 0) +
     (priceIsCapped.value ? 1 : 0) +
@@ -169,6 +167,7 @@ const activeFilterCount = computed(() =>
 );
 
 const clearFilters = () => {
+    search.value = '';
     selectedTypes.value = [];
     selectedBands.value = [];
     maxPrice.value = priceCeiling.value;
@@ -196,7 +195,6 @@ const upcomingBookings = computed(() =>
 );
 
 const selectedSlotIds = reactive({});
-const ticketOverrides = reactive({});
 const expandedEvents = reactive({});
 
 const toggleExpanded = (eventId) => { expandedEvents[eventId] = !expandedEvents[eventId]; };
@@ -216,19 +214,19 @@ const slotsTeaser = (event) => {
     return `${available.length} time${available.length === 1 ? '' : 's'} available, from ${formatTime(available[0].slot_time)}`;
 };
 
-const defaultTicketCount = (slot) => Math.min(slot.available_capacity, Math.max(1, tickets.value));
 
 // Not clamped here - clamping on every keystroke fights the user mid-edit
 // (e.g. snapping back to a smaller number as soon as the field is cleared to
 // type a new one). Out-of-range values just aren't bookable, per canBook below.
 const ticketCountFor = (event) => {
-    if (event.id in ticketOverrides) return ticketOverrides[event.id];
+    const chosen = ticketCounts[event.id] ?? 1;
     const slot = selectedSlotFor(event);
-    return slot ? defaultTicketCount(slot) : tickets.value;
+    // Never offer more than the chosen slot can seat.
+    return slot ? Math.min(chosen, slot.available_capacity) : chosen;
 };
 
 const setTicketCount = (event, value) => {
-    ticketOverrides[event.id] = value;
+    ticketCounts[event.id] = value;
 };
 
 const selectSlot = (event, slot) => {
@@ -322,58 +320,27 @@ const addToCart = (event) => {
             <TPageHeader title="Theme Park" subtitle="Rides, shows and beach events" icon="sparkle" />
         </template>
 
-        <div class="shell space-y-5 py-6">
+        <div class="shell space-y-5 pb-6 pt-5">
             <PromotionsStrip category="themepark" />
 
-            <!-- Primary search. Date and party size aren't refinements — they
-                 decide what's on offer at all — so they stay out of the rail and
-                 follow the visitor down the page.
-                 A grid rather than a flex row: grid items stretch to their
-                 column on their own, so the fields divide the full width
-                 instead of huddling at the left edge, and the search field is
-                 wide enough that its placeholder isn't cut off. -->
-            <div class="elevated sticky top-[4.25rem] z-20 rounded-xl border bg-surface">
-                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-2">
-                    <h2 class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Find your slot</h2>
-                    <!-- The live search, restated in words. The page header
-                         carries the same thing but scrolls away; this bar
-                         doesn't, so it's the one that has to answer "what am I
-                         looking at" once you're deep in the list. -->
-                    <p class="text-xs text-foreground-secondary">
-                        {{ formatDate(date) }} · {{ tickets }} ticket{{ tickets === 1 ? '' : 's' }}
-                    </p>
-                </div>
-                <!-- The stepper column is `auto`, not a fraction: a quantity
-                     stepper stretched to a wide column puts its -/+ buttons at
-                     opposite ends with dead space between (see TNumberInput).
-                     Letting it keep its natural width hands the slack to the
-                     text and date fields, and the row still ends flush right. -->
-                <div class="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto]">
-                    <TInput
-                        v-model="search"
-                        type="search"
-                        label="Search"
-                        placeholder="Ride, show or beach event"
-                    >
-                        <template #prefix><TIcon name="search" :size="16" /></template>
-                    </TInput>
-                    <TDatePicker v-model="date" :min="today" label="Date" />
-                    <TNumberInput v-model="tickets" label="Tickets" :min="1" />
-                    <!-- Shortcuts sit in the field row, not the header: they set
-                         the date, so they belong beside the control they change. -->
-                    <div class="flex items-center gap-1.5 self-end pb-0.5">
-                        <button
-                            v-for="shortcut in dateShortcuts"
-                            :key="shortcut.value"
-                            type="button"
-                            class="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors"
-                            :class="date === shortcut.value
-                                ? 'border-primary bg-primary-soft text-primary'
-                                : 'bg-surface text-foreground-secondary hover:border-strong hover:text-foreground'"
-                            @click="date = shortcut.value"
-                        >
-                            {{ shortcut.label }}
-                        </button>
+            <!-- BOOKING PARAMETER, deliberately not a search bar - same
+                 reasoning as the hotels page. The date decides which day's
+                 slots exist at all, so it wears the accent tint with the
+                 consequence written on. Ticket counts are NOT here: they're
+                 picked on each event, beside the time slot they belong to. -->
+            <div class="elevated sticky top-[4.25rem] z-20 rounded-xl border border-primary/25 bg-primary-soft">
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
+                    <div class="min-w-[14rem] flex-1">
+                        <p class="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                            <TIcon name="calendar" :size="16" />
+                            Your visit
+                        </p>
+                        <p class="mt-0.5 text-xs text-foreground-secondary">
+                            Time slots and capacity below are for this day. Pick a time on any event to book it.
+                        </p>
+                    </div>
+                    <div class="w-full sm:max-w-xs lg:w-64">
+                        <TDatePicker v-model="date" :min="today" label="Date" />
                     </div>
                 </div>
             </div>
@@ -400,8 +367,19 @@ const addToCart = (event) => {
                 <!-- Parked below the sticky search bar. Erring low on purpose:
                      the bar sits at z-20, so a rail that stuck too high would
                      slide under it rather than just leaving a gap. -->
-                <div class="xl:sticky xl:top-[11.5rem] xl:max-h-[calc(100vh-13rem)] xl:self-start xl:overflow-y-auto">
+                <div class="xl:sticky xl:top-[11rem] xl:max-h-[calc(100vh-12.5rem)] xl:self-start xl:overflow-y-auto">
                     <FilterRail :result-label="resultLabel" :active-count="activeFilterCount" @clear="clearFilters">
+                        <template #search>
+                            <TInput
+                                v-model="search"
+                                type="search"
+                                placeholder="Ride, show or beach event"
+                                aria-label="Search events"
+                            >
+                                <template #prefix><TIcon name="search" :size="16" /></template>
+                            </TInput>
+                        </template>
+
                         <FilterSection
                             title="Experience"
                             :hint="selectedTypes.length ? `${selectedTypes.length} selected` : 'Any'"
@@ -668,6 +646,10 @@ const addToCart = (event) => {
                                             </span>
                                         </p>
 
+                                        <!-- The one tickets control, and it lives here: counts
+                                             are decided per attraction, next to the time they're
+                                             for. The stepper's ceiling is the chosen slot's real
+                                             capacity. -->
                                         <div class="ml-auto flex items-center gap-3">
                                             <TNumberInput
                                                 label="Tickets"

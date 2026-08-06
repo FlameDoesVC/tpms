@@ -218,7 +218,8 @@ export const useHotelStore = defineStore('hotel', {
             this.loading.bookings = true;
             this.error.bookings = null;
             try {
-                const { data } = await axios.get('/api/bookings', { silent401: silent });
+                // mine=1: this is the visitor's own trip list, never the management view.
+                const { data } = await axios.get('/api/bookings', { params: { mine: 1 }, silent401: silent });
                 this.myBookings = data.data;
             } catch (e) {
                 this.error.bookings = e.response?.data?.message ?? 'Failed to load bookings.';

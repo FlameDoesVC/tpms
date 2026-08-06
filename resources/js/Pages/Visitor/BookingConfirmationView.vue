@@ -66,8 +66,8 @@ const pay = async () => {
             <TPageHeader title="Booking Confirmation" />
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto max-w-2xl space-y-6 sm:px-6 lg:px-8">
+        <div class="shell pb-8 pt-5">
+            <div class="mx-auto max-w-2xl space-y-6">
                 <p v-if="hotelStore.loading.activeBooking" class="text-foreground-muted">Loading booking…</p>
 
                 <div

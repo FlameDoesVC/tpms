@@ -135,7 +135,14 @@ const legs = computed(() => [
              the surface and falling away to an abyss. Both come out of the
              .hero-sea tokens, so this markup carries no theme branching beyond
              choosing which optical effect belongs in which water. -->
-        <section class="hero-sea relative isolate overflow-hidden">
+        <!-- No `isolate` here, and it must not come back: isolation:isolate
+             establishes a Backdrop Root, which makes backdrop-filter on any
+             descendant sample an empty backdrop - so the itinerary card's frost
+             blurred nothing at all. Nothing needed it: `relative` still provides
+             the positioning context, `overflow-hidden` still clips the water and
+             the surf to this section, and the z-10 content still paints above
+             the z-auto decorations because they are all siblings. -->
+        <section class="hero-sea relative overflow-hidden">
             <!-- Light shafts at depth; the rippling light net in the shallows. -->
             <div
                 v-if="isDark"

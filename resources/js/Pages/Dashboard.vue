@@ -170,7 +170,7 @@ const toggleExpanded = (key) => {
              differ in who owns the padding: StaffLayout's <main> is already the
              page container, AuthenticatedLayout's is bare. Supplying it
              unconditionally gave staff two sets of gutters stacked. -->
-        <div :class="isStaff ? '' : 'shell py-6'">
+        <div :class="isStaff ? '' : 'shell pb-6 pt-5'">
             <div class="mx-auto max-w-5xl">
                 <template v-if="isVisitor">
                     <div class="mb-4 flex items-center justify-between gap-3">

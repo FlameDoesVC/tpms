@@ -33,6 +33,10 @@ const submit = () => {
         </header>
 
         <form @submit.prevent="submit" class="mt-6 space-y-4">
+            <!-- Side by side from sm: each field lands near 540px in the wide
+                 profile column, which is what a text field wants - stacked,
+                 each one stretched to the full 1100px and read as wireframe. -->
+            <div class="grid gap-4 sm:grid-cols-2">
             <TInput
                 id="name"
                 v-model="form.name"
@@ -53,6 +57,7 @@ const submit = () => {
                 required
                 autocomplete="username"
             />
+            </div>
 
             <div class="flex items-center gap-4">
                 <TButton :loading="form.processing">Save</TButton>

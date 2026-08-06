@@ -11,7 +11,7 @@ import TButton from '@/Components/ui/TButton.vue';
             <TPageHeader title="Unauthorized" />
         </template>
 
-        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div class="shell pb-12 pt-5">
             <TEmptyState
                 title="Access denied"
                 description="You don't have permission to perform that action."

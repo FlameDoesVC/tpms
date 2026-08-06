@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import BrandMark from '@/Components/BrandMark.vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TAvatar from '@/Components/ui/TAvatar.vue';
 import TDropdown from '@/Components/ui/TDropdown.vue';
@@ -94,7 +95,18 @@ const navByRole = {
     ],
 };
 
-const groups = computed(() => navByRole[auth.userRole] ?? navByRole.admin);
+/*
+ * An unrecognised role must not inherit the admin sidebar. This fell back to
+ * navByRole.admin, so any account whose role wasn't a key above - a newly added
+ * role, or a session whose roles hadn't loaded yet - was shown every management
+ * link in the product. The links would still 403 server-side, but offering them
+ * is misleading. Overview is safe for any authenticated user.
+ */
+const FALLBACK_NAV = [
+    { section: null, items: [{ label: 'Overview', name: 'dashboard', icon: 'dashboard' }] },
+];
+
+const groups = computed(() => navByRole[auth.userRole] ?? FALLBACK_NAV);
 const roleLabel = computed(() => (auth.userRole ?? '').replace(/_/g, ' '));
 
 const logout = async () => {
@@ -121,11 +133,8 @@ const logout = async () => {
         >
             <!-- Brand -->
             <div class="flex h-16 items-center gap-2.5 border-b px-4">
-                <router-link :to="{ name: 'welcome' }" class="flex items-center gap-2.5 overflow-hidden">
-                    <img src="/images/logo.png" alt="TPMS" class="h-8 w-8 shrink-0 object-contain" />
-                    <span v-if="!collapsed" class="truncate text-base font-bold tracking-tight text-foreground">
-                        TPMS<span class="text-accent">.</span>
-                    </span>
+                <router-link :to="{ name: 'welcome' }">
+                    <BrandMark :wordmark="!collapsed" />
                 </router-link>
             </div>
 
@@ -177,7 +186,7 @@ const logout = async () => {
             <header class="sticky top-0 z-20 border-b bg-surface/85 backdrop-blur-md">
                 <!-- Same container as <main>, so the page title sits on the
                      same left edge as the content it belongs to. -->
-                <div class="shell flex h-16 items-center gap-3">
+                <div class="shell-bleed flex h-16 items-center gap-3">
                     <button
                         type="button"
                         class="rounded p-2 text-foreground-muted hover:bg-surface-hover hover:text-foreground lg:hidden"

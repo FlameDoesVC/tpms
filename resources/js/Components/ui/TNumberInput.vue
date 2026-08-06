@@ -100,7 +100,10 @@ const onKeydown = (e) => {
 
 const sizeClasses = {
     sm: { input: 'h-7 text-xs', btn: 'w-6', defaultWidth: '6.5rem' },
-    md: { input: 'h-10 text-sm', btn: 'w-9', defaultWidth: '8.5rem' },
+    // h-[2.375rem] (38px), not h-10: every text field in the system - TInput,
+    // TSelect, TDatePicker's trigger - lands at 38px (py-2 + text-sm + border),
+    // and the stepper sitting 2px taller made any row pairing them ragged.
+    md: { input: 'h-[2.375rem] text-sm', btn: 'w-9', defaultWidth: '8.5rem' },
 };
 const cls = computed(() => sizeClasses[props.size] ?? sizeClasses.md);
 const boxStyle = computed(() => (props.width === 'full' ? {} : { width: props.width ?? cls.value.defaultWidth }));

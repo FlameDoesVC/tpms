@@ -143,6 +143,7 @@ const visibleHotels = computed(() => {
 });
 
 const activeFilterCount = computed(() =>
+    (search.value.trim() ? 1 : 0) +
     (selectedRoomTypes.value.length ? 1 : 0) +
     (priceIsCapped.value ? 1 : 0) +
     (hideUnavailable.value ? 1 : 0) +
@@ -150,6 +151,7 @@ const activeFilterCount = computed(() =>
 );
 
 const clearFilters = () => {
+    search.value = '';
     selectedRoomTypes.value = [];
     maxNightlyPrice.value = priceCeiling.value;
     hideUnavailable.value = false;
@@ -376,45 +378,40 @@ const addToCart = (hotel, group) => {
             <TPageHeader title="Hotels" subtitle="Places to stay on the island" icon="hotel" />
         </template>
 
-        <div class="shell space-y-5 py-6">
+        <div class="shell space-y-5 pb-6 pt-5">
             <PromotionsStrip category="hotel" />
 
-            <!-- Primary search. Dates and party size aren't refinements — they
-                 decide which rooms exist at all — so they stay out of the rail
-                 and follow the visitor down the page.
-                 A grid rather than a flex row: grid items stretch to their
-                 column on their own, so the fields divide the full width
-                 instead of huddling at the left edge, and the search field is
-                 wide enough that its placeholder isn't cut off. -->
-            <div class="elevated sticky top-[4.25rem] z-20 rounded-xl border bg-surface">
-                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-2">
-                    <h2 class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Find your stay</h2>
-                    <!-- The live search, restated in words. The page header
-                         carries the same thing but scrolls away; this bar
-                         doesn't, so it's the one that has to answer "what am I
-                         looking at" once you're deep in the list. -->
-                    <p class="text-xs text-foreground-secondary">
-                        {{ formatDateRange(checkIn, checkOut) }} · {{ nights }} night{{ nights === 1 ? '' : 's' }}
-                        · {{ guests }} guest{{ guests === 1 ? '' : 's' }}
-                    </p>
-                </div>
-                <!-- The stepper column is `auto`, not a fraction: a quantity
-                     stepper stretched to a wide column puts its -/+ buttons at
-                     opposite ends with dead space between (see TNumberInput).
-                     Letting it keep its natural width hands the slack to the
-                     text and date fields, and the row still ends flush right. -->
-                <div class="grid gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                    <TInput
-                        v-model="search"
-                        type="search"
-                        label="Search"
-                        placeholder="Hotel name or area"
-                    >
-                        <template #prefix><TIcon name="search" :size="16" /></template>
-                    </TInput>
-                    <TDatePicker v-model="checkIn" :min="today" label="Check in" />
-                    <TDatePicker v-model="checkOut" :min="addDays(checkIn, 1)" label="Check out" />
-                    <TNumberInput v-model="guests" label="Guests" :min="1" />
+            <!-- BOOKING PARAMETERS, deliberately not a search bar. These fields
+                 decide what gets booked: the dates every room is priced and
+                 reserved for, and the party every capacity check runs against.
+                 They used to share a strip with the text search and read as
+                 more filtering chrome - but a wrong date here isn't a wrong
+                 search, it's a wrong booking. So they wear the accent tint (the
+                 system's "this acts" colour) with the consequence written on
+                 the bar, and the text search now lives in the filter rail with
+                 the other things that merely narrow the list. -->
+            <div class="elevated sticky top-[4.25rem] z-20 rounded-xl border border-primary/25 bg-primary-soft">
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
+                    <div class="min-w-[14rem] flex-1">
+                        <p class="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                            <TIcon name="calendar" :size="16" />
+                            Your stay
+                        </p>
+                        <p class="mt-0.5 text-xs text-foreground-secondary">
+                            Every room below is priced, checked and booked for exactly these dates and guests.
+                        </p>
+                    </div>
+                    <!-- Stepper and chip columns are `auto`: a stepper stretched
+                         to a wide column splits its -/+ buttons apart. -->
+                    <div class="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end lg:w-auto lg:min-w-[36rem]">
+                        <TDatePicker v-model="checkIn" :min="today" label="Check in" />
+                        <TDatePicker v-model="checkOut" :min="addDays(checkIn, 1)" label="Check out" />
+                        <TNumberInput v-model="guests" label="Guests" :min="1" />
+                        <!-- The one derived fact the fields don't show. -->
+                        <p class="self-end rounded-lg border bg-surface px-3 py-2 text-sm font-medium tabular-nums text-foreground">
+                            {{ nights }} night{{ nights === 1 ? '' : 's' }}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -440,8 +437,19 @@ const addToCart = (hotel, group) => {
                 <!-- Parked below the sticky search bar. Erring low on purpose:
                      the bar sits at z-20, so a rail that stuck too high would
                      slide under it rather than just leaving a gap. -->
-                <div class="xl:sticky xl:top-[11.5rem] xl:max-h-[calc(100vh-13rem)] xl:self-start xl:overflow-y-auto">
+                <div class="xl:sticky xl:top-[11rem] xl:max-h-[calc(100vh-12.5rem)] xl:self-start xl:overflow-y-auto">
                     <FilterRail :result-label="resultLabel" :active-count="activeFilterCount" @clear="clearFilters">
+                        <template #search>
+                            <TInput
+                                v-model="search"
+                                type="search"
+                                placeholder="Hotel name or area"
+                                aria-label="Search hotels"
+                            >
+                                <template #prefix><TIcon name="search" :size="16" /></template>
+                            </TInput>
+                        </template>
+
                         <FilterSection
                             v-if="priceCeiling > 0"
                             title="Price per night"
@@ -617,15 +625,17 @@ const addToCart = (hotel, group) => {
                         <div :id="`hotel-panel-${hotel.id}`" class="grid transition-[grid-template-rows] duration-200 ease-out" :style="{ gridTemplateRows: expandedHotels[hotel.id] ? '1fr' : '0fr' }">
                             <div class="overflow-hidden">
                                 <div class="bg-surface-sunken/40 p-4 sm:p-5">
-                                    <!-- Same `guests` value as the search bar up top - not a
-                                         per-hotel copy - so it stays right here where rooms are
-                                         actually picked instead of only living somewhere the user
-                                         has already scrolled past. -->
+                                    <!-- Reflection, not a second control. There used to be a
+                                         guests stepper here bound to the same value as the bar,
+                                         which read as two different settings. The bar is sticky,
+                                         so the one editable control is always on screen anyway. -->
                                     <div class="mb-3 flex items-center justify-between gap-3">
                                         <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
                                             Room types · {{ nights }} night{{ nights === 1 ? '' : 's' }}
                                         </p>
-                                        <TNumberInput v-model="guests" label="Guests" label-position="left" :min="1" size="sm" />
+                                        <p class="text-xs text-foreground-muted">
+                                            for <span class="font-semibold text-foreground">{{ guests }}</span> guest{{ guests === 1 ? '' : 's' }} — set in the bar above
+                                        </p>
                                     </div>
 
                                     <!-- Running total for the stay. Rooms accumulate across types,

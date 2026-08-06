@@ -34,8 +34,15 @@ class BookingController extends Controller
         // verification timestamp and guest flag on every row.
         $query = Booking::query()->with(['room.hotel', 'user:id,name']);
 
-        $isOwnBookings = ! $request->user()->hasRole('hotel_manager');
-        if ($isOwnBookings) {
+        /*
+         * Two callers, two meanings. A manager opening the bookings desk wants
+         * every booking; the visitor's own "My Trips" wants only theirs - and
+         * that page was asking the same URL, so the moment an account gained
+         * bookings.manage its trip list filled up with other people's stays.
+         * ?mine=1 says "scope to me" regardless of permission.
+         */
+        $onlyMine = $request->boolean('mine') || ! $request->user()->can('bookings.manage');
+        if ($onlyMine) {
             $query->where('user_id', $request->user()->id);
         }
 
@@ -46,7 +53,7 @@ class BookingController extends Controller
         // Booking::partyGuestsCount()). Only computed for a visitor's own,
         // small booking list - not the hotel manager's, which can be large
         // enough that N extra queries per row would matter.
-        if ($isOwnBookings) {
+        if ($onlyMine) {
             $bookings->getCollection()->each(
                 fn (Booking $booking) => $booking->party_guests_count = $booking->partyGuestsCount()
             );
@@ -58,7 +65,7 @@ class BookingController extends Controller
     public function show(Request $request, Booking $booking): JsonResponse
     {
         $user = $request->user();
-        if ($booking->user_id !== $user->id && ! $user->hasRole('hotel_manager')) {
+        if ($booking->user_id !== $user->id && ! $user->can('bookings.manage')) {
             abort(403);
         }
 
@@ -87,7 +94,7 @@ class BookingController extends Controller
     public function update(Request $request, Booking $booking): JsonResponse
     {
         $user = $request->user();
-        if ($booking->user_id !== $user->id && ! $user->hasRole('hotel_manager')) {
+        if ($booking->user_id !== $user->id && ! $user->can('bookings.manage')) {
             abort(403);
         }
 
@@ -95,7 +102,7 @@ class BookingController extends Controller
         // FerryTicketService gates ticket purchase on it - so letting the customer
         // write it made hotel stays and ferry tickets free. Visitors pay through
         // pay() below, which records a payment and owns the transition.
-        $isStaff = $user->hasRole('hotel_manager');
+        $isStaff = $user->can('bookings.manage');
 
         $validated = $request->validate([
             'status' => ['required', $isStaff ? 'in:confirmed,cancelled' : 'in:cancelled'],

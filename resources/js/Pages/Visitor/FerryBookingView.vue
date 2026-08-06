@@ -296,7 +296,7 @@ const onAddedToCart = () => {
             />
         </template>
 
-        <div class="shell space-y-5 py-6">
+        <div class="shell space-y-5 pb-6 pt-5">
             <PromotionsStrip category="ferry" />
 
             <div v-if="upcomingTickets.length" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-surface-sunken px-4 py-2.5 text-sm">

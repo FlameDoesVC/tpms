@@ -11,10 +11,11 @@ defineProps({
 </script>
 
 <template>
-    <div
-        class="flex flex-wrap items-center justify-between gap-4"
-        :class="compact ? '' : 'mb-6'"
-    >
+    <!-- No margin of its own: this always sits inside a band (visitor pages)
+         or bar (staff pages) that owns the spacing. It used to add mb-6, which
+         stacked with the band's pb-6 and the page's pt-6 into ~72px below the
+         title against 24px above it. -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex min-w-0 items-center gap-3">
             <span
                 v-if="icon"

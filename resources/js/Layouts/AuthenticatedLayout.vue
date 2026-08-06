@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import BrandMark from '@/Components/BrandMark.vue';
 import TDropdown from '@/Components/ui/TDropdown.vue';
 import TDropdownLink from '@/Components/ui/TDropdownLink.vue';
 import TNavLink from '@/Components/ui/TNavLink.vue';
@@ -23,22 +23,35 @@ const route = useRoute();
 const router = useRouter();
 const { isDark, toggle: toggleTheme } = useTheme();
 
-const showCart = computed(() =>
-    (!auth.isAuthenticated || auth.userRole === 'visitor') && route.name !== 'cart.checkout'
-);
+// canShop covers anonymous visitors, visitors and admin alike.
+const showCart = computed(() => auth.canShop && route.name !== 'cart.checkout');
+
+/*
+ * The DOCKED itinerary is a shopping aid, and it is not welcome everywhere: on
+ * the profile page it was a 20rem column of unrelated UI, on checkout the page
+ * already is the cart, and on My Trips it sat a column of UNBOUGHT cart items
+ * next to a page of BOOKED ones - two lifecycles of the same-looking thing side
+ * by side. Kept separate from showCart on purpose: the header cart button still
+ * shows on these pages, so the itinerary stays one click away rather than
+ * disappearing entirely.
+ */
+const DOCK_FREE_ROUTES = ['cart.checkout', 'profile.edit', 'trips', 'unauthorized'];
+const showItinerary = computed(() => auth.canShop && !DOCK_FREE_ROUTES.includes(route.name));
 
 onMounted(() => {
-    if (auth.isAuthenticated && auth.userRole === 'visitor') hotelStore.fetchMyBookings({ silent: true });
+    if (auth.isAuthenticated && auth.canShop) hotelStore.fetchMyBookings({ silent: true });
 });
 
+const VISITOR_LINKS = [
+    { label: 'Dashboard', name: 'dashboard', icon: 'dashboard', authOnly: true },
+    { label: 'Theme Park', name: 'themepark.home', icon: 'sparkle' },
+    { label: 'Hotels', name: 'hotels.index', icon: 'hotel' },
+    { label: 'Ferry', name: 'ferry.book', icon: 'ferry' },
+    { label: 'My Trips', name: 'trips', icon: 'ticket', authOnly: true },
+];
+
 const linksByRole = {
-    visitor: [
-        { label: 'Dashboard', name: 'dashboard', icon: 'dashboard', authOnly: true },
-        { label: 'Theme Park', name: 'themepark.home', icon: 'sparkle' },
-        { label: 'Hotels', name: 'hotels.index', icon: 'hotel' },
-        { label: 'Ferry', name: 'ferry.book', icon: 'ferry' },
-        { label: 'My Trips', name: 'trips', icon: 'ticket', authOnly: true },
-    ],
+    visitor: VISITOR_LINKS,
     hotel_manager: [
         { label: 'Dashboard', name: 'dashboard', icon: 'dashboard' },
         { label: 'Hotel Bookings', name: 'manager.hotel-dashboard', icon: 'calendar' },
@@ -59,7 +72,21 @@ const linksByRole = {
         { label: 'Walk-in Sales', name: 'themepark.walkin-sales', icon: 'ticket' },
         { label: 'Sales Report', name: 'themepark.sales-report', icon: 'report' },
     ],
-    admin: [{ label: 'Dashboard', name: 'dashboard', icon: 'dashboard' }],
+    /*
+     * Admin is a superset, not a fifth silo. The router already lets it through
+     * every route, so this nav was the only thing stopping an admin using the
+     * customer-facing side: it offered a single Dashboard link, which meant the
+     * Theme Park / Hotels / Ferry / My Trips tabs vanished the moment an admin
+     * looked at a visitor page. Spread rather than retyped, so the two lists
+     * cannot drift apart.
+     */
+    admin: [
+        // 'dashboard' is dropped rather than spread through: Dashboard.vue
+        // redirects an admin straight to admin.dashboard, so keeping both would
+        // put two links to the same destination side by side.
+        ...VISITOR_LINKS.filter((link) => link.name !== 'dashboard'),
+        { label: 'Admin', name: 'admin.dashboard', icon: 'dashboard' },
+    ],
 };
 
 const navLinks = computed(() => {
@@ -76,17 +103,21 @@ const logout = async () => {
 <template>
     <div>
         <div class="min-h-screen bg-page">
-            <nav class="tide-line sticky top-0 z-30 border-b bg-surface/85 shadow-xs backdrop-blur-md">
-                <div class="shell">
+            <!-- shadow-rim over shadow-xs: the system's own "raised" cue is a
+                 top rim light plus a hairline ring, which is what separates the
+                 bar from content scrolling under it. A flat strip with a 1px
+                 border read as part of the page. -->
+            <nav class="tide-line sticky top-0 z-30 border-b bg-surface/85 shadow-rim backdrop-blur-md">
+                <div class="shell-bleed">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
                             <div class="flex shrink-0 items-center">
                                 <router-link :to="{ name: 'welcome' }">
-                                    <ApplicationLogo />
+                                    <BrandMark />
                                 </router-link>
                             </div>
 
-                            <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <div class="hidden items-center sm:ms-8 sm:flex sm:gap-1">
                                 <TNavLink
                                     v-for="link in navLinks"
                                     :key="link.name"
@@ -113,7 +144,7 @@ const logout = async () => {
                                 {{ auth.isGuest ? 'guest' : auth.userRole.replace('_', ' ') }}
                             </TBadge>
 
-                            <PaymentsDueMenu v-if="auth.userRole === 'visitor'" />
+                            <PaymentsDueMenu v-if="auth.isAuthenticated && auth.canShop" />
                             <CartHeaderButton v-if="showCart" />
 
                             <div class="relative ms-1">
@@ -133,7 +164,7 @@ const logout = async () => {
 
                                     <template #content>
                                         <TDropdownLink v-if="!auth.isGuest" :to="{ name: 'profile.edit' }">Profile</TDropdownLink>
-                                        <TDropdownLink v-if="auth.userRole === 'visitor'" :to="{ name: 'trips' }">My Trips</TDropdownLink>
+                                        <TDropdownLink v-if="auth.canShop" :to="{ name: 'trips' }">My Trips</TDropdownLink>
                                         <TDropdownLink v-if="auth.isGuest" :to="{ name: 'login', query: { redirect: route.fullPath } }">Log In</TDropdownLink>
                                         <TDropdownLink v-if="auth.isGuest" :to="{ name: 'register', query: { redirect: route.fullPath } }">Sign Up</TDropdownLink>
                                         <div class="my-1 border-t" />
@@ -212,8 +243,8 @@ const logout = async () => {
 
                         <div class="mt-3 space-y-1">
                             <TResponsiveNavLink v-if="!auth.isGuest" :to="{ name: 'profile.edit' }">Profile</TResponsiveNavLink>
-                            <TResponsiveNavLink v-if="auth.userRole === 'visitor'" :to="{ name: 'trips' }">My Trips</TResponsiveNavLink>
-                            <TResponsiveNavLink v-if="auth.userRole === 'visitor'" :to="{ name: 'cart.checkout' }">Cart</TResponsiveNavLink>
+                            <TResponsiveNavLink v-if="auth.canShop" :to="{ name: 'trips' }">My Trips</TResponsiveNavLink>
+                            <TResponsiveNavLink v-if="auth.canShop" :to="{ name: 'cart.checkout' }">Cart</TResponsiveNavLink>
                             <TResponsiveNavLink v-if="auth.isGuest" :to="{ name: 'login', query: { redirect: route.fullPath } }">Log In</TResponsiveNavLink>
                             <TResponsiveNavLink v-if="auth.isGuest" :to="{ name: 'register', query: { redirect: route.fullPath } }">Sign Up</TResponsiveNavLink>
                             <button
@@ -247,7 +278,7 @@ const logout = async () => {
                     </main>
                 </div>
 
-                <CartDockedPanel v-if="showCart" />
+                <CartDockedPanel v-if="showItinerary" />
             </div>
         </div>
     </div>

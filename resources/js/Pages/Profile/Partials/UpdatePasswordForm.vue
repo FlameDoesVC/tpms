@@ -44,6 +44,7 @@ const updatePassword = () => {
         </header>
 
         <form @submit.prevent="updatePassword" class="mt-6 space-y-4">
+            <div class="grid gap-4 lg:grid-cols-3">
             <TPasswordInput
                 id="current_password"
                 ref="currentPasswordInput"
@@ -69,6 +70,7 @@ const updatePassword = () => {
                 :error="form.errors.password_confirmation"
                 :confirms="form.password"
             />
+            </div>
 
             <div class="flex items-center gap-4">
                 <TButton :loading="form.processing">Save</TButton>

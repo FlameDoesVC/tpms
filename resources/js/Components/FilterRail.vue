@@ -49,6 +49,12 @@ const open = ref(false);
             class="elevated mt-3 overflow-hidden rounded-xl border bg-surface xl:mt-0 xl:block"
             :class="open ? 'block' : 'hidden'"
         >
+            <!-- Search sits above even the Refine header: it's the primary
+                 filter, the one nearly every visitor reaches for first. -->
+            <div v-if="$slots.search" class="border-b p-3">
+                <slot name="search" />
+            </div>
+
             <div class="flex items-baseline justify-between gap-2 border-b px-4 py-3">
                 <div class="min-w-0">
                     <p class="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Refine</p>
