@@ -1,0 +1,267 @@
+TPMS DATA DICTIONARY EXPORT
+
+Table: users
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 42 | Primary key |
+| name | VARCHAR | text | Aisha Ali | Required |
+| email | VARCHAR | email | aisha@example.com | Unique |
+| email_verified_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 10:30:00 | Nullable |
+| password | VARCHAR | hashed string | $2y$12$... | Required |
+| is_guest | BOOLEAN | 0/1 | 0 | Default 0 |
+| remember_token | VARCHAR NULL | token string | R8f... | Nullable |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 10:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 10:05:00 | Auto |
+
+Table: hotels
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 3 | Primary key |
+| name | VARCHAR | text | Ocean Pearl | Required |
+| description | TEXT NULL | long text | Beachfront resort | Nullable |
+| address | VARCHAR | text | Male, Maldives | Required |
+| facilities | JSON NULL | JSON array/object | ["Pool","WiFi"] | Nullable |
+| check_in_time | TIME NULL | HH:MM:SS | 14:00:00 | Nullable |
+| check_out_time | TIME NULL | HH:MM:SS | 12:00:00 | Nullable |
+| phone | VARCHAR NULL | phone string | +9607000000 | Nullable |
+| email | VARCHAR NULL | email | info@oceanpearl.com | Nullable |
+| website | VARCHAR NULL | URL | https://oceanpearl.com | Nullable |
+| total_rooms | INT UNSIGNED | integer | 120 | Default 0 |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:10:00 | Auto |
+
+Table: room_types
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 11 | Primary key |
+| hotel_id | BIGINT UNSIGNED | FK integer | 3 | FK -> hotels.id |
+| name | VARCHAR | text | Deluxe | Required, unique per hotel |
+| description | TEXT NULL | long text | Sea view | Nullable |
+| price_per_night | DECIMAL(8,2) | amount | 250.00 | Required |
+| max_guests | INT UNSIGNED | integer | 3 | Required |
+| amenities | JSON NULL | JSON array/object | ["WiFi","AC"] | Nullable |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:00:00 | Auto |
+
+Table: rooms
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 205 | Primary key |
+| hotel_id | BIGINT UNSIGNED | FK integer | 3 | FK -> hotels.id |
+| room_type_id | BIGINT UNSIGNED | FK integer | 11 | FK -> room_types.id |
+| room_number | VARCHAR | text/code | A-204 | Required |
+| is_available | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:30:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:30:00 | Auto |
+
+Table: bookings
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 9001 | Primary key |
+| reference_code | VARCHAR(32) NULL | code | VFN-B4K8Q2Z7M1P9 | Unique, nullable initially |
+| user_id | BIGINT UNSIGNED | FK integer | 42 | FK -> users.id |
+| room_id | BIGINT UNSIGNED | FK integer | 205 | FK -> rooms.id |
+| group_booking_id | BIGINT UNSIGNED NULL | FK integer | 8990 | Self FK -> bookings.id, nullable |
+| check_in_date | DATE | YYYY-MM-DD | 2026-09-01 | Required |
+| check_out_date | DATE | YYYY-MM-DD | 2026-09-05 | Required |
+| total_price | DECIMAL(10,2) | amount | 1000.00 | Required |
+| status | ENUM | pending/confirmed/cancelled | confirmed | Default pending |
+| guests_count | INT UNSIGNED | integer | 2 | Required |
+| cancelled_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id |
+| cancelled_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-11 15:00:00 | Nullable |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 11:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 11:10:00 | Auto |
+
+Table: ferries
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 5 | Primary key |
+| name | VARCHAR | text | North Atoll Express | Required |
+| capacity | INT UNSIGNED | integer | 180 | Required |
+| price_per_seat | DECIMAL(8,2) | amount | 15.00 | Default 15.00 |
+| layout | JSON NULL | JSON grid/object | {"rows":12,"cols":9} | Nullable |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:05:00 | Auto |
+
+Table: ferry_schedule_templates
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 8 | Primary key |
+| ferry_id | BIGINT UNSIGNED | FK integer | 5 | FK -> ferries.id |
+| frequency | ENUM | daily/weekly/monthly | weekly | Required |
+| weekdays | JSON NULL | JSON integer array | [1,3,5] | Used for weekly templates |
+| day_of_month | TINYINT UNSIGNED NULL | 1-31 | 15 | Used for monthly templates |
+| departure_time | TIME | HH:MM:SS | 08:30:00 | Required |
+| arrival_time | TIME | HH:MM:SS | 10:00:00 | Required |
+| available_seats | INT UNSIGNED | integer | 150 | Required |
+| starts_on | DATE | YYYY-MM-DD | 2026-08-01 | Required |
+| ends_on | DATE NULL | YYYY-MM-DD | 2026-12-31 | Nullable |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-01 00:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-01 00:00:00 | Auto |
+
+Table: ferry_schedules
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 120 | Primary key |
+| ferry_id | BIGINT UNSIGNED | FK integer | 5 | FK -> ferries.id |
+| template_id | BIGINT UNSIGNED NULL | FK integer | 8 | FK -> ferry_schedule_templates.id |
+| departure_date | DATE | YYYY-MM-DD | 2026-08-15 | Required |
+| departure_time | TIME | HH:MM:SS | 08:30:00 | Required |
+| arrival_time | TIME | HH:MM:SS | 10:00:00 | Required |
+| available_seats | INT UNSIGNED | integer | 150 | Required |
+| status | ENUM | scheduled/departed/cancelled | scheduled | Default scheduled |
+| is_overridden | BOOLEAN | 0/1 | 0 | Default 0 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 07:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 07:00:00 | Auto |
+
+Table: ferry_tickets
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 3001 | Primary key |
+| reference_code | VARCHAR(32) NULL | code | VFN-TA8M2Q4Z9K1R | Unique |
+| user_id | BIGINT UNSIGNED | FK integer | 42 | FK -> users.id |
+| schedule_id | BIGINT UNSIGNED | FK integer | 120 | FK -> ferry_schedules.id |
+| booking_id | BIGINT UNSIGNED | FK integer | 9001 | FK -> bookings.id |
+| seat_number | INT UNSIGNED | integer | 27 | Required |
+| price | DECIMAL(8,2) | amount | 15.00 | Default 0.00 |
+| status | ENUM | pending/issued/used/cancelled | issued | Default pending |
+| payment_method | ENUM | online/cash | online | Default online |
+| validated_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id |
+| validated_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 12:00:00 | Nullable |
+| cancelled_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id |
+| cancelled_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 12:30:00 | Nullable |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 11:40:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 11:45:00 | Auto |
+
+Table: theme_park_events
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 44 | Primary key |
+| name | VARCHAR | text | Sunset Dolphin Show | Required |
+| description | TEXT NULL | long text | Family show | Nullable |
+| highlights | JSON NULL | JSON array/object | ["Live music"] | Nullable |
+| type | ENUM | ride/show/beach_event | show | Required |
+| location | VARCHAR | text | Main Arena | Required |
+| duration_minutes | INT UNSIGNED | integer | 45 | Required |
+| min_age | SMALLINT UNSIGNED NULL | integer | 6 | Nullable |
+| min_height_cm | SMALLINT UNSIGNED NULL | integer | 120 | Nullable |
+| capacity_per_slot | INT UNSIGNED | integer | 200 | Required |
+| price_per_ticket | DECIMAL(8,2) | amount | 20.00 | Default 0.00 |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:30:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:30:00 | Auto |
+
+Table: event_slot_templates
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 13 | Primary key |
+| event_id | BIGINT UNSIGNED | FK integer | 44 | FK -> theme_park_events.id |
+| frequency | ENUM | daily/weekly/monthly | daily | Required |
+| weekdays | JSON NULL | JSON integer array | [2,4,6] | Used for weekly templates |
+| day_of_month | TINYINT UNSIGNED NULL | 1-31 | 10 | Used for monthly templates |
+| slot_time | TIME | HH:MM:SS | 18:00:00 | Required |
+| available_capacity | INT UNSIGNED | integer | 180 | Required |
+| starts_on | DATE | YYYY-MM-DD | 2026-08-01 | Required |
+| ends_on | DATE NULL | YYYY-MM-DD | 2026-10-31 | Nullable |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-01 00:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-01 00:00:00 | Auto |
+
+Table: event_slots
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 501 | Primary key |
+| event_id | BIGINT UNSIGNED | FK integer | 44 | FK -> theme_park_events.id |
+| template_id | BIGINT UNSIGNED NULL | FK integer | 13 | FK -> event_slot_templates.id |
+| slot_date | DATE | YYYY-MM-DD | 2026-08-20 | Required |
+| slot_time | TIME | HH:MM:SS | 18:00:00 | Required |
+| available_capacity | INT UNSIGNED | integer | 180 | Required |
+| status | ENUM | scheduled/cancelled | scheduled | Default scheduled |
+| is_overridden | BOOLEAN | 0/1 | 0 | Default 0 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 09:00:00 | Auto |
+
+Table: event_bookings
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 780 | Primary key |
+| reference_code | VARCHAR(32) NULL | code | VFN-EQ1W2E3R4T5Y | Unique |
+| user_id | BIGINT UNSIGNED NULL | FK integer | 42 | FK -> users.id, nullable |
+| visitor_name | VARCHAR NULL | text | Walk-in Guest | Nullable |
+| event_slot_id | BIGINT UNSIGNED | FK integer | 501 | FK -> event_slots.id |
+| ticket_count | INT UNSIGNED | integer | 4 | Required |
+| status | ENUM | confirmed/cancelled/used | confirmed | Default confirmed |
+| validated_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id |
+| validated_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 12:05:00 | Nullable |
+| cancelled_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id |
+| cancelled_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 12:40:00 | Nullable |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 10:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 10:10:00 | Auto |
+
+Table: payments
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 1201 | Primary key |
+| user_id | BIGINT UNSIGNED | FK integer | 42 | FK -> users.id |
+| payable_type | VARCHAR | model class/name | App\\Models\\Booking | Morph relation type |
+| payable_id | BIGINT UNSIGNED | related record id | 9001 | Morph relation id |
+| amount | DECIMAL(10,2) | amount | 250.00 | Required |
+| method | VARCHAR | text/code | card | e.g., card/cash |
+| status | VARCHAR | text/code | captured | Default captured |
+| reference | VARCHAR | unique reference | PAY-20260810-0001 | Unique, server-generated |
+| recorded_by | BIGINT UNSIGNED NULL | FK integer | 7 | FK -> users.id, nullable |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 13:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 13:01:00 | Auto |
+
+Table: promotions
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 77 | Primary key |
+| title | VARCHAR | text | Summer Escape Offer | Required |
+| description | TEXT NULL | long text | 20% off this month | Nullable |
+| category | ENUM | hotel/themepark/ferry/general | hotel | Default general |
+| starts_at | DATE NULL | YYYY-MM-DD | 2026-08-15 | Nullable |
+| ends_at | DATE NULL | YYYY-MM-DD | 2026-09-01 | Nullable |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_by | BIGINT UNSIGNED | FK integer | 7 | FK -> users.id |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:00:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 08:00:00 | Auto |
+
+Table: map_locations
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 15 | Primary key |
+| name | VARCHAR | text | Main Beach | Required |
+| description | TEXT NULL | long text | Popular sunset spot | Nullable |
+| type | ENUM | hotel/ferry/themepark/beach/general | beach | Default general |
+| latitude | DECIMAL(10,7) | coordinate | 2.1715680 | Default from migration |
+| longitude | DECIMAL(10,7) | coordinate | 73.0797130 | Default from migration |
+| is_active | BOOLEAN | 0/1 | 1 | Default 1 |
+| created_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 07:30:00 | Auto |
+| updated_at | TIMESTAMP | YYYY-MM-DD HH:MM:SS | 2026-08-10 07:30:00 | Auto |
+
+Table: media
+| Column Name | Data Type | Format | Example | Comments |
+|---|---|---|---|---|
+| id | BIGINT UNSIGNED | auto-increment integer | 5010 | Primary key |
+| model_type | VARCHAR | model class/name | App\\Models\\Hotel | Morph relation type |
+| model_id | BIGINT UNSIGNED | related record id | 3 | Morph relation id |
+| uuid | UUID NULL | UUID string | 550e8400-e29b-41d4-a716-446655440000 | Nullable, unique |
+| collection_name | VARCHAR | text | hotel-gallery | Required |
+| name | VARCHAR | text | hero-image | Required |
+| file_name | VARCHAR | file name | hero.jpg | Required |
+| mime_type | VARCHAR NULL | MIME type | image/jpeg | Nullable |
+| disk | VARCHAR | storage disk name | public | Required |
+| conversions_disk | VARCHAR NULL | storage disk name | public | Nullable |
+| size | BIGINT UNSIGNED | bytes | 245678 | Required |
+| manipulations | JSON | JSON object | {} | Required |
+| custom_properties | JSON | JSON object | {"alt":"Beach view"} | Required |
+| generated_conversions | JSON | JSON object | {"thumb":true} | Required |
+| responsive_images | JSON | JSON object/array | [] | Required |
+| order_column | INT UNSIGNED NULL | integer | 1 | Nullable, indexed |
+| created_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 06:00:00 | Nullable timestamps |
+| updated_at | TIMESTAMP NULL | YYYY-MM-DD HH:MM:SS | 2026-08-10 06:10:00 | Nullable timestamps |
