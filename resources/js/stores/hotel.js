@@ -316,6 +316,21 @@ export const useHotelStore = defineStore('hotel', {
             }
         },
 
+        // No mine=1: the hotel manager/admin dashboard wants every booking it is
+        // permitted to see, scoped server-side by the bookings.manage permission.
+        async fetchManagedBookings() {
+            this.loading.bookings = true;
+            this.error.bookings = null;
+            try {
+                const { data } = await axios.get('/api/bookings');
+                this.myBookings = data.data;
+            } catch (e) {
+                this.error.bookings = e.response?.data?.message ?? 'Failed to load bookings.';
+            } finally {
+                this.loading.bookings = false;
+            }
+        },
+
         async cancelBooking(id) {
             const { data } = await axios.patch(`/api/bookings/${id}`, { status: 'cancelled' });
             this._syncBooking(data);

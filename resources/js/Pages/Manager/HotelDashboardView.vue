@@ -31,7 +31,7 @@ const busyId = ref(null);
 
 onMounted(() => {
     hotelStore.fetchHotels({ all: true });
-    hotelStore.fetchMyBookings();
+    hotelStore.fetchManagedBookings();
 });
 
 const today = todayIso();
