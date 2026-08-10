@@ -1,6 +1,7 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import TIcon from '@/Components/ui/TIcon.vue';
+import { useAnchoredPanel } from '@/composables/useAnchoredPanel';
 
 const props = defineProps({
     label: { type: String, default: null },
@@ -17,9 +18,23 @@ const props = defineProps({
 const model = defineModel({ type: String, default: '' });
 
 const open = ref(false);
-const wrapperRef = ref(null);
+const anchorRef = ref(null);
+const panelRef = ref(null);
 const hourListRef = ref(null);
 const minuteListRef = ref(null);
+
+const close = () => { open.value = false; };
+
+// Teleported to <body>, like TDatePicker's, so a modal's `overflow-hidden`
+// can't clip the columns.
+const { panelStyle } = useAnchoredPanel({
+    open,
+    anchorRef,
+    panelRef,
+    width: 176, // w-44
+    estimatedHeight: 232,
+    onClose: close,
+});
 
 const pad = (n) => String(n).padStart(2, '0');
 const hours = Array.from({ length: 24 }, (_, h) => pad(h));
@@ -52,7 +67,6 @@ const scrollIntoView = () => {
 };
 
 const openPicker = () => { open.value = true; scrollIntoView(); };
-const close = () => { open.value = false; };
 const toggle = () => (open.value ? close() : openPicker());
 
 const setNow = () => {
@@ -66,12 +80,6 @@ const clear = () => {
     close();
 };
 
-const onClickOutside = (e) => {
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target)) close();
-};
-onMounted(() => document.addEventListener('mousedown', onClickOutside));
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
-
 const onTriggerKeydown = (e) => {
     if (['Enter', ' ', 'ArrowDown'].includes(e.key)) {
         e.preventDefault();
@@ -79,14 +87,15 @@ const onTriggerKeydown = (e) => {
     }
 };
 const onPopoverKeydown = (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    // Stopped so dismissing the picker doesn't also close a host modal.
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
 };
 </script>
 
 <template>
-    <div ref="wrapperRef">
+    <div>
         <label v-if="label" class="mb-1.5 block text-sm font-medium text-foreground">{{ label }}</label>
-        <div class="relative">
+        <div ref="anchorRef" class="relative">
             <button
                 type="button"
                 class="flex w-full items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-left text-sm shadow-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -108,6 +117,7 @@ const onPopoverKeydown = (e) => {
                 <TIcon name="x" :size="14" />
             </button>
 
+            <Teleport to="body">
             <Transition
                 enter-active-class="transition duration-100 ease-out"
                 enter-from-class="opacity-0 scale-95"
@@ -118,7 +128,9 @@ const onPopoverKeydown = (e) => {
             >
                 <div
                     v-if="open"
-                    class="elevated-lg absolute z-50 mt-1 w-44 origin-top rounded-lg border bg-surface p-2"
+                    ref="panelRef"
+                    class="elevated-lg fixed z-[60] origin-top rounded-lg border bg-surface p-2"
+                    :style="panelStyle"
                     @keydown="onPopoverKeydown"
                 >
                     <div class="flex gap-1">
@@ -166,6 +178,7 @@ const onPopoverKeydown = (e) => {
                     </div>
                 </div>
             </Transition>
+            </Teleport>
         </div>
         <p v-if="error" class="mt-1.5 text-sm text-danger">{{ error }}</p>
         <p v-else-if="helper" class="mt-1.5 text-sm text-foreground-muted">{{ helper }}</p>

@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
+import { useAnchoredPanel } from '@/composables/useAnchoredPanel';
 
 const props = defineProps({
     label: { type: String, default: null },
@@ -13,9 +14,25 @@ const model = defineModel();
 const open = ref(false);
 const search = ref('');
 const highlighted = ref(-1);
-const wrapperRef = ref(null);
+const anchorRef = ref(null);
+const panelRef = ref(null);
 const searchRef = ref(null);
 const listRef = ref(null);
+
+const close = () => {
+    open.value = false;
+    search.value = '';
+};
+
+// The list is teleported to <body> so a modal's `overflow-hidden` (or a card's,
+// or a table's scroll container) can't clip it.
+const { panelStyle, updatePosition } = useAnchoredPanel({
+    open,
+    anchorRef,
+    panelRef,
+    estimatedHeight: 260,
+    onClose: close,
+});
 
 const selectedLabel = computed(() => {
     const opt = props.options.find(o => o.value === model.value);
@@ -29,20 +46,19 @@ const filtered = computed(() => {
 });
 
 const toggle = () => {
-    open.value = !open.value;
     if (open.value) {
-        highlighted.value = filtered.value.findIndex(o => o.value === model.value);
-        nextTick(() => searchRef.value?.focus());
-    } else {
-        search.value = '';
+        close();
+        return;
     }
+    open.value = true;
+    highlighted.value = filtered.value.findIndex(o => o.value === model.value);
+    nextTick(() => searchRef.value?.focus());
 };
 
 const select = (option) => {
     if (option.disabled) return;
     model.value = option.value;
-    open.value = false;
-    search.value = '';
+    close();
 };
 
 // Arrow keys land only on selectable options, so a run of disabled ones
@@ -93,31 +109,26 @@ const onKeydown = (e) => {
             }
             break;
         case 'Escape':
-            open.value = false;
-            search.value = '';
+            // Kept off the document, or the Escape that dismisses the list
+            // would also close the modal the field sits in.
+            e.stopPropagation();
+            close();
             break;
     }
 };
 
 watch(search, () => {
     highlighted.value = filtered.value.findIndex(o => !o.disabled);
+    // Filtering changes the list's height, which moves a panel that opened
+    // upwards.
+    nextTick(updatePosition);
 });
-
-const onClickOutside = (e) => {
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target)) {
-        open.value = false;
-        search.value = '';
-    }
-};
-
-onMounted(() => document.addEventListener('mousedown', onClickOutside));
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
 </script>
 
 <template>
-    <div ref="wrapperRef">
+    <div>
         <label v-if="label" class="mb-1.5 block text-sm font-medium text-foreground">{{ label }}</label>
-        <div class="relative">
+        <div ref="anchorRef" class="relative">
             <button
                 type="button"
                 class="flex w-full items-center justify-between rounded-lg border bg-surface px-3 py-2 text-left text-sm shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -133,6 +144,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
                 </svg>
             </button>
 
+            <Teleport to="body">
             <Transition
                 enter-active-class="transition duration-100 ease-out"
                 enter-from-class="opacity-0 scale-95"
@@ -141,7 +153,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
                 leave-from-class="opacity-100 scale-100"
                 leave-to-class="opacity-0 scale-95"
             >
-                <div v-if="open" class="elevated-lg absolute z-50 mt-1 w-full origin-top rounded-lg border bg-surface">
+                <div v-if="open" ref="panelRef" class="elevated-lg fixed z-[60] origin-top rounded-lg border bg-surface" :style="panelStyle">
                     <div v-if="searchable" class="border-b p-2">
                         <input
                             ref="searchRef"
@@ -181,6 +193,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
                     </ul>
                 </div>
             </Transition>
+            </Teleport>
         </div>
         <p v-if="error" class="mt-1.5 text-sm text-danger">{{ error }}</p>
     </div>

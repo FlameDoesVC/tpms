@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { useAnchoredPanel } from '@/composables/useAnchoredPanel';
 
 const props = defineProps({
     align: { type: String, default: 'right' },
@@ -10,14 +11,13 @@ const props = defineProps({
 });
 
 const open = ref(false);
-const wrapperRef = ref(null);
+const anchorRef = ref(null);
+const panelRef = ref(null);
 
-const widthClass = {
-    '32': 'w-32',
-    '48': 'w-48',
-    '56': 'w-56',
-    '80': 'w-80',
-};
+// Pixel widths rather than `w-*` classes, because a teleported panel is sized
+// through its inline position style.
+const WIDTHS = { '32': 128, '48': 192, '56': 224, '80': 320 };
+const panelWidth = computed(() => WIDTHS[props.width] ?? WIDTHS['48']);
 
 const onContentClick = () => {
     if (props.closeOnContentClick) open.value = false;
@@ -25,53 +25,60 @@ const onContentClick = () => {
 
 const close = () => { open.value = false; };
 
+// The menu is teleported to <body> so it can't be clipped by an ancestor's
+// `overflow-hidden` - a TModal dialog, a TCard, a horizontally scrolling table -
+// nor stack beneath a modal's own layer.
+const { panelStyle } = useAnchoredPanel({
+    open,
+    anchorRef,
+    panelRef,
+    align: props.align === 'left' ? 'left' : 'right',
+    width: panelWidth,
+    gap: 8, // mt-2
+    estimatedHeight: 200,
+    onClose: close,
+});
+
+// Escape closes the menu without reaching a host modal's own Escape handler.
 const onEscape = (e) => {
-    if (open.value && e.key === 'Escape') open.value = false;
-};
-
-defineExpose({ close });
-
-const onClickOutside = (e) => {
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target)) {
+    if (open.value && e.key === 'Escape') {
+        e.stopPropagation();
         open.value = false;
     }
 };
 
-onMounted(() => {
-    document.addEventListener('mousedown', onClickOutside);
-    document.addEventListener('keydown', onEscape);
-});
-onUnmounted(() => {
-    document.removeEventListener('mousedown', onClickOutside);
-    document.removeEventListener('keydown', onEscape);
-});
+defineExpose({ close });
+
+onMounted(() => document.addEventListener('keydown', onEscape, true));
+onUnmounted(() => document.removeEventListener('keydown', onEscape, true));
 </script>
 
 <template>
-    <div ref="wrapperRef" class="relative">
+    <div ref="anchorRef" class="relative">
         <div @click="open = !open">
             <slot name="trigger" />
         </div>
 
-        <Transition
-            enter-active-class="transition duration-100 ease-out"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
-            leave-active-class="transition duration-75 ease-in"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
-        >
-            <div
-                v-show="open"
-                class="elevated-lg absolute z-50 mt-2 origin-top-right rounded-xl border bg-surface py-1"
-                :class="[
-                    widthClass[width] ?? 'w-48',
-                    align === 'left' ? 'left-0' : 'right-0',
-                ]"
-                @click="onContentClick"
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition duration-100 ease-out"
+                enter-from-class="opacity-0 scale-95"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition duration-75 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-95"
             >
-                <slot name="content" />
-            </div>
-        </Transition>
+                <div
+                    v-if="open"
+                    ref="panelRef"
+                    class="elevated-lg fixed z-[60] rounded-xl border bg-surface py-1"
+                    :class="align === 'left' ? 'origin-top-left' : 'origin-top-right'"
+                    :style="panelStyle"
+                    @click="onContentClick"
+                >
+                    <slot name="content" />
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>

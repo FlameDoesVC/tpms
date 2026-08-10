@@ -1,7 +1,8 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import TIcon from '@/Components/ui/TIcon.vue';
 import TMonthYearPanel from '@/Components/ui/TMonthYearPanel.vue';
+import { useAnchoredPanel } from '@/composables/useAnchoredPanel';
 
 const props = defineProps({
     label: { type: String, default: null },
@@ -18,7 +19,6 @@ const props = defineProps({
 const model = defineModel({ type: String, default: '' });
 
 const open = ref(false);
-const wrapperRef = ref(null);
 const anchorRef = ref(null);
 const popoverRef = ref(null);
 const gridRef = ref(null);
@@ -81,30 +81,19 @@ const weeks = computed(() => {
     return rows;
 });
 
+const close = () => { open.value = false; };
+
 // The popover is teleported to <body> so it can't be clipped by an ancestor's
 // `overflow-hidden` or trapped under a modal's stacking context - inside a
-// TModal an absolutely-positioned popover renders behind the dialog. Teleporting
-// means it no longer inherits the trigger's position, so track it by hand.
-const POPOVER_WIDTH = 288; // w-72
-const VIEWPORT_MARGIN = 8;
-const GAP = 4;
-const popoverStyle = ref({});
-
-const updatePosition = () => {
-    const anchor = anchorRef.value;
-    if (!anchor) return;
-    const rect = anchor.getBoundingClientRect();
-    // Falls back to a typical day-grid height on the first pass, before the
-    // popover has been measured; nextTick corrects it.
-    const height = popoverRef.value?.offsetHeight || 340;
-    const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN;
-    const flipUp = spaceBelow < height && rect.top - VIEWPORT_MARGIN > spaceBelow;
-
-    popoverStyle.value = {
-        top: `${flipUp ? rect.top - height - GAP : rect.bottom + GAP}px`,
-        left: `${Math.min(Math.max(VIEWPORT_MARGIN, rect.left), window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN)}px`,
-    };
-};
+// TModal an absolutely-positioned popover renders behind the dialog.
+const { panelStyle: popoverStyle, updatePosition } = useAnchoredPanel({
+    open,
+    anchorRef,
+    panelRef: popoverRef,
+    width: 288, // w-72
+    estimatedHeight: 340,
+    onClose: close,
+});
 
 const openPicker = () => {
     viewDate.value = parseIso(model.value);
@@ -112,23 +101,16 @@ const openPicker = () => {
     // state the field remembers.
     jumping.value = false;
     open.value = true;
-    updatePosition();
     nextTick(() => {
-        updatePosition();
         const el = gridRef.value?.querySelector('[data-selected="true"]') ?? gridRef.value?.querySelector('[data-today="true"]');
         el?.focus();
     });
 };
-const close = () => { open.value = false; };
 const toggle = () => (open.value ? close() : openPicker());
 
 // The jump panel is a different height than the day grid, so a popover that
 // flipped upwards has to be re-anchored when the two swap.
 watch(jumping, () => nextTick(updatePosition));
-
-// Capture phase so scrolling inside the modal's own scroll container counts,
-// not just the window.
-const onViewportChange = () => { if (open.value) updatePosition(); };
 
 const changeMonth = (delta) => {
     const d = new Date(viewDate.value);
@@ -154,36 +136,23 @@ const clear = () => {
     close();
 };
 
-// The popover lives outside the wrapper in the DOM now, so it needs its own
-// containment check or clicking a day would count as clicking outside.
-const onClickOutside = (e) => {
-    if (popoverRef.value?.contains(e.target)) return;
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target)) close();
-};
-onMounted(() => {
-    document.addEventListener('mousedown', onClickOutside);
-    document.addEventListener('scroll', onViewportChange, true);
-    window.addEventListener('resize', onViewportChange);
-});
-onUnmounted(() => {
-    document.removeEventListener('mousedown', onClickOutside);
-    document.removeEventListener('scroll', onViewportChange, true);
-    window.removeEventListener('resize', onViewportChange);
-});
-
 const onTriggerKeydown = (e) => {
     if (['Enter', ' ', 'ArrowDown'].includes(e.key)) {
         e.preventDefault();
         openPicker();
+    } else if (e.key === 'Escape' && open.value) {
+        // Stopped so dismissing the popover doesn't also close a host modal.
+        e.stopPropagation();
+        close();
     }
 };
 const onGridKeydown = (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
 };
 </script>
 
 <template>
-    <div ref="wrapperRef">
+    <div>
         <label v-if="label" class="mb-1.5 block text-sm font-medium text-foreground">{{ label }}</label>
         <div ref="anchorRef" class="relative">
             <button
@@ -219,7 +188,7 @@ const onGridKeydown = (e) => {
                     <div
                         v-if="open"
                         ref="popoverRef"
-                        class="elevated-lg fixed z-[60] w-72 origin-top rounded-lg border bg-surface p-3"
+                        class="elevated-lg fixed z-[60] origin-top rounded-lg border bg-surface p-3"
                         :style="popoverStyle"
                         @keydown="onGridKeydown"
                     >

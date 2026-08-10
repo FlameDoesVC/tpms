@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import TIcon from '@/Components/ui/TIcon.vue';
+import { useAnchoredPanel } from '@/composables/useAnchoredPanel';
 
 const props = defineProps({
     label: { type: String, default: null },
@@ -15,7 +16,22 @@ const props = defineProps({
 const model = defineModel({ type: Array, default: () => [] });
 
 const open = ref(false);
-const wrapperRef = ref(null);
+const anchorRef = ref(null);
+const panelRef = ref(null);
+
+const close = () => { open.value = false; };
+
+// Teleported to <body> so an ancestor's `overflow-hidden` - a TModal dialog, a
+// TCard, a scrolling table - can't clip the list.
+const { panelStyle } = useAnchoredPanel({
+    open,
+    anchorRef,
+    panelRef,
+    // Wide enough for the option labels, but never narrower than the trigger.
+    minWidth: 224, // w-56
+    estimatedHeight: 260,
+    onClose: close,
+});
 
 const isChecked = (value) => model.value.includes(value);
 
@@ -42,24 +58,19 @@ const triggerLabel = computed(() => {
 });
 
 const toggle = () => { open.value = !open.value; };
-const close = () => { open.value = false; };
-
-const onClickOutside = (e) => {
-    if (wrapperRef.value && !wrapperRef.value.contains(e.target)) close();
-};
-onMounted(() => document.addEventListener('mousedown', onClickOutside));
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside));
 
 const onTriggerKeydown = (e) => {
     if (['Enter', ' ', 'ArrowDown'].includes(e.key)) { e.preventDefault(); open.value = true; }
-    else if (e.key === 'Escape') close();
+    // Stopped here, or the Escape that closes the list would also close the
+    // modal the field sits in.
+    else if (e.key === 'Escape' && open.value) { e.stopPropagation(); close(); }
 };
 </script>
 
 <template>
-    <div ref="wrapperRef">
+    <div>
         <label v-if="label" class="mb-1.5 block text-sm font-medium text-foreground">{{ label }}</label>
-        <div class="relative" :style="width ? { width } : {}">
+        <div ref="anchorRef" class="relative" :style="width ? { width } : {}">
             <button
                 type="button"
                 class="flex w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 py-2 text-left text-sm shadow-xs transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -78,6 +89,7 @@ const onTriggerKeydown = (e) => {
                 </span>
             </button>
 
+            <Teleport to="body">
             <Transition
                 enter-active-class="transition duration-100 ease-out"
                 enter-from-class="opacity-0 scale-95"
@@ -86,7 +98,7 @@ const onTriggerKeydown = (e) => {
                 leave-from-class="opacity-100 scale-100"
                 leave-to-class="opacity-0 scale-95"
             >
-                <div v-if="open" class="elevated-lg absolute z-50 mt-1 w-56 origin-top rounded-lg border bg-surface">
+                <div v-if="open" ref="panelRef" class="elevated-lg fixed z-[60] origin-top rounded-lg border bg-surface" :style="panelStyle" @keydown.esc.stop="close">
                     <ul class="max-h-56 overflow-auto py-1" role="listbox" aria-multiselectable="true">
                         <li
                             v-for="option in options"
@@ -118,6 +130,7 @@ const onTriggerKeydown = (e) => {
                     </div>
                 </div>
             </Transition>
+            </Teleport>
         </div>
         <p v-if="error" class="mt-1.5 text-sm text-danger">{{ error }}</p>
     </div>
